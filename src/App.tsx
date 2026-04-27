@@ -15,8 +15,8 @@ function App() {
               <a href="#" className="text-white hover:text-[#FFD700] transition-colors">Blog</a>
               <a href="#" className="text-white hover:text-[#FFD700] transition-colors">Courses</a>
               <a href="#" className="text-white hover:text-[#FFD700] transition-colors">Podcast</a>
+              <a href="/portfolio" className="text-white hover:text-[#FFD700] transition-colors">Portfolio</a>
               <a href="#" className="text-white hover:text-[#FFD700] transition-colors">Speaking</a>
-              <a href="#" className="text-white hover:text-[#FFD700] transition-colors">Freebies</a>
             </div>
             <button className="md:hidden text-white">
               <Menu className="h-6 w-6" />
@@ -60,6 +60,24 @@ function App() {
                   <div className="text-4xl font-bold text-[#FFD700]">100+</div>
                   <div className="text-white/80">HNWIs & PE firms trust us</div>
                 </div>
+              </div>
+
+              {/* NEW: Track Record CTA — links to portfolio page */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-12">
+                <a
+                  href="/portfolio"
+                  className="group inline-flex items-center bg-[#FFD700] text-[#0A2540] px-8 py-4 rounded-full font-semibold hover:bg-opacity-90 transition-all"
+                >
+                  View Full Track Record
+                  <ArrowRight className="ml-2 h-5 w-5 transform group-hover:translate-x-1 transition-transform" />
+                </a>
+                <a
+                  href="#"
+                  className="group inline-flex items-center border-2 border-white/30 text-white px-8 py-4 rounded-full font-semibold hover:bg-white/10 transition-all"
+                >
+                  Join the Community
+                  <ArrowRight className="ml-2 h-5 w-5 transform group-hover:translate-x-1 transition-transform" />
+                </a>
               </div>
 
               <div className="mt-12">
@@ -126,6 +144,17 @@ function App() {
                 <p className="text-gray-600">{step.description}</p>
               </div>
             ))}
+          </div>
+
+          {/* NEW: Track record link from journey section */}
+          <div className="text-center mt-16">
+            <a
+              href="/portfolio"
+              className="group inline-flex items-center text-[#0A2540] font-semibold hover:text-[#FFD700] transition-colors"
+            >
+              See the full track record — £300K to £65M across hospitality and healthcare
+              <ArrowUpRight className="ml-2 h-5 w-5" />
+            </a>
           </div>
         </div>
       </section>
@@ -275,17 +304,20 @@ function App() {
               {
                 icon: Building2,
                 title: "Luxury Resorts & Hospitality",
-                description: "LQ Resorts & short-term lets with proven track records."
+                description: "LQ Resorts & short-term lets with proven track records.",
+                href: "/portfolio#cases"
               },
               {
                 icon: Users,
                 title: "Senior Living & Healthcare",
-                description: "Old-age homes and wellness retreats in prime locations."
+                description: "Old-age homes and wellness retreats in prime locations.",
+                href: "/portfolio#cases"
               },
               {
                 icon: TrendingUp,
                 title: "Fintech & Proptech Startups",
-                description: "Technology disrupting finance & property sectors."
+                description: "Technology disrupting finance & property sectors.",
+                href: "/portfolio#diversify"
               }
             ].map((opportunity, index) => (
               <div key={index} className="group cursor-pointer">
@@ -293,7 +325,7 @@ function App() {
                   <opportunity.icon className="h-12 w-12 text-[#FFD700] mb-6" />
                   <h3 className="text-xl font-bold text-[#0A2540] mb-4">{opportunity.title}</h3>
                   <p className="text-gray-600 mb-6">{opportunity.description}</p>
-                  <a href="#" className="inline-flex items-center text-[#0A2540] font-semibold group-hover:text-[#FFD700] transition-colors">
+                  <a href={opportunity.href} className="inline-flex items-center text-[#0A2540] font-semibold group-hover:text-[#FFD700] transition-colors">
                     Learn More
                     <ArrowUpRight className="ml-2 h-5 w-5" />
                   </a>
@@ -303,8 +335,8 @@ function App() {
           </div>
 
           <div className="text-center mt-16">
-            <a href="#" className="group inline-flex items-center bg-[#0A2540] text-white px-8 py-4 rounded-full font-semibold hover:bg-opacity-90 transition-all">
-              Apply to Invest
+            <a href="/portfolio" className="group inline-flex items-center bg-[#0A2540] text-white px-8 py-4 rounded-full font-semibold hover:bg-opacity-90 transition-all">
+              See the Full Portfolio
               <ArrowRight className="ml-2 h-5 w-5 transform group-hover:translate-x-1 transition-transform" />
             </a>
           </div>
@@ -360,7 +392,7 @@ function App() {
               <ul className="space-y-4">
                 <li><a href="#" className="text-white/80 hover:text-[#FFD700] transition-colors">About</a></li>
                 <li><a href="#" className="text-white/80 hover:text-[#FFD700] transition-colors">Podcast</a></li>
-                <li><a href="#" className="text-white/80 hover:text-[#FFD700] transition-colors">Investments</a></li>
+                <li><a href="/portfolio" className="text-white/80 hover:text-[#FFD700] transition-colors">Portfolio</a></li>
                 <li><a href="#" className="text-white/80 hover:text-[#FFD700] transition-colors">Community</a></li>
               </ul>
             </div>
