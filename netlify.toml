@@ -1,6 +1,6 @@
 [build]
   publish = "dist"
-  command = "npm run build"
+  command = "npm install && npm run build"
 
 # --- Portfolio page (must come BEFORE SPA fallback) ---
 [[redirects]]
@@ -20,7 +20,7 @@
   status = 200
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
 
 # Headers for better performance and security
 [[headers]]
