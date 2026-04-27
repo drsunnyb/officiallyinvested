@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Officially Invested — Disciplined Acquisition. Operational Value Creation.</title>
+<meta name="description" content="UK hospitality and healthcare assets, built into compounding portfolios. Operator-led acquisitions for HNW investors and exit-considering business owners.">
+<meta property="og:title" content="Officially Invested — Disciplined Acquisition. Operational Value Creation.">
+<meta property="og:description" content="UK hospitality and healthcare assets, built into compounding portfolios. £65M AUM built from £300K base. Two-decade track record.">
+<meta property="og:type" content="website">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="image" href="assets/img/lion-quays-grounds.jpg" fetchpriority="high">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #0A1628;
+  --bg-elev: #0F1D33;
+  --bg-elev-2: #142540;
+  --gold: #C9A55C;
+  --gold-bright: #E0BD75;
+  --gold-dim: #8A7240;
+  --cream: #F5EFE0;
+  --cream-dim: #C9C2B0;
+  --muted: #6B7A91;
+  --border: #1E2D44;
+  --border-bright: #2A3D58;
+  --max-width: 1280px;
+  --gutter: clamp(1.5rem, 5vw, 4rem);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; background: var(--bg); }
+body {
+  background: var(--bg);
+  color: var(--cream);
+  font-family: 'Geist', -apple-system, sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+  overflow-x: hidden;
+  font-feature-settings: 'ss01', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --------- Atmospheric background --------- */
+.atmosphere {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(201, 165, 92, 0.06), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 80%, rgba(201, 165, 92, 0.04), transparent 60%);
+}
+
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.serif { font-family: 'Fraunces', Georgia, serif; font-feature-settings: 'ss01'; }
+.mono { font-family: 'Geist Mono', monospace; }
+
+h1, h2, h3, .display {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-feature-settings: 'ss01';
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  position: relative;
+  z-index: 2;
+}
+
+section { position: relative; z-index: 2; }
+
+.eyebrow {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.eyebrow::before {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: var(--gold);
+  display: inline-block;
+}
+
+/* --------- NAVIGATION --------- */
+nav.topnav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 1.25rem var(--gutter);
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(10, 22, 40, 0);
+  backdrop-filter: blur(0px);
+  transition: background 0.4s ease, backdrop-filter 0.4s ease, padding 0.3s ease;
+}
+nav.topnav.scrolled {
+  background: rgba(10, 22, 40, 0.85);
+  backdrop-filter: blur(12px);
+  padding: 0.75rem var(--gutter);
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  font-family: 'Fraunces', serif; font-weight: 500;
+  font-size: 1.15rem; letter-spacing: -0.01em;
+  color: var(--cream); text-decoration: none;
+  display: flex; align-items: baseline; gap: 0.4rem;
+}
+.logo .dot {
+  width: 5px; height: 5px;
+  background: var(--gold); border-radius: 50%;
+  display: inline-block;
+}
+.nav-links { display: flex; gap: 2.5rem; list-style: none; }
+.nav-links a {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--cream-dim);
+  text-decoration: none; transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--gold); }
+.nav-cta {
+  display: inline-block;
+  padding: 0.6rem 1.25rem;
+  background: transparent; border: 1px solid var(--gold);
+  color: var(--gold);
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.2em;
+  text-transform: uppercase; text-decoration: none;
+  transition: all 0.25s;
+}
+.nav-cta:hover { background: var(--gold); color: var(--bg); }
+
+@media (max-width: 820px) { .nav-links { display: none; } }
+
+/* --------- HERO --------- */
+.hero {
+  min-height: 100vh;
+  padding: 8rem var(--gutter) 4rem;
+  display: flex; align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-bg-accent {
+  position: absolute;
+  right: -8%;
+  top: 5%;
+  width: 65%;
+  height: 85%;
+  background-image: linear-gradient(115deg, rgba(10,22,40,0.96) 25%, rgba(10,22,40,0.45) 100%), url('assets/img/lion-quays-grounds.jpg');
+  background-size: cover;
+  background-position: center;
+  filter: contrast(1.08) saturate(0.85);
+  mask-image: radial-gradient(ellipse at 70% 45%, black 35%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse at 70% 45%, black 35%, transparent 78%);
+  opacity: 0.7;
+  z-index: 0;
+}
+
+.hero-grid {
+  max-width: var(--max-width);
+  margin: 0 auto; width: 100%;
+  position: relative; z-index: 2;
+}
+
+.hero-eyebrow { animation: fadeUp 0.9s 0.1s both ease-out; }
+
+.hero h1 {
+  font-size: clamp(2.75rem, 7.5vw, 6.5rem);
+  margin: 1.5rem 0 1.5rem;
+  max-width: 16ch;
+  font-weight: 350;
+}
+.hero h1 .em {
+  font-style: italic; font-weight: 400; color: var(--gold);
+}
+.hero h1 .row { display: block; animation: fadeUp 1s ease-out both; }
+.hero h1 .row:nth-child(1) { animation-delay: 0.25s; }
+.hero h1 .row:nth-child(2) { animation-delay: 0.4s; }
+.hero h1 .row:nth-child(3) { animation-delay: 0.55s; }
+
+.hero-sub {
+  font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+  color: var(--cream-dim);
+  max-width: 52ch;
+  margin-top: 2rem; line-height: 1.5;
+  font-weight: 300;
+  animation: fadeUp 0.9s 0.85s both ease-out;
+}
+
+.hero-meta {
+  margin-top: 3.5rem;
+  display: flex; gap: 3rem; flex-wrap: wrap;
+  animation: fadeUp 0.9s 1.05s both ease-out;
+}
+.hero-meta-item { display: flex; flex-direction: column; gap: 0.4rem; }
+.hero-meta-item .num {
+  font-family: 'Fraunces', serif;
+  font-size: 2.25rem; font-weight: 400;
+  color: var(--gold); line-height: 1;
+}
+.hero-meta-item .label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.65rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+.scroll-cue {
+  position: absolute; bottom: 2rem; left: var(--gutter);
+  display: flex; align-items: center; gap: 0.75rem;
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.65rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--muted);
+  animation: fadeIn 1.2s 1.5s both;
+  z-index: 3;
+}
+.scroll-cue::after {
+  content: '';
+  width: 1px; height: 40px;
+  background: linear-gradient(to bottom, var(--gold), transparent);
+  display: inline-block;
+  animation: scrollPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes scrollPulse {
+  0%, 100% { transform: scaleY(0.5); transform-origin: top; opacity: 0.6; }
+  50% { transform: scaleY(1); transform-origin: top; opacity: 1; }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* --------- SECTION HEADER --------- */
+.section-pad {
+  padding: clamp(5rem, 12vh, 9rem) 0;
+  border-top: 1px solid var(--border);
+}
+
+.section-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(2rem, 6vw, 5rem);
+  margin-bottom: clamp(3rem, 7vh, 5rem);
+  align-items: end;
+}
+.section-head h2 {
+  font-size: clamp(2.25rem, 4.8vw, 4rem);
+  font-weight: 350; max-width: 14ch;
+}
+.section-head .lede {
+  font-size: clamp(1rem, 1.3vw, 1.15rem);
+  color: var(--cream-dim);
+  font-weight: 300; line-height: 1.55;
+  max-width: 48ch;
+}
+@media (max-width: 820px) {
+  .section-head { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+
+/* --------- OPPORTUNITY --------- */
+.opportunity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.opp-card {
+  background: var(--bg);
+  padding: clamp(2rem, 4vw, 3rem);
+  display: flex; flex-direction: column; justify-content: space-between;
+  min-height: 280px;
+  transition: background 0.3s;
+}
+.opp-card:hover { background: var(--bg-elev); }
+.opp-num {
+  font-family: 'Fraunces', serif;
+  font-size: 0.9rem; color: var(--gold); font-style: italic;
+}
+.opp-card h3 {
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  font-weight: 400; margin: 1.5rem 0 1rem;
+  max-width: 18ch;
+}
+.opp-card p {
+  color: var(--cream-dim);
+  font-weight: 300; font-size: 0.95rem; line-height: 1.6;
+}
+@media (max-width: 720px) { .opportunity-grid { grid-template-columns: 1fr; } }
+
+/* --------- DIVERSIFY --------- */
+.diversify-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: start;
+}
+.diversify-prose {
+  font-size: clamp(1.1rem, 1.55vw, 1.3rem);
+  font-weight: 300; line-height: 1.55;
+  color: var(--cream-dim);
+}
+.diversify-prose strong { color: var(--cream); font-weight: 400; }
+
+.pillars { border-top: 1px solid var(--border-bright); }
+.pillar {
+  padding: 1.75rem 0;
+  border-bottom: 1px solid var(--border-bright);
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 1.5rem;
+  align-items: baseline;
+}
+.pillar .p-num {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem; color: var(--gold); letter-spacing: 0.15em;
+}
+.pillar .p-name {
+  font-family: 'Fraunces', serif;
+  font-size: 1.4rem; font-weight: 400;
+}
+.pillar .p-meta {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem; text-transform: uppercase;
+  letter-spacing: 0.15em; color: var(--cream-dim);
+  text-align: right;
+}
+.pillar .p-meta.proven { color: var(--gold); }
+.pillar .p-detail {
+  grid-column: 2 / -1;
+  margin-top: 0.5rem;
+  font-size: 0.92rem; color: var(--muted);
+  font-weight: 300; font-style: italic;
+}
+@media (max-width: 820px) {
+  .diversify-wrap { grid-template-columns: 1fr; }
+  .pillar { grid-template-columns: 50px 1fr; }
+  .pillar .p-meta { grid-column: 2; text-align: left; margin-top: 0.25rem; }
+}
+
+/* --------- APPROACH --------- */
+.approach-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.step {
+  padding: clamp(2rem, 3vw, 2.5rem) clamp(1.25rem, 2vw, 2rem);
+  border-right: 1px solid var(--border);
+  position: relative; transition: background 0.3s;
+}
+.step:last-child { border-right: none; }
+.step:hover { background: var(--bg-elev); }
+.step-num {
+  font-family: 'Fraunces', serif; font-style: italic;
+  font-size: 1rem; color: var(--gold);
+  display: block; margin-bottom: 1rem;
+}
+.step h4 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem; font-weight: 400;
+  margin-bottom: 0.85rem; letter-spacing: -0.01em;
+}
+.step p {
+  color: var(--cream-dim);
+  font-weight: 300; font-size: 0.9rem; line-height: 1.55;
+}
+@media (max-width: 820px) {
+  .approach-steps { grid-template-columns: repeat(2, 1fr); }
+  .step:nth-child(2) { border-right: none; }
+  .step:nth-child(1), .step:nth-child(2) { border-bottom: 1px solid var(--border); }
+}
+@media (max-width: 480px) {
+  .approach-steps { grid-template-columns: 1fr; }
+  .step { border-right: none; border-bottom: 1px solid var(--border); }
+  .step:last-child { border-bottom: none; }
+}
+
+/* --------- TRACK RECORD STATS --------- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+.stat {
+  padding: clamp(2.5rem, 4vw, 4rem) 0;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding-left: clamp(1.5rem, 2.5vw, 2.5rem);
+  padding-right: clamp(1.5rem, 2.5vw, 2.5rem);
+}
+.stat:nth-child(3n) { border-right: none; }
+.stat-value {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(3rem, 6vw, 5rem);
+  font-weight: 350; color: var(--gold);
+  line-height: 1; letter-spacing: -0.03em;
+  display: flex; align-items: baseline; gap: 0.15em;
+}
+.stat-value .pre, .stat-value .post {
+  font-size: 0.5em; font-weight: 400; color: var(--gold-bright);
+}
+.stat-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--cream-dim);
+  margin-top: 1.25rem; font-weight: 500;
+}
+.stat-detail {
+  margin-top: 0.6rem; font-size: 0.85rem;
+  color: var(--muted); font-weight: 300; max-width: 24ch;
+}
+@media (max-width: 820px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat:nth-child(3n) { border-right: 1px solid var(--border); }
+  .stat:nth-child(2n) { border-right: none; }
+}
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .stat { border-right: none !important; }
+}
+
+/* --------- INFOGRAPHICS --------- */
+.infographics {
+  margin-top: 5rem;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: clamp(2rem, 4vw, 4rem);
+  align-items: stretch;
+}
+
+.info-panel {
+  border: 1px solid var(--border);
+  padding: clamp(2rem, 3vw, 2.5rem);
+  background: linear-gradient(165deg, var(--bg-elev) 0%, var(--bg) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.info-panel-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 1rem;
+}
+.info-panel-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem; font-weight: 400;
+}
+.info-panel-meta {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.65rem; color: var(--muted);
+  letter-spacing: 0.2em; text-transform: uppercase;
+}
+
+.aum-chart { width: 100%; height: auto; display: block; margin-top: 1.5rem; }
+.aum-chart .grid-line { stroke: var(--border-bright); stroke-width: 0.5; stroke-dasharray: 2,4; }
+.aum-chart .axis-label { fill: var(--muted); font-family: 'Geist Mono', monospace; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+.aum-chart .curve-fill { fill: url(#aumGradient); opacity: 0.18; }
+.aum-chart .curve-line { fill: none; stroke: var(--gold); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1200; stroke-dashoffset: 1200;
+  transition: stroke-dashoffset 2.4s cubic-bezier(.2,.7,.3,1) 0.3s;
+}
+.aum-chart.in .curve-line { stroke-dashoffset: 0; }
+.aum-chart .milestone { opacity: 0; transition: opacity 0.6s ease 1.6s; }
+.aum-chart.in .milestone { opacity: 1; }
+.aum-chart .milestone circle { fill: var(--bg); stroke: var(--gold); stroke-width: 1.5; }
+.aum-chart .milestone-dot { fill: var(--gold-bright); }
+.aum-chart .milestone-label { fill: var(--cream); font-family: 'Geist Mono', monospace; font-size: 8.5px; letter-spacing: 0.05em; }
+.aum-chart .milestone-year { fill: var(--gold); font-family: 'Geist Mono', monospace; font-size: 7.5px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+.composition-wrap { margin-top: 1.5rem; }
+.comp-bar {
+  height: 14px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-bright);
+  position: relative;
+  display: flex;
+  overflow: hidden;
+}
+.comp-segment {
+  height: 100%;
+  width: 0;
+  transition: width 1.6s cubic-bezier(.2,.7,.3,1) 0.4s;
+  position: relative;
+}
+.comp-bar.in .comp-segment { width: var(--w); }
+.comp-segment.hospitality { background: linear-gradient(90deg, var(--gold) 0%, var(--gold-bright) 100%); }
+.comp-segment.healthcare { background: linear-gradient(90deg, var(--bg-elev-2) 0%, #3D4F6B 100%); border-left: 1px solid var(--gold-dim); }
+
+.comp-legend {
+  margin-top: 1.75rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+.comp-legend-item .swatch {
+  display: inline-block;
+  width: 10px; height: 10px;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+.swatch.hospitality { background: var(--gold); }
+.swatch.healthcare { background: #3D4F6B; }
+.comp-legend-item .label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cream-dim);
+}
+.comp-legend-item .value {
+  display: block;
+  font-family: 'Fraunces', serif;
+  font-size: 2rem;
+  color: var(--gold);
+  margin-top: 0.5rem;
+  font-weight: 350;
+  line-height: 1;
+}
+.comp-legend-item .pct {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 0.4rem;
+  letter-spacing: 0.1em;
+}
+
+.info-aside {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px dashed var(--border-bright);
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 300;
+  font-style: italic;
+}
+
+@media (max-width: 820px) { .infographics { grid-template-columns: 1fr; } }
+
+/* --------- ATMOSPHERIC BREAK --------- */
+.atmosphere-break {
+  position: relative;
+  height: clamp(50vh, 70vh, 700px);
+  background-image: linear-gradient(to bottom, rgba(10,22,40,0.55), rgba(10,22,40,0.85)), url('assets/img/lion-quays-canal.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.atmosphere-break::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(10,22,40,0.4) 80%);
+  pointer-events: none;
+}
+
+.atmosphere-quote {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  max-width: 38ch;
+  padding: 0 var(--gutter);
+}
+
+.atmosphere-quote .pre {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold);
+  display: inline-block;
+  margin-bottom: 1.75rem;
+}
+
+.atmosphere-quote h3 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(2rem, 4.5vw, 3.5rem);
+  font-weight: 350;
+  color: var(--cream);
+  font-style: italic;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.atmosphere-quote .post {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--cream-dim);
+  display: block;
+  margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+  .atmosphere-break { background-attachment: scroll; }
+}
+
+/* --------- PORTFOLIO CATEGORY HEADER --------- */
+.portfolio-cat {
+  margin-top: clamp(3rem, 6vh, 4.5rem);
+  margin-bottom: clamp(1.5rem, 3vh, 2rem);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2rem;
+  border-top: 1px solid var(--border-bright);
+  padding-top: 1.75rem;
+}
+
+.portfolio-cat:first-of-type {
+  margin-top: 0;
+  border-top: none;
+  padding-top: 0;
+}
+
+.portfolio-cat h3 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.portfolio-cat h3 .em {
+  color: var(--gold);
+  font-style: italic;
+}
+
+.portfolio-cat .meta {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .portfolio-cat { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .portfolio-cat .meta { text-align: left; }
+}
+
+/* --------- PROPERTIES GALLERY --------- */
+.properties-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1rem;
+  grid-auto-rows: 180px;
+}
+
+.property {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  cursor: default;
+  transition: transform 0.4s ease, border-color 0.3s;
+}
+.property:hover { transform: translateY(-3px); border-color: var(--gold-dim); }
+.property:hover .property-img { transform: scale(1.04); filter: grayscale(0); }
+.property:hover .property-caption { opacity: 1; transform: translateY(0); }
+
+.property-img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform 0.6s ease, filter 0.6s ease;
+  filter: grayscale(0.15) contrast(1.05);
+  display: block;
+}
+
+.property-caption {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0) 100%);
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.property-caption .name {
+  font-family: 'Fraunces', serif;
+  font-size: 1.1rem; font-weight: 400;
+  color: var(--cream); display: block;
+}
+.property-caption .meta {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--gold);
+  margin-top: 0.25rem; display: block;
+}
+
+/* Layout: 12-col masonry */
+.property.feature {
+  grid-column: span 6; grid-row: span 2;
+}
+.property.wide { grid-column: span 6; }
+.property.medium { grid-column: span 4; }
+.property.small { grid-column: span 4; }
+.property.tall { grid-column: span 4; grid-row: span 2; }
+
+@media (max-width: 820px) {
+  .properties-grid { grid-template-columns: repeat(6, 1fr); grid-auto-rows: 140px; }
+  .property.feature { grid-column: span 6; grid-row: span 2; }
+  .property.wide, .property.tall, .property.medium, .property.small { grid-column: span 3; grid-row: span 1; }
+}
+@media (max-width: 480px) {
+  .properties-grid { grid-template-columns: 1fr; grid-auto-rows: 200px; }
+  .property.feature, .property.wide, .property.tall, .property.medium, .property.small {
+    grid-column: span 1; grid-row: span 1;
+  }
+  .property-caption { opacity: 1; transform: translateY(0); }
+}
+
+/* --------- TEAM --------- */
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+}
+.member {
+  padding: clamp(2rem, 3vw, 3rem);
+  border: 1px solid var(--border);
+  margin-right: -1px; margin-bottom: -1px;
+  transition: background 0.3s;
+}
+.member:hover { background: var(--bg-elev); }
+.member-avatar {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--bg-elev-2), var(--bg-elev));
+  border: 1px solid var(--gold-dim);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Fraunces', serif;
+  font-size: 1.4rem; color: var(--gold);
+  font-style: italic;
+  margin-bottom: 1.75rem;
+}
+.member h4 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.6rem; font-weight: 400;
+  margin-bottom: 0.35rem;
+}
+.member-role {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--gold);
+  margin-bottom: 1.25rem;
+}
+.member-bio {
+  color: var(--cream-dim);
+  font-weight: 300; font-size: 0.95rem; line-height: 1.6;
+}
+@media (max-width: 820px) { .team-grid { grid-template-columns: 1fr; } }
+
+/* --------- CASE STUDIES --------- */
+.cases { display: flex; flex-direction: column; }
+.case {
+  display: grid;
+  grid-template-columns: 80px 1fr 1.2fr;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  padding: clamp(2rem, 4vh, 3rem) 0;
+  border-top: 1px solid var(--border);
+  align-items: start;
+  cursor: default;
+  transition: background 0.3s;
+  margin: 0 calc(var(--gutter) * -1);
+  padding-left: var(--gutter); padding-right: var(--gutter);
+}
+.case:last-child { border-bottom: 1px solid var(--border); }
+.case:hover {
+  background: linear-gradient(to right, transparent, var(--bg-elev) 30%, var(--bg-elev) 70%, transparent);
+}
+.case:hover .case-name { color: var(--gold); }
+
+.case-num {
+  font-family: 'Fraunces', serif; font-style: italic;
+  font-size: 1.25rem; color: var(--gold);
+  letter-spacing: -0.02em;
+}
+.case-name {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(1.4rem, 2.2vw, 1.85rem);
+  font-weight: 400; line-height: 1.15;
+  transition: color 0.3s; letter-spacing: -0.01em;
+}
+.case-meta {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--muted);
+  margin-top: 0.85rem;
+}
+.case-narrative {
+  color: var(--cream-dim);
+  font-weight: 300; line-height: 1.6;
+  font-size: 0.97rem;
+}
+.case-stats {
+  margin-top: 1rem;
+  display: flex; gap: 1.75rem; flex-wrap: wrap;
+}
+.case-stat { display: flex; flex-direction: column; gap: 0.25rem; }
+.case-stat .v {
+  font-family: 'Fraunces', serif;
+  font-size: 1.4rem; color: var(--gold);
+  font-weight: 400; line-height: 1;
+}
+.case-stat .l {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--muted);
+}
+@media (max-width: 820px) {
+  .case { grid-template-columns: 1fr; gap: 1rem; }
+  .case-num { font-size: 1rem; }
+}
+
+/* --------- PARTNERS --------- */
+.partner-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.partner {
+  background: var(--bg);
+  padding: clamp(2rem, 4vw, 3rem);
+  min-height: 320px;
+  transition: background 0.3s;
+}
+.partner:hover { background: var(--bg-elev); }
+.partner-icon {
+  font-family: 'Fraunces', serif; font-style: italic;
+  font-size: 1rem; color: var(--gold); margin-bottom: 1.25rem;
+}
+.partner h4 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem; font-weight: 400;
+  margin-bottom: 1.25rem; max-width: 12ch;
+}
+.partner ul { list-style: none; }
+.partner li {
+  padding: 0.65rem 0;
+  border-top: 1px dashed var(--border-bright);
+  color: var(--cream-dim);
+  font-weight: 300; font-size: 0.92rem; line-height: 1.45;
+}
+.partner li:first-child { border-top: none; padding-top: 0; }
+@media (max-width: 820px) { .partner-grid { grid-template-columns: 1fr; } }
+
+/* --------- CTA --------- */
+.cta {
+  padding: clamp(6rem, 14vh, 10rem) 0;
+  border-top: 1px solid var(--border);
+  text-align: center; position: relative;
+}
+.cta::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 60% 80% at 50% 50%, rgba(201, 165, 92, 0.05), transparent 70%);
+  pointer-events: none;
+}
+.cta h2 {
+  font-size: clamp(2.5rem, 5.5vw, 4.5rem);
+  max-width: 18ch;
+  margin: 1.5rem auto 1.5rem;
+  font-weight: 350;
+}
+.cta h2 .em { font-style: italic; color: var(--gold); }
+.cta-sub {
+  font-size: clamp(1rem, 1.4vw, 1.2rem);
+  color: var(--cream-dim);
+  max-width: 50ch;
+  margin: 0 auto 3rem;
+  font-weight: 300;
+}
+.cta-actions {
+  display: flex; gap: 1.25rem;
+  justify-content: center; flex-wrap: wrap;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 0.75rem;
+  padding: 1.1rem 2rem;
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.75rem; letter-spacing: 0.22em;
+  text-transform: uppercase; text-decoration: none;
+  transition: all 0.25s; border: 1px solid; cursor: pointer;
+}
+.btn-primary {
+  background: var(--gold); color: var(--bg); border-color: var(--gold);
+}
+.btn-primary:hover {
+  background: var(--gold-bright); border-color: var(--gold-bright);
+  transform: translateY(-2px);
+}
+.btn-secondary {
+  background: transparent; color: var(--cream); border-color: var(--border-bright);
+}
+.btn-secondary:hover { border-color: var(--gold); color: var(--gold); }
+
+/* --------- FOOTER --------- */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 3rem var(--gutter);
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--muted);
+  flex-wrap: wrap; gap: 1rem;
+}
+footer a { color: var(--cream-dim); text-decoration: none; transition: color 0.2s; }
+footer a:hover { color: var(--gold); }
+footer .links { display: flex; gap: 2rem; flex-wrap: wrap; }
+
+/* --------- SCROLL REVEAL --------- */
+.reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.9s ease-out, transform 0.9s ease-out; }
+.reveal.in { opacity: 1; transform: translateY(0); }
+
+.reveal-stagger > * {
+  opacity: 0; transform: translateY(30px);
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+.reveal-stagger.in > * { opacity: 1; transform: translateY(0); }
+.reveal-stagger.in > *:nth-child(1) { transition-delay: 0s; }
+.reveal-stagger.in > *:nth-child(2) { transition-delay: 0.08s; }
+.reveal-stagger.in > *:nth-child(3) { transition-delay: 0.16s; }
+.reveal-stagger.in > *:nth-child(4) { transition-delay: 0.24s; }
+.reveal-stagger.in > *:nth-child(5) { transition-delay: 0.32s; }
+.reveal-stagger.in > *:nth-child(6) { transition-delay: 0.4s; }
+
+::selection { background: var(--gold); color: var(--bg); }
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+</style>
+</head>
+<body>
+
+<div class="atmosphere"></div>
+<div class="grain"></div>
+
+<!-- =================== NAV =================== -->
+<nav class="topnav" id="topnav">
+  <a href="#top" class="logo">Officially Invested<span class="dot"></span></a>
+  <ul class="nav-links">
+    <li><a href="#approach">Approach</a></li>
+    <li><a href="#track-record">Track Record</a></li>
+    <li><a href="#cases">Case Studies</a></li>
+    <li><a href="#team">Team</a></li>
+  </ul>
+  <a href="#contact" class="nav-cta">Book a Call</a>
+</nav>
+
+<!-- =================== HERO =================== -->
+<section class="hero" id="top">
+  <div class="hero-bg-accent"></div>
+  <div class="hero-grid">
+    <span class="eyebrow hero-eyebrow">UK Hospitality &amp; Healthcare</span>
+    <h1>
+      <span class="row">Disciplined acquisition.</span>
+      <span class="row"><span class="em">Operational</span> value</span>
+      <span class="row">creation.</span>
+    </h1>
+    <p class="hero-sub">
+      We build compounding portfolios from under-monetised UK hospitality and healthcare assets — the kind of operator-led platforms that traditional capital can't access and traditional buyers can't run.
+    </p>
+    <div class="hero-meta">
+      <div class="hero-meta-item"><span class="num">£65M</span><span class="label">AUM Built</span></div>
+      <div class="hero-meta-item"><span class="num">22 yrs</span><span class="label">Operating</span></div>
+      <div class="hero-meta-item"><span class="num">700+</span><span class="label">Beds &amp; Keys</span></div>
+    </div>
+  </div>
+  <div class="scroll-cue">Scroll</div>
+</section>
+
+<!-- =================== OPPORTUNITY =================== -->
+<section class="section-pad" id="opportunity">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <span class="eyebrow">The Opportunity</span>
+        <h2 style="margin-top: 1.5rem;">A market of <span class="serif" style="font-style: italic; color: var(--gold);">orphans.</span></h2>
+      </div>
+      <p class="lede">
+        UK operators in hospitality and healthcare are building real value but exit options come from finance-first buyers who don't understand operations. Investors chasing yield are stuck in overheated public markets. We sit at the intersection.
+      </p>
+    </div>
+    <div class="opportunity-grid reveal-stagger">
+      <div class="opp-card">
+        <span class="opp-num">i.</span>
+        <h3>Owners need real exit partners</h3>
+        <p>Twenty years of running these assets means we know what to acquire, what to fix, and what to pay. Owners get a buyer who understands the business — not a spreadsheet.</p>
+      </div>
+      <div class="opp-card">
+        <span class="opp-num">ii.</span>
+        <h3>Investors need real yield</h3>
+        <p>Operator-led UK hospitality and healthcare deals — asset-backed, cash-generative, and aligned. The opposite of chasing tighter spreads in crowded public markets.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== DIVERSIFY =================== -->
+<section class="section-pad" id="diversify">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <span class="eyebrow">Why We Diversify</span>
+        <h2 style="margin-top: 1.5rem;">One playbook. <span class="serif" style="font-style: italic; color: var(--gold);">Multiple sectors.</span></h2>
+      </div>
+      <p class="lede">
+        Single-sector specialists carry single-point-of-failure risk. We apply the same operational discipline across multiple asset-backed sectors that share the same value-creation logic.
+      </p>
+    </div>
+    <div class="diversify-wrap reveal">
+      <p class="diversify-prose">
+        Resilience comes from <strong>one discipline applied broadly</strong> — disciplined acquisition, operational uplift, capital recycling — not from chasing yield in a single sector. Hospitality and healthcare are our proven core. Value-add property is where we selectively extend the playbook at smaller ticket sizes and faster recycle.
+      </p>
+      <div class="pillars">
+        <div class="pillar">
+          <span class="p-num">01</span>
+          <span class="p-name">Hospitality</span>
+          <span class="p-meta proven">— Proven</span>
+          <span class="p-detail">400+ keys · £24M revenue · 240,000 guests / year</span>
+        </div>
+        <div class="pillar">
+          <span class="p-num">02</span>
+          <span class="p-name">Healthcare</span>
+          <span class="p-meta proven">— Proven</span>
+          <span class="p-detail">300+ care beds · £16M revenue · £4M EBITDA</span>
+        </div>
+        <div class="pillar">
+          <span class="p-num">03</span>
+          <span class="p-name">Value-add Property</span>
+          <span class="p-meta">— Selectively extending</span>
+          <span class="p-detail">BRRRR-style residential and mixed-use · same playbook, smaller ticket, faster recycle</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== APPROACH =================== -->
+<section class="section-pad" id="approach">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <span class="eyebrow">The Approach</span>
+        <h2 style="margin-top: 1.5rem;">Four steps. <span class="serif" style="font-style: italic; color: var(--gold);">Compounding outcomes.</span></h2>
+      </div>
+      <p class="lede">
+        The same disciplined sequence applied to every asset we touch. The boring repeatability is the moat.
+      </p>
+    </div>
+    <div class="approach-steps reveal-stagger">
+      <div class="step">
+        <span class="step-num">i.</span>
+        <h4>Acquire</h4>
+        <p>Source under-monetised assets — distressed, succession-driven, mispriced. Our network and reputation surface deals before they reach open market.</p>
+      </div>
+      <div class="step">
+        <span class="step-num">ii.</span>
+        <h4>Improve</h4>
+        <p>Apply our operating playbook — margin discipline, brand repositioning, regulatory stewardship. The lift comes from execution, not financial engineering.</p>
+      </div>
+      <div class="step">
+        <span class="step-num">iii.</span>
+        <h4>Reinvest</h4>
+        <p>Capital recycled into the asset to unlock revenue mix expansion, EBITDA growth, and asset-value re-rating.</p>
+      </div>
+      <div class="step">
+        <span class="step-num">iv.</span>
+        <h4>Exit</h4>
+        <p>Exit to strategic buyers at strength, or roll into a larger platform for compounding multiple expansion.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== TRACK RECORD =================== -->
+<section class="section-pad" id="track-record">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <span class="eyebrow">Track Record</span>
+        <h2 style="margin-top: 1.5rem;">Two decades. <span class="serif" style="font-style: italic; color: var(--gold);">Numbers that compound.</span></h2>
+      </div>
+      <p class="lede">
+        Built from a £300K base in 2004 into a £65M portfolio across hotels and nursing homes. Every figure below is realised, not projected.
+      </p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat reveal">
+        <div class="stat-value"><span class="pre">£</span><span class="counter" data-target="65">0</span><span class="post">M</span></div>
+        <div class="stat-label">AUM Built</div>
+        <div class="stat-detail">From £300K starting base in 2004</div>
+      </div>
+      <div class="stat reveal">
+        <div class="stat-value"><span class="counter" data-target="300">0</span><span class="post">+</span></div>
+        <div class="stat-label">Care Beds Operated</div>
+        <div class="stat-detail">25% EBITDA margin platform</div>
+      </div>
+      <div class="stat reveal">
+        <div class="stat-value"><span class="counter" data-target="400">0</span><span class="post">+</span></div>
+        <div class="stat-label">Hotel Keys</div>
+        <div class="stat-detail">Across four-star+ resort portfolio</div>
+      </div>
+      <div class="stat reveal">
+        <div class="stat-value"><span class="pre">£</span><span class="counter" data-target="24">0</span><span class="post">M</span></div>
+        <div class="stat-label">Hospitality Revenue</div>
+        <div class="stat-detail">Current annual run-rate</div>
+      </div>
+      <div class="stat reveal">
+        <div class="stat-value"><span class="pre">£</span><span class="counter" data-target="16">0</span><span class="post">M</span></div>
+        <div class="stat-label">Healthcare Revenue</div>
+        <div class="stat-detail">£4M EBITDA at peak operation</div>
+      </div>
+      <div class="stat reveal">
+        <div class="stat-value"><span class="counter" data-target="240">0</span><span class="post">K</span></div>
+        <div class="stat-label">Guests / Year</div>
+        <div class="stat-detail">4.2/5 across 20,000+ reviews</div>
+      </div>
+    </div>
+
+    <!-- INFOGRAPHICS -->
+    <div class="infographics">
+
+      <!-- AUM GROWTH CHART -->
+      <div class="info-panel reveal">
+        <div class="info-panel-head">
+          <div class="info-panel-title">AUM Growth · 2004 — 2025</div>
+          <div class="info-panel-meta">216× over 21 years</div>
+        </div>
+        <svg class="aum-chart" viewBox="0 0 700 320" preserveAspectRatio="xMidYMid meet" id="aumChart">
+          <defs>
+            <linearGradient id="aumGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#C9A55C" stop-opacity="0.5"/>
+              <stop offset="100%" stop-color="#C9A55C" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+
+          <!-- Y axis grid lines -->
+          <line class="grid-line" x1="50" y1="50"  x2="660" y2="50"/>
+          <line class="grid-line" x1="50" y1="120" x2="660" y2="120"/>
+          <line class="grid-line" x1="50" y1="190" x2="660" y2="190"/>
+          <line class="grid-line" x1="50" y1="260" x2="660" y2="260"/>
+
+          <!-- Y axis labels (log scale: £100K, £1M, £10M, £100M) -->
+          <text class="axis-label" x="40" y="263" text-anchor="end">£100K</text>
+          <text class="axis-label" x="40" y="193" text-anchor="end">£1M</text>
+          <text class="axis-label" x="40" y="123" text-anchor="end">£10M</text>
+          <text class="axis-label" x="40" y="53"  text-anchor="end">£100M</text>
+
+          <!-- X axis labels -->
+          <text class="axis-label" x="50"  y="290" text-anchor="middle">2004</text>
+          <text class="axis-label" x="200" y="290" text-anchor="middle">2010</text>
+          <text class="axis-label" x="350" y="290" text-anchor="middle">2015</text>
+          <text class="axis-label" x="500" y="290" text-anchor="middle">2020</text>
+          <text class="axis-label" x="660" y="290" text-anchor="middle">2025</text>
+
+          <!-- Curve fill (under the line) - log-scale exponential trajectory from £300K to £65M -->
+          <path class="curve-fill" d="M 50,234 C 100,225 150,215 200,200 C 250,180 300,155 350,135 C 400,118 450,105 500,92 C 550,82 600,75 660,72 L 660,260 L 50,260 Z"/>
+          
+          <!-- Curve line -->
+          <path class="curve-line" d="M 50,234 C 100,225 150,215 200,200 C 250,180 300,155 350,135 C 400,118 450,105 500,92 C 550,82 600,75 660,72"/>
+
+          <!-- Milestones -->
+          <g class="milestone">
+            <circle cx="50" cy="234" r="5"/>
+            <circle cx="50" cy="234" r="2" class="milestone-dot"/>
+            <text class="milestone-year" x="60" y="223">2004</text>
+            <text class="milestone-label" x="60" y="237">£300K base</text>
+          </g>
+
+          <g class="milestone">
+            <circle cx="370" cy="130" r="5"/>
+            <circle cx="370" cy="130" r="2" class="milestone-dot"/>
+            <text class="milestone-year" x="380" y="120">2017</text>
+            <text class="milestone-label" x="380" y="133">First exit · £1.8M</text>
+          </g>
+
+          <g class="milestone">
+            <circle cx="528" cy="88" r="5"/>
+            <circle cx="528" cy="88" r="2" class="milestone-dot"/>
+            <text class="milestone-year" x="448" y="78" text-anchor="end">2022</text>
+            <text class="milestone-label" x="448" y="91" text-anchor="end">Ufford Park · £7.5M</text>
+          </g>
+
+          <g class="milestone">
+            <circle cx="660" cy="72" r="6"/>
+            <circle cx="660" cy="72" r="3" class="milestone-dot"/>
+            <text class="milestone-year" x="650" y="60" text-anchor="end">Today</text>
+            <text class="milestone-label" x="650" y="74" text-anchor="end" style="font-size: 11px; fill: var(--gold);">£65M</text>
+          </g>
+        </svg>
+        <p class="info-aside">Logarithmic scale. Chart shows AUM trajectory based on documented milestones; intermediate years interpolated.</p>
+      </div>
+
+      <!-- PORTFOLIO COMPOSITION -->
+      <div class="info-panel reveal">
+        <div class="info-panel-head">
+          <div class="info-panel-title">Portfolio Composition</div>
+          <div class="info-panel-meta">£65M total</div>
+        </div>
+        <div class="composition-wrap">
+          <div class="comp-bar" id="compBar">
+            <div class="comp-segment hospitality" style="--w: 69%"></div>
+            <div class="comp-segment healthcare" style="--w: 31%"></div>
+          </div>
+          <div class="comp-legend">
+            <div class="comp-legend-item">
+              <span class="swatch hospitality"></span>
+              <span class="label">Hospitality</span>
+              <span class="value">£45M</span>
+              <span class="pct">69% · 400+ keys</span>
+            </div>
+            <div class="comp-legend-item">
+              <span class="swatch healthcare"></span>
+              <span class="label">Healthcare</span>
+              <span class="value">£20M</span>
+              <span class="pct">31% · 300+ beds</span>
+            </div>
+          </div>
+        </div>
+        <p class="info-aside">Hotels acquired and re-positioned for guest journey expansion; nursing homes operated as a multi-site platform with shared services.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- =================== ATMOSPHERIC BREAK =================== -->
+<section class="atmosphere-break">
+  <div class="atmosphere-quote">
+    <span class="pre">— On the Llangollen Canal —</span>
+    <h3>"The asset is the operation. The operation is the asset."</h3>
+    <span class="post">Lion Quays Resort · Shropshire</span>
+  </div>
+</section>
+
+<!-- =================== PROPERTIES GALLERY =================== -->
+<section class="section-pad" id="properties">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <span class="eyebrow">Selected Properties</span>
+        <h2 style="margin-top: 1.5rem;">Bricks. Beds. <span class="serif" style="font-style: italic; color: var(--gold);">Boots on the floor.</span></h2>
+      </div>
+      <p class="lede">
+        A look at the assets behind the numbers — the resort and care portfolios we've acquired, operated, and grown. Hover any tile for context.
+      </p>
+    </div>
+
+    <!-- Hospitality Portfolio -->
+    <div class="portfolio-cat reveal">
+      <h3>Hospitality <span class="em">Portfolio</span></h3>
+      <div class="meta">400+ keys · £24M revenue · 240,000 guests / year</div>
+    </div>
+
+    <div class="properties-grid reveal-stagger">
+
+      <div class="property feature">
+        <img class="property-img" src="assets/img/lion-quays-grounds.jpg" alt="Lion Quays Resort — pergola garden with festoon lights" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Lion Quays Resort · Pergola Garden</span>
+          <span class="meta">Shropshire · 4★+ Resort</span>
+        </div>
+      </div>
+
+      <div class="property wide">
+        <img class="property-img" src="assets/img/ufford-hero.jpg" alt="Ufford Park resort at twilight" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Ufford Park · Twilight Hero</span>
+          <span class="meta">Suffolk · Recent Acquisition</span>
+        </div>
+      </div>
+
+      <div class="property wide">
+        <img class="property-img" src="assets/img/langstone-restaurant.jpg" alt="Langstone Quays waterside restaurant" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Langstone Quays · Waterside Restaurant</span>
+          <span class="meta">Hayling Island · Coastal Resort</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/lion-quays-suite-exterior.jpg" alt="Lion Quays exclusive suite with private sauna" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Lion Quays · Suite Garden</span>
+          <span class="meta">Private Sauna &amp; Hot Tub</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/lion-quays-bedroom.jpg" alt="Lion Quays four-poster bedroom suite" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Lion Quays · Bedroom Suite</span>
+          <span class="meta">Four-Poster Accommodation</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/lion-quays-canal.jpg" alt="Lion Quays Llangollen canal view" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Lion Quays · Llangollen Canal</span>
+          <span class="meta">Heritage Waterway Frontage</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/langstone-parnell-suite.jpg" alt="Langstone Quays Parnell Suite with bathtub" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Langstone · Parnell Suite</span>
+          <span class="meta">Premium Accommodation</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/langstone-exterior.jpg" alt="Langstone Quays exterior with lavender" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Langstone Quays · Exterior</span>
+          <span class="meta">Coastal Approach</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/lion-quays-spa.jpg" alt="Lion Quays spa relaxation room" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Lion Quays · Spa</span>
+          <span class="meta">Relaxation Suite</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/ufford-blyth-suite.jpg" alt="Ufford Park Blyth Suite living room" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Ufford Park · Blyth Suite</span>
+          <span class="meta">Course-Side Apartment</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/ufford-golf.jpg" alt="Ufford Park golf course" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Ufford Park · Golf Course</span>
+          <span class="meta">Suffolk Heathland</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/parkway-hotel.jpg" alt="Parkway Hotel and Spa exterior" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Parkway Hotel &amp; Spa</span>
+          <span class="meta">Wales · Branded Property</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Healthcare Portfolio -->
+    <div class="portfolio-cat reveal">
+      <h3>Healthcare <span class="em">Portfolio</span></h3>
+      <div class="meta">300+ care beds · £16M revenue · £4M EBITDA</div>
+    </div>
+
+    <div class="properties-grid reveal-stagger">
+
+      <div class="property feature">
+        <img class="property-img" src="assets/img/glan-yr-afon.jpg" alt="Glan-Yr-Afon Residential Care &amp; Nursing Home, Wales" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Glan-Yr-Afon Care &amp; Nursing Home</span>
+          <span class="meta">Wales · Multi-home Platform</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/avenue-road-exterior.jpg" alt="Avenue Road Nursing Home exterior — first exit" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Avenue Road · Exterior</span>
+          <span class="meta">First Exit · 2003 → 2017 · 2.1×</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/avenue-road-lounge.jpg" alt="Avenue Road Nursing Home communal lounge" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Avenue Road · Lounge</span>
+          <span class="meta">Resident Communal Space</span>
+        </div>
+      </div>
+
+      <div class="property medium">
+        <img class="property-img" src="assets/img/avenue-road-bedroom.jpg" alt="Avenue Road Nursing Home resident bedroom" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Avenue Road · Resident Suite</span>
+          <span class="meta">Operated to CQC Standards</span>
+        </div>
+      </div>
+
+      <div class="property small">
+        <img class="property-img" src="assets/img/red-brick-home.jpg" alt="Brick-built nursing home" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Period Property</span>
+          <span class="meta">Healthcare Portfolio</span>
+        </div>
+      </div>
+
+      <div class="property small">
+        <img class="property-img" src="assets/img/white-country-home.jpg" alt="Country house nursing home" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Country Setting</span>
+          <span class="meta">Healthcare Portfolio</span>
+        </div>
+      </div>
+
+      <div class="property small">
+        <img class="property-img" src="assets/img/stone-garden-home.jpg" alt="Garden-fronted nursing home" loading="lazy">
+        <div class="property-caption">
+          <span class="name">Garden Frontage</span>
+          <span class="meta">Healthcare Portfolio</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- =================== TEAM =================== -->
+<section class="section-pad" id="team">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <span class="eyebrow">Founding Team</span>
+        <h2 style="margin-top: 1.5rem;">Operators. <span class="serif" style="font-style: italic; color: var(--gold);">Not allocators.</span></h2>
+      </div>
+      <p class="lede">
+        Three founders. Decades of running, scaling, and exiting the exact assets we now acquire. The credibility comes from the work, not the deck.
+      </p>
+    </div>
+    <div class="team-grid reveal-stagger">
+      <div class="member">
+        <div class="member-avatar">A</div>
+        <h4>Ashok Bansal</h4>
+        <div class="member-role">Co-Founder &amp; MD</div>
+        <p class="member-bio">Medical doctor turned operator. Scaled a hotel and nursing home portfolio from £300K in 2004 to £55M today through systematic acquisition and operational uplift.</p>
+      </div>
+      <div class="member">
+        <div class="member-avatar">S</div>
+        <h4>Dr Sandeep Bansal</h4>
+        <div class="member-role">Co-Founder &amp; CEO</div>
+        <p class="member-bio">Board member at BT Health, where strategic steering grew ARR from £105M to £136M in 12 months. Two-decade track record across hospitality, healthcare, and tech ventures.</p>
+      </div>
+      <div class="member">
+        <div class="member-avatar">C</div>
+        <h4>Chandeni Bansal</h4>
+        <div class="member-role">Co-Founder &amp; PM</div>
+        <p class="member-bio">ACMA, CGMA finance professional running a £3M international property portfolio. Owns capital allocation, deal structuring, and portfolio reporting across the platform.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== CASE STUDIES =================== -->
+<section class="section-pad" id="cases">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <span class="eyebrow">Case Studies</span>
+        <h2 style="margin-top: 1.5rem;">Six proofs. <span class="serif" style="font-style: italic; color: var(--gold);">All numbers real.</span></h2>
+      </div>
+      <p class="lede">
+        Every case below is realised performance from assets we acquired, operated, and grew. Forward-looking figures are flagged.
+      </p>
+    </div>
+
+    <div class="cases reveal-stagger">
+
+      <div class="case">
+        <span class="case-num">i.</span>
+        <div>
+          <div class="case-name">Nursing Home Platform Roll-Up</div>
+          <div class="case-meta">Healthcare · 12 years · Single asset → £16M revenue platform</div>
+        </div>
+        <div>
+          <p class="case-narrative">Grew from a single site to a multi-home operating platform through disciplined acquisition and shared services. Reached £16M revenue and £4M EBITDA at a 25% margin.</p>
+          <div class="case-stats">
+            <div class="case-stat"><span class="v">300+</span><span class="l">Care Beds</span></div>
+            <div class="case-stat"><span class="v">£16M</span><span class="l">Revenue</span></div>
+            <div class="case-stat"><span class="v">25%</span><span class="l">EBITDA Margin</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="case">
+        <span class="case-num">ii.</span>
+        <div>
+          <div class="case-name">First Exit — Avenue Road Nursing Home</div>
+          <div class="case-meta">Healthcare · 14 years · 2.1× capital return</div>
+        </div>
+        <div>
+          <p class="case-narrative">Acquired in 2003 for £850K with £180K EBITDA. Grew EBITDA to £270K (+50%) through operational discipline before a clean exit to a strategic buyer 14 years later at £1.8M.</p>
+          <div class="case-stats">
+            <div class="case-stat"><span class="v">£850K → £1.8M</span><span class="l">Asset Value</span></div>
+            <div class="case-stat"><span class="v">+50%</span><span class="l">EBITDA Growth</span></div>
+            <div class="case-stat"><span class="v">2.1×</span><span class="l">Capital Return</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="case">
+        <span class="case-num">iii.</span>
+        <div>
+          <div class="case-name">Lion Quays Resort</div>
+          <div class="case-meta">Hospitality · 4 years · Acquired from PE</div>
+        </div>
+        <div>
+          <p class="case-narrative">Acquired from a PE firm at £10.5M with £1.05M EBITDA. £2.1M reinvested over 4 years to expand revenue mix across spa, accommodation, events, and F&amp;B — EBITDA up 50%, asset value up 52%.</p>
+          <div class="case-stats">
+            <div class="case-stat"><span class="v">£10.5M → £16M</span><span class="l">Asset Value</span></div>
+            <div class="case-stat"><span class="v">+50%</span><span class="l">EBITDA Lift</span></div>
+            <div class="case-stat"><span class="v">£2.1M</span><span class="l">Reinvested</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="case">
+        <span class="case-num">iv.</span>
+        <div>
+          <div class="case-name">Langstone Quays Resort</div>
+          <div class="case-meta">Hospitality · 30 months · Acquired from PE</div>
+        </div>
+        <div>
+          <p class="case-narrative">Acquired from a PE firm at £13M with £1.3M EBITDA. £2M reinvested over 30 months to broaden the guest offering — bedrooms, F&amp;B, events. £3M asset value uplift in two and a half years.</p>
+          <div class="case-stats">
+            <div class="case-stat"><span class="v">£13M → £16M</span><span class="l">Asset Value</span></div>
+            <div class="case-stat"><span class="v">+£200K</span><span class="l">EBITDA Lift</span></div>
+            <div class="case-stat"><span class="v">£2M</span><span class="l">Reinvested</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="case">
+        <span class="case-num">v.</span>
+        <div>
+          <div class="case-name">Ufford Park</div>
+          <div class="case-meta">Hospitality · 18 months · 2022 acquisition</div>
+        </div>
+        <div>
+          <p class="case-narrative">Acquired in 2022 for £7.5M with £700K EBITDA. £1M operational investment delivered a 40% EBITDA uplift and a 33% valuation gain in 18 months.</p>
+          <div class="case-stats">
+            <div class="case-stat"><span class="v">+33%</span><span class="l">Valuation Uplift</span></div>
+            <div class="case-stat"><span class="v">+40%</span><span class="l">EBITDA Lift</span></div>
+            <div class="case-stat"><span class="v">£1M</span><span class="l">Reinvested</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="case">
+        <span class="case-num">vi.</span>
+        <div>
+          <div class="case-name">Mentee Program — Principal Investor Development</div>
+          <div class="case-meta">Healthcare · Forward-looking · Platform mentorship</div>
+        </div>
+        <div>
+          <p class="case-narrative">Mentored James from PE analyst to principal investor. On track to acquire 5 nursing homes over 4–5 years while re-rating the portfolio multiple from 6× to 8× EBITDA — using our acquisition and roll-up playbook.</p>
+          <div class="case-stats">
+            <div class="case-stat"><span class="v">5</span><span class="l">Homes Pipeline</span></div>
+            <div class="case-stat"><span class="v">6× → 8×</span><span class="l">EBITDA Re-Rating</span></div>
+            <div class="case-stat"><span class="v">4–5 yrs</span><span class="l">Timeline</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- =================== PARTNERS =================== -->
+<section class="section-pad" id="partners">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <span class="eyebrow">Who We Partner With</span>
+        <h2 style="margin-top: 1.5rem;">Three kinds of <span class="serif" style="font-style: italic; color: var(--gold);">aligned capital.</span></h2>
+      </div>
+      <p class="lede">
+        We're selective. The fit matters more than the deal. Here's who we work with.
+      </p>
+    </div>
+    <div class="partner-grid reveal-stagger">
+      <div class="partner">
+        <span class="partner-icon">i.</span>
+        <h4>Business Owners</h4>
+        <ul>
+          <li>£500K – £20M revenue operators</li>
+          <li>Hospitality or healthcare focus</li>
+          <li>Considering exit or growth capital</li>
+          <li>Looking for an operationally-fluent buyer</li>
+        </ul>
+      </div>
+      <div class="partner">
+        <span class="partner-icon">ii.</span>
+        <h4>Investors</h4>
+        <ul>
+          <li>HNW &amp; sophisticated investors</li>
+          <li>Asset-backed UK opportunities</li>
+          <li>Hospitality, healthcare, and value-add property</li>
+          <li>Operator-led, aligned, transparent</li>
+        </ul>
+      </div>
+      <div class="partner">
+        <span class="partner-icon">iii.</span>
+        <h4>Strategic Partners</h4>
+        <ul>
+          <li>Developers of premium hospitality property</li>
+          <li>Landlords seeking operating partners</li>
+          <li>Roll-up opportunities at platform scale</li>
+          <li>Joint-venture and co-investment structures</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== CTA =================== -->
+<section class="cta" id="contact">
+  <div class="container">
+    <span class="eyebrow reveal">Next Steps</span>
+    <h2 class="reveal">Let's see if there's a <span class="em">fit.</span></h2>
+    <p class="cta-sub reveal">
+      Schedule a confidential 30-minute introduction. Share your situation and receive a tailored response within 48 hours.
+    </p>
+    <div class="cta-actions reveal">
+      <a href="mailto:officiallyinvested007@gmail.com" class="btn btn-primary">Book a Call →</a>
+      <a href="mailto:officiallyinvested007@gmail.com" class="btn btn-secondary">Send a Message</a>
+    </div>
+  </div>
+</section>
+
+<!-- =================== FOOTER =================== -->
+<footer>
+  <div>© Officially Invested · UK Hospitality &amp; Healthcare</div>
+  <div class="links">
+    <a href="mailto:officiallyinvested007@gmail.com">Email</a>
+    <a href="#">@officiallyinvested</a>
+    <a href="#">officiallyinvested.com</a>
+  </div>
+</footer>
+
+<script>
+const nav = document.getElementById('topnav');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 50) nav.classList.add('scrolled');
+  else nav.classList.remove('scrolled');
+});
+
+const revealEls = document.querySelectorAll('.reveal, .reveal-stagger');
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('in');
+      const counters = entry.target.querySelectorAll('.counter');
+      counters.forEach(animateCounter);
+      // animate AUM chart and comp bar when their containers enter
+      const aumChart = entry.target.querySelector('#aumChart');
+      if (aumChart) aumChart.classList.add('in');
+      const compBar = entry.target.querySelector('#compBar');
+      if (compBar) compBar.classList.add('in');
+      io.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+revealEls.forEach(el => io.observe(el));
+
+function animateCounter(el) {
+  if (el.dataset.done) return;
+  el.dataset.done = '1';
+  const target = parseInt(el.dataset.target, 10);
+  const duration = 1600;
+  const start = performance.now();
+  function tick(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(target * eased);
+    if (t < 1) requestAnimationFrame(tick);
+    else el.textContent = target;
+  }
+  requestAnimationFrame(tick);
+}
+
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', (e) => {
+    const id = a.getAttribute('href');
+    if (id.length <= 1) return;
+    const el = document.querySelector(id);
+    if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+});
+</script>
+
+</body>
+</html>
