@@ -12,21 +12,21 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="image" href="assets/img/lion-quays-grounds.jpg" fetchpriority="high">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
 :root {
-  --bg: #0A1628;
-  --bg-elev: #0F1D33;
-  --bg-elev-2: #142540;
-  --gold: #C9A55C;
-  --gold-bright: #E0BD75;
-  --gold-dim: #8A7240;
-  --cream: #F5EFE0;
-  --cream-dim: #C9C2B0;
-  --muted: #6B7A91;
-  --border: #1E2D44;
-  --border-bright: #2A3D58;
+  --bg: #0A2540;
+  --bg-elev: #0F2D4D;
+  --bg-elev-2: #143458;
+  --gold: #FFD700;
+  --gold-bright: #FFE34D;
+  --gold-dim: #B8920A;
+  --cream: #FFFFFF;
+  --cream-dim: rgba(255, 255, 255, 0.8);
+  --muted: rgba(255, 255, 255, 0.55);
+  --border: rgba(255, 255, 255, 0.12);
+  --border-bright: rgba(255, 255, 255, 0.22);
   --max-width: 1280px;
   --gutter: clamp(1.5rem, 5vw, 4rem);
 }
@@ -36,7 +36,7 @@ html { scroll-behavior: smooth; background: var(--bg); }
 body {
   background: var(--bg);
   color: var(--cream);
-  font-family: 'Geist', -apple-system, sans-serif;
+  font-family: 'Open Sans', -apple-system, sans-serif;
   font-weight: 400;
   line-height: 1.6;
   overflow-x: hidden;
@@ -52,8 +52,8 @@ body {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(201, 165, 92, 0.06), transparent 60%),
-    radial-gradient(ellipse 50% 40% at 90% 80%, rgba(201, 165, 92, 0.04), transparent 60%);
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(255, 215, 0, 0.06), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 80%, rgba(255, 215, 0, 0.04), transparent 60%);
 }
 
 .grain {
@@ -66,11 +66,11 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-.serif { font-family: 'Fraunces', Georgia, serif; font-feature-settings: 'ss01'; }
-.mono { font-family: 'Geist Mono', monospace; }
+.serif { font-family: 'Playfair Display', Georgia, serif; font-feature-settings: 'ss01'; }
+.mono { font-family: 'Open Sans', sans-serif; }
 
 h1, h2, h3, .display {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: 'Playfair Display', Georgia, serif;
   font-weight: 400;
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -88,7 +88,7 @@ h1, h2, h3, .display {
 section { position: relative; z-index: 2; }
 
 .eyebrow {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem;
   letter-spacing: 0.25em;
   text-transform: uppercase;
@@ -112,18 +112,18 @@ nav.topnav {
   z-index: 100;
   padding: 1.25rem var(--gutter);
   display: flex; align-items: center; justify-content: space-between;
-  background: rgba(10, 22, 40, 0);
+  background: rgba(10, 37, 64, 0);
   backdrop-filter: blur(0px);
   transition: background 0.4s ease, backdrop-filter 0.4s ease, padding 0.3s ease;
 }
 nav.topnav.scrolled {
-  background: rgba(10, 22, 40, 0.85);
+  background: rgba(10, 37, 64, 0.85);
   backdrop-filter: blur(12px);
   padding: 0.75rem var(--gutter);
   border-bottom: 1px solid var(--border);
 }
 .logo {
-  font-family: 'Fraunces', serif; font-weight: 500;
+  font-family: 'Playfair Display', serif; font-weight: 500;
   font-size: 1.15rem; letter-spacing: -0.01em;
   color: var(--cream); text-decoration: none;
   display: flex; align-items: baseline; gap: 0.4rem;
@@ -135,7 +135,7 @@ nav.topnav.scrolled {
 }
 .nav-links { display: flex; gap: 2.5rem; list-style: none; }
 .nav-links a {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem; letter-spacing: 0.2em;
   text-transform: uppercase; color: var(--cream-dim);
   text-decoration: none; transition: color 0.2s;
@@ -146,7 +146,7 @@ nav.topnav.scrolled {
   padding: 0.6rem 1.25rem;
   background: transparent; border: 1px solid var(--gold);
   color: var(--gold);
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem; letter-spacing: 0.2em;
   text-transform: uppercase; text-decoration: none;
   transition: all 0.25s;
@@ -170,7 +170,7 @@ nav.topnav.scrolled {
   top: 5%;
   width: 65%;
   height: 85%;
-  background-image: linear-gradient(115deg, rgba(10,22,40,0.96) 25%, rgba(10,22,40,0.45) 100%), url('assets/img/lion-quays-grounds.jpg');
+  background-image: linear-gradient(115deg, rgba(10,37,64,0.96) 25%, rgba(10,37,64,0.45) 100%), url('assets/img/lion-quays-grounds.jpg');
   background-size: cover;
   background-position: center;
   filter: contrast(1.08) saturate(0.85);
@@ -218,12 +218,12 @@ nav.topnav.scrolled {
 }
 .hero-meta-item { display: flex; flex-direction: column; gap: 0.4rem; }
 .hero-meta-item .num {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 2.25rem; font-weight: 400;
   color: var(--gold); line-height: 1;
 }
 .hero-meta-item .label {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.65rem; letter-spacing: 0.2em;
   text-transform: uppercase; color: var(--muted);
 }
@@ -231,7 +231,7 @@ nav.topnav.scrolled {
 .scroll-cue {
   position: absolute; bottom: 2rem; left: var(--gutter);
   display: flex; align-items: center; gap: 0.75rem;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.65rem; letter-spacing: 0.2em;
   text-transform: uppercase; color: var(--muted);
   animation: fadeIn 1.2s 1.5s both;
@@ -299,7 +299,7 @@ nav.topnav.scrolled {
 }
 .opp-card:hover { background: var(--bg-elev); }
 .opp-num {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 0.9rem; color: var(--gold); font-style: italic;
 }
 .opp-card h3 {
@@ -337,15 +337,15 @@ nav.topnav.scrolled {
   align-items: baseline;
 }
 .pillar .p-num {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem; color: var(--gold); letter-spacing: 0.15em;
 }
 .pillar .p-name {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.4rem; font-weight: 400;
 }
 .pillar .p-meta {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem; text-transform: uppercase;
   letter-spacing: 0.15em; color: var(--cream-dim);
   text-align: right;
@@ -379,12 +379,12 @@ nav.topnav.scrolled {
 .step:last-child { border-right: none; }
 .step:hover { background: var(--bg-elev); }
 .step-num {
-  font-family: 'Fraunces', serif; font-style: italic;
+  font-family: 'Playfair Display', serif; font-style: italic;
   font-size: 1rem; color: var(--gold);
   display: block; margin-bottom: 1rem;
 }
 .step h4 {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.5rem; font-weight: 400;
   margin-bottom: 0.85rem; letter-spacing: -0.01em;
 }
@@ -419,7 +419,7 @@ nav.topnav.scrolled {
 }
 .stat:nth-child(3n) { border-right: none; }
 .stat-value {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: clamp(3rem, 6vw, 5rem);
   font-weight: 350; color: var(--gold);
   line-height: 1; letter-spacing: -0.03em;
@@ -429,7 +429,7 @@ nav.topnav.scrolled {
   font-size: 0.5em; font-weight: 400; color: var(--gold-bright);
 }
 .stat-label {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem; letter-spacing: 0.2em;
   text-transform: uppercase; color: var(--cream-dim);
   margin-top: 1.25rem; font-weight: 500;
@@ -470,18 +470,18 @@ nav.topnav.scrolled {
   margin-bottom: 1rem;
 }
 .info-panel-title {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.5rem; font-weight: 400;
 }
 .info-panel-meta {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.65rem; color: var(--muted);
   letter-spacing: 0.2em; text-transform: uppercase;
 }
 
 .aum-chart { width: 100%; height: auto; display: block; margin-top: 1.5rem; }
 .aum-chart .grid-line { stroke: var(--border-bright); stroke-width: 0.5; stroke-dasharray: 2,4; }
-.aum-chart .axis-label { fill: var(--muted); font-family: 'Geist Mono', monospace; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+.aum-chart .axis-label { fill: var(--muted); font-family: 'Open Sans', sans-serif; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
 .aum-chart .curve-fill { fill: url(#aumGradient); opacity: 0.18; }
 .aum-chart .curve-line { fill: none; stroke: var(--gold); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
   stroke-dasharray: 1200; stroke-dashoffset: 1200;
@@ -492,8 +492,8 @@ nav.topnav.scrolled {
 .aum-chart.in .milestone { opacity: 1; }
 .aum-chart .milestone circle { fill: var(--bg); stroke: var(--gold); stroke-width: 1.5; }
 .aum-chart .milestone-dot { fill: var(--gold-bright); }
-.aum-chart .milestone-label { fill: var(--cream); font-family: 'Geist Mono', monospace; font-size: 8.5px; letter-spacing: 0.05em; }
-.aum-chart .milestone-year { fill: var(--gold); font-family: 'Geist Mono', monospace; font-size: 7.5px; letter-spacing: 0.1em; text-transform: uppercase; }
+.aum-chart .milestone-label { fill: var(--cream); font-family: 'Open Sans', sans-serif; font-size: 8.5px; letter-spacing: 0.05em; }
+.aum-chart .milestone-year { fill: var(--gold); font-family: 'Open Sans', sans-serif; font-size: 7.5px; letter-spacing: 0.1em; text-transform: uppercase; }
 
 .composition-wrap { margin-top: 1.5rem; }
 .comp-bar {
@@ -512,7 +512,7 @@ nav.topnav.scrolled {
 }
 .comp-bar.in .comp-segment { width: var(--w); }
 .comp-segment.hospitality { background: linear-gradient(90deg, var(--gold) 0%, var(--gold-bright) 100%); }
-.comp-segment.healthcare { background: linear-gradient(90deg, var(--bg-elev-2) 0%, #3D4F6B 100%); border-left: 1px solid var(--gold-dim); }
+.comp-segment.healthcare { background: linear-gradient(90deg, var(--bg-elev-2) 0%, #1F4A7A 100%); border-left: 1px solid var(--gold-dim); }
 
 .comp-legend {
   margin-top: 1.75rem;
@@ -527,9 +527,9 @@ nav.topnav.scrolled {
   vertical-align: middle;
 }
 .swatch.hospitality { background: var(--gold); }
-.swatch.healthcare { background: #3D4F6B; }
+.swatch.healthcare { background: #1F4A7A; }
 .comp-legend-item .label {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.65rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -537,7 +537,7 @@ nav.topnav.scrolled {
 }
 .comp-legend-item .value {
   display: block;
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 2rem;
   color: var(--gold);
   margin-top: 0.5rem;
@@ -545,7 +545,7 @@ nav.topnav.scrolled {
   line-height: 1;
 }
 .comp-legend-item .pct {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem;
   color: var(--muted);
   margin-top: 0.4rem;
@@ -568,7 +568,7 @@ nav.topnav.scrolled {
 .atmosphere-break {
   position: relative;
   height: clamp(50vh, 70vh, 700px);
-  background-image: linear-gradient(to bottom, rgba(10,22,40,0.55), rgba(10,22,40,0.85)), url('assets/img/lion-quays-canal.jpg');
+  background-image: linear-gradient(to bottom, rgba(10,37,64,0.55), rgba(10,37,64,0.85)), url('assets/img/lion-quays-canal.jpg');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -585,7 +585,7 @@ nav.topnav.scrolled {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(10,22,40,0.4) 80%);
+    radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(10,37,64,0.4) 80%);
   pointer-events: none;
 }
 
@@ -598,7 +598,7 @@ nav.topnav.scrolled {
 }
 
 .atmosphere-quote .pre {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem;
   letter-spacing: 0.3em;
   text-transform: uppercase;
@@ -608,7 +608,7 @@ nav.topnav.scrolled {
 }
 
 .atmosphere-quote h3 {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: clamp(2rem, 4.5vw, 3.5rem);
   font-weight: 350;
   color: var(--cream);
@@ -618,7 +618,7 @@ nav.topnav.scrolled {
 }
 
 .atmosphere-quote .post {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.65rem;
   letter-spacing: 0.25em;
   text-transform: uppercase;
@@ -650,7 +650,7 @@ nav.topnav.scrolled {
 }
 
 .portfolio-cat h3 {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: clamp(1.5rem, 2.5vw, 2rem);
   font-weight: 400;
   letter-spacing: -0.01em;
@@ -662,7 +662,7 @@ nav.topnav.scrolled {
 }
 
 .portfolio-cat .meta {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -706,17 +706,17 @@ nav.topnav.scrolled {
   position: absolute;
   inset: auto 0 0 0;
   padding: 1rem 1.25rem;
-  background: linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0) 100%);
+  background: linear-gradient(to top, rgba(10,37,64,0.95) 0%, rgba(10,37,64,0) 100%);
   opacity: 0; transform: translateY(8px);
   transition: opacity 0.3s, transform 0.3s;
 }
 .property-caption .name {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.1rem; font-weight: 400;
   color: var(--cream); display: block;
 }
 .property-caption .meta {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.6rem; letter-spacing: 0.18em;
   text-transform: uppercase; color: var(--gold);
   margin-top: 0.25rem; display: block;
@@ -762,18 +762,18 @@ nav.topnav.scrolled {
   background: linear-gradient(135deg, var(--bg-elev-2), var(--bg-elev));
   border: 1px solid var(--gold-dim);
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.4rem; color: var(--gold);
   font-style: italic;
   margin-bottom: 1.75rem;
 }
 .member h4 {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.6rem; font-weight: 400;
   margin-bottom: 0.35rem;
 }
 .member-role {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem; letter-spacing: 0.18em;
   text-transform: uppercase; color: var(--gold);
   margin-bottom: 1.25rem;
@@ -805,18 +805,18 @@ nav.topnav.scrolled {
 .case:hover .case-name { color: var(--gold); }
 
 .case-num {
-  font-family: 'Fraunces', serif; font-style: italic;
+  font-family: 'Playfair Display', serif; font-style: italic;
   font-size: 1.25rem; color: var(--gold);
   letter-spacing: -0.02em;
 }
 .case-name {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: clamp(1.4rem, 2.2vw, 1.85rem);
   font-weight: 400; line-height: 1.15;
   transition: color 0.3s; letter-spacing: -0.01em;
 }
 .case-meta {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem; letter-spacing: 0.18em;
   text-transform: uppercase; color: var(--muted);
   margin-top: 0.85rem;
@@ -832,12 +832,12 @@ nav.topnav.scrolled {
 }
 .case-stat { display: flex; flex-direction: column; gap: 0.25rem; }
 .case-stat .v {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.4rem; color: var(--gold);
   font-weight: 400; line-height: 1;
 }
 .case-stat .l {
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.6rem; letter-spacing: 0.18em;
   text-transform: uppercase; color: var(--muted);
 }
@@ -862,11 +862,11 @@ nav.topnav.scrolled {
 }
 .partner:hover { background: var(--bg-elev); }
 .partner-icon {
-  font-family: 'Fraunces', serif; font-style: italic;
+  font-family: 'Playfair Display', serif; font-style: italic;
   font-size: 1rem; color: var(--gold); margin-bottom: 1.25rem;
 }
 .partner h4 {
-  font-family: 'Fraunces', serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.5rem; font-weight: 400;
   margin-bottom: 1.25rem; max-width: 12ch;
 }
@@ -889,7 +889,7 @@ nav.topnav.scrolled {
 .cta::before {
   content: '';
   position: absolute; inset: 0;
-  background: radial-gradient(ellipse 60% 80% at 50% 50%, rgba(201, 165, 92, 0.05), transparent 70%);
+  background: radial-gradient(ellipse 60% 80% at 50% 50%, rgba(255, 215, 0, 0.05), transparent 70%);
   pointer-events: none;
 }
 .cta h2 {
@@ -913,7 +913,7 @@ nav.topnav.scrolled {
 .btn {
   display: inline-flex; align-items: center; gap: 0.75rem;
   padding: 1.1rem 2rem;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.75rem; letter-spacing: 0.22em;
   text-transform: uppercase; text-decoration: none;
   transition: all 0.25s; border: 1px solid; cursor: pointer;
@@ -935,7 +935,7 @@ footer {
   border-top: 1px solid var(--border);
   padding: 3rem var(--gutter);
   display: flex; justify-content: space-between; align-items: center;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.7rem; letter-spacing: 0.15em;
   text-transform: uppercase; color: var(--muted);
   flex-wrap: wrap; gap: 1rem;
@@ -1168,8 +1168,8 @@ footer .links { display: flex; gap: 2rem; flex-wrap: wrap; }
         <svg class="aum-chart" viewBox="0 0 700 320" preserveAspectRatio="xMidYMid meet" id="aumChart">
           <defs>
             <linearGradient id="aumGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#C9A55C" stop-opacity="0.5"/>
-              <stop offset="100%" stop-color="#C9A55C" stop-opacity="0"/>
+              <stop offset="0%" stop-color="#FFD700" stop-opacity="0.5"/>
+              <stop offset="100%" stop-color="#FFD700" stop-opacity="0"/>
             </linearGradient>
           </defs>
 
