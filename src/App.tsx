@@ -62,6 +62,23 @@ function App() {
                 </div>
               </div>
 
+              <div className="flex flex-col sm:flex-row gap-4 mb-12">
+                <a
+                  href="#investments"
+                  className="group inline-flex items-center bg-[#FFD700] text-[#0A2540] px-8 py-4 rounded-full font-semibold hover:bg-opacity-90 transition-all"
+                >
+                  View Full Track Record
+                  <ArrowRight className="ml-2 h-5 w-5 transform group-hover:translate-x-1 transition-transform" />
+                </a>
+                <a
+                  href="#community"
+                  className="group inline-flex items-center border-2 border-white/30 text-white px-8 py-4 rounded-full font-semibold hover:bg-white/10 transition-all"
+                >
+                  Join the Community
+                  <ArrowRight className="ml-2 h-5 w-5 transform group-hover:translate-x-1 transition-transform" />
+                </a>
+              </div>
+
               <div className="mt-12">
                 <div className="text-white text-sm font-medium uppercase tracking-wider mb-4">
                   FEATURED IN
@@ -210,7 +227,7 @@ function App() {
       </section>
 
       {/* Community Section */}
-      <section className="py-24 bg-[#0A2540] text-white">
+      <section id="community" className="py-24 bg-[#0A2540] text-white">
         <div className="container mx-auto px-6">
           <div className="max-w-4xl mx-auto text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-serif font-bold mb-6">
@@ -258,7 +275,7 @@ function App() {
       </section>
 
       {/* Investment Opportunities Section */}
-      <section className="py-24 bg-gray-50">
+      <section id="investments" className="py-24 bg-gray-50">
         <div className="container mx-auto px-6">
           <div className="max-w-4xl mx-auto text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-serif font-bold text-[#0A2540] mb-6">
