@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import ConsentBanner from './components/ConsentBanner';
 import Home from './pages/Home';
 import SubmitOpportunity from './pages/SubmitOpportunity';
 import Pipeline from './pages/admin/Pipeline';
@@ -9,6 +10,7 @@ import Pipeline from './pages/admin/Pipeline';
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
   useEffect(() => {
+    (window as any).dataLayer?.push({ event: 'page_view', page_path: pathname + (hash || '') });
     if (hash) {
       const el = document.querySelector(hash);
       if (el) {
@@ -36,6 +38,7 @@ function App() {
         <Route path="/admin/pipeline" element={<Pipeline />} />
       </Routes>
       {!isAdmin && <Footer />}
+      {!isAdmin && <ConsentBanner />}
     </div>
   );
 }
