@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { loadMetaPixel } from '../lib/tracking';
 
 function applyConsent(v: 'granted' | 'denied') {
   try { localStorage.setItem('oi_consent', v); } catch (e) { /* ignore */ }
@@ -12,6 +13,7 @@ function applyConsent(v: 'granted' | 'denied') {
     });
   }
   (window as any).dataLayer?.push({ event: v === 'granted' ? 'consent_accepted' : 'consent_declined' });
+  if (v === 'granted') loadMetaPixel();
 }
 
 export default function ConsentBanner() {
