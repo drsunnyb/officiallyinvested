@@ -10,6 +10,7 @@ import {
   INTRO_VIDEO_URL, OUTRO_VIDEO_ELIGIBLE_URL, OUTRO_VIDEO_REDIRECT_URL, SHOW_VIDEO_PLACEHOLDERS,
   SECTORS, UK_REGIONS, EMPLOYEE_RANGES, HEARD_VIA_OPTIONS, YEAR_OPTIONS,
 } from '../lib/intake';
+import { trackLead, trackFormStart } from '../lib/tracking';
 
 // ===================== form primitives =====================
 
@@ -327,6 +328,7 @@ export default function SubmitOpportunity() {
     const e = validateStep(step);
     setErrors(e);
     if (Object.keys(e).length === 0) {
+      if (step === 0) trackFormStart(form.type);
       setStep(step + 1);
       topRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
@@ -359,6 +361,7 @@ export default function SubmitOpportunity() {
       const result = await submitOpportunity(form, files);
       setReference(result.reference);
       setUploadWarnings(result.uploadWarnings);
+      trackLead({ type: form.type || 'business', eligible: result.eligible, value: form.type === 'property' ? form.portfolio_value : form.revenue });
       setPhase(result.eligible ? 'done-eligible' : 'done-redirect');
       topRef.current?.scrollIntoView();
     } catch (err) {
