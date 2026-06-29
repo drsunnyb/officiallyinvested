@@ -9,31 +9,6 @@ import { STAGES, CHECKLISTS, ITEM_KINDS, TERMINAL_STAGES, PARALLEL_STAGES, STAGE
 const ADMIN_DOMAIN = '@officiallyinvested.com';
 const STALE_DAYS = 5;
 
-const REQUEST_CATALOG: { category: string; label: string; types: ('business' | 'property')[] }[] = [
-  { category: 'Financials', label: 'Last 3+ years statutory accounts', types: ['business', 'property'] },
-  { category: 'Financials', label: 'Latest management accounts / P&L', types: ['business'] },
-  { category: 'Financials', label: 'VAT returns (last 4 quarters)', types: ['business'] },
-  { category: 'Financials', label: 'Bank statements (last 12 months)', types: ['business', 'property'] },
-  { category: 'Financials', label: 'Aged debtors & creditors', types: ['business'] },
-  { category: 'Financials', label: 'Asset register', types: ['business'] },
-  { category: 'Business', label: 'Company website URL', types: ['business'] },
-  { category: 'Business', label: 'Google Business / Maps link', types: ['business'] },
-  { category: 'Business', label: 'Photos of the premises / operation', types: ['business', 'property'] },
-  { category: 'Business', label: 'Customer & revenue breakdown', types: ['business'] },
-  { category: 'Business', label: 'Key contracts & leases', types: ['business'] },
-  { category: 'Business', label: 'Staff list with roles', types: ['business'] },
-  { category: 'Business', label: 'Supplier list', types: ['business'] },
-  { category: 'Business', label: 'Reason-for-sale detail', types: ['business', 'property'] },
-  { category: 'Property', label: 'Rent roll / tenancy schedule', types: ['property'] },
-  { category: 'Property', label: 'RICS valuation', types: ['property'] },
-  { category: 'Property', label: 'Full property schedule', types: ['property'] },
-  { category: 'Property', label: 'Mortgage / debt statements', types: ['property'] },
-  { category: 'Property', label: 'EPCs & compliance certificates', types: ['property'] },
-  { category: 'Verification', label: 'Companies House number', types: ['business', 'property'] },
-  { category: 'Verification', label: 'Proof of ownership / cap table', types: ['business', 'property'] },
-  { category: 'Verification', label: 'CQC registration & ratings', types: ['business'] },
-];
-
 interface Deal {
   id: string;
   reference: string;
@@ -52,7 +27,8 @@ interface Deal {
 }
 
 function daysAgo(d: string) { return Math.floor((Date.now() - new Date(d).getTime()) / 864e5); }
-function assetName(r: Deal) { return r.type === 'business' ? (r.business_name || '—') : (r.spv_name || 'Portfolio'); }
+function assetName(r: Deal) { return r.business_name || r.spv_name || '—'; }
+function valueLabel(r: Deal) { return r.type === 'business' ? 'Value' : r.deal_kind === 'development' ? 'GDV' : 'Portfolio value'; }
 function latestScore(r: Deal) {
   return [...(r.scores || [])].sort((a, b) => +new Date(b.scored_at) - +new Date(a.scored_at))[0] || null;
 }
@@ -173,53 +149,6 @@ function Login() {
 
 // ================= DASHBOARD =================
 
-function RequestsSection({ deal, onAdd, onStatus, onDelete, onSend }: any) {
-  const [custom, setCustom] = useState('');
-  const reqs = (deal.deal_requests || []) as any[];
-  const openReqs = reqs.filter((r) => r.status === 'requested');
-  const received = reqs.filter((r) => r.status === 'received');
-  const have = new Set(reqs.filter((r) => r.status !== 'waived').map((r) => String(r.label).toLowerCase()));
-  const catalog = REQUEST_CATALOG.filter((c) => c.types.includes(deal.type)).filter((c) => !have.has(c.label.toLowerCase()));
-  const total = openReqs.length + received.length;
-  const pct = total ? Math.round((received.length / total) * 100) : 0;
-  return (
-    <Section title={`Requests from seller (${received.length}/${total} in)`}>
-      {total > 0 && (
-        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-3"><div className="h-full bg-[#FFD700]" style={{ width: pct + '%' }} /></div>
-      )}
-      {reqs.length === 0 && <p className="text-white/50 text-sm mb-2">No items requested yet. Pick from the list below, then email the seller.</p>}
-      {[...openReqs, ...received].map((r) => (
-        <div key={r.id} className="flex items-center justify-between py-1.5 border-b border-white/5 text-sm gap-2">
-          <span className={r.status === 'received' ? 'text-[#FFD700]' : 'text-white/85'}>{r.status === 'received' ? '✓ ' : ''}{r.label}</span>
-          <span className="flex items-center gap-2 whitespace-nowrap">
-            {r.status === 'requested'
-              ? <button onClick={() => onStatus(r, 'received')} className="text-white/50 hover:text-[#FFD700] text-[11px]">mark received</button>
-              : <button onClick={() => onStatus(r, 'requested')} className="text-white/40 hover:text-white text-[11px]">undo</button>}
-            <button onClick={() => onDelete(r.id)} className="text-white/30 hover:text-red-400 text-[11px]">remove</button>
-          </span>
-        </div>
-      ))}
-      {catalog.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {catalog.map((c) => (
-            <button key={c.label} onClick={() => onAdd(deal, c.label, c.category)} className="bg-white/5 hover:bg-white/15 text-white/70 hover:text-white text-[11px] px-2.5 py-1 rounded-full border border-white/10">+ {c.label}</button>
-          ))}
-        </div>
-      )}
-      <div className="mt-3 flex gap-2">
-        <input value={custom} onChange={(e) => setCustom(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { onAdd(deal, custom, 'Custom'); setCustom(''); } }} placeholder="Add a custom item…" className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-[#FFD700]" />
-        <button onClick={() => { onAdd(deal, custom, 'Custom'); setCustom(''); }} className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-white/20">Add</button>
-      </div>
-      {openReqs.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button onClick={() => onSend(deal, 'request')} className="inline-flex items-center gap-2 bg-[#FFD700] text-[#0A2540] px-4 py-2 rounded-full text-sm font-semibold hover:brightness-95">Email seller these {openReqs.length} item(s)</button>
-          <button onClick={() => onSend(deal, 'reminder')} className="bg-white/10 text-white px-4 py-2 rounded-full text-sm hover:bg-white/20">Send as reminder</button>
-        </div>
-      )}
-    </Section>
-  );
-}
-
 export default function Pipeline() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -246,7 +175,7 @@ export default function Pipeline() {
     setLoadErr('');
     const { data, error } = await supabase
       .from('submissions')
-      .select('*, deal_items(*), documents(*), communications(*), scores(*), deal_outputs(*), deal_requests(*)')
+      .select('*, deal_items(*), documents(*), communications(*), scores(*), deal_outputs(*)')
       .order('created_at', { ascending: false })
       .limit(300);
     if (error) setLoadErr(error.message);
@@ -397,32 +326,6 @@ export default function Pipeline() {
     setMsg(error ? 'Could not add: ' + error.message : `Added ${rows.length} tickable items to the deal — progress and your notes feed the next assessment.`);
     load();
   };
-  const addRequest = async (deal: Deal, label: string, category: string) => {
-    if (!supabase || !label.trim()) return;
-    const exists = (deal.deal_requests || []).some((r: any) => String(r.label).toLowerCase() === label.trim().toLowerCase() && r.status !== 'waived');
-    if (exists) { setMsg('That item is already on the request list.'); return; }
-    await supabase.from('deal_requests').insert({ submission_id: deal.id, label: label.trim(), category });
-    load();
-  };
-  const setReqStatus = async (req: any, status: string) => {
-    if (!supabase) return;
-    await supabase.from('deal_requests').update({ status, received_at: status === 'received' ? new Date().toISOString() : null }).eq('id', req.id);
-    load();
-  };
-  const deleteRequest = async (id: string) => {
-    if (!supabase) return;
-    await supabase.from('deal_requests').delete().eq('id', id);
-    load();
-  };
-  const sendRequestEmail = async (deal: Deal, mode: string) => {
-    if (!supabase) return;
-    const outstanding = (deal.deal_requests || []).filter((r: any) => r.status === 'requested');
-    if (!outstanding.length) { setMsg('No outstanding items to request.'); return; }
-    setMsg(mode === 'reminder' ? 'Sending reminder…' : 'Sending request email…');
-    const { error } = await supabase.functions.invoke('send-deal-request', { body: { submission_id: deal.id, mode } });
-    setMsg(error ? 'Could not send: ' + error.message : 'Email sent to the seller.');
-    load();
-  };
   const toggleMember = async (deal: Deal) => {
     if (!supabase) return;
     await supabase.from('submissions').update({ member_listed: !deal.member_listed }).eq('id', deal.id);
@@ -476,7 +379,7 @@ export default function Pipeline() {
   const kpis: [string, string | number][] = [
     ['New this week', deals.filter((d) => +new Date(d.created_at) > weekAgo).length],
     ['Live deals', live.length],
-    ['Pipeline value', gbp(live.reduce((a, d) => a + (Number(d.asking_price) || 0), 0))],
+    ['Opportunity value', gbp(live.reduce((a, d) => a + (Number(d.type === 'business' ? d.asking_price : (d.portfolio_value ?? d.asking_price)) || 0), 0))],
     ['You’re holding up', deals.filter((d) => { const b = ballState(d); return b && (b.cls === 'you-stale' || b.cls === 'none'); }).length],
     ['Waiting on vendor', deals.reduce((a, d) => a + items(d).filter((i) => i.kind === 'vendor_outstanding' && !i.is_done).length, 0)],
     ['Open red flags', deals.reduce((a, d) => a + items(d).filter((i) => i.kind === 'red_flag' && !i.is_done).length, 0)],
@@ -557,7 +460,7 @@ export default function Pipeline() {
                           </div>
                           <div className="text-white font-bold text-[13px]">{assetName(d)}</div>
                           <div className="text-[#FFD700] text-[11px] font-semibold mb-1">
-                            {d.type === 'business' ? `Rev ${gbp(d.revenue)} · Profit ${gbp(d.net_profit)}` : `Value ${gbp(d.portfolio_value)}`} · Ask {gbp(d.asking_price)}
+                            {d.type === 'business' ? `Rev ${gbp(d.revenue)} · Profit ${gbp(d.net_profit)}` : `${d.deal_kind === 'development' ? 'GDV' : 'Value'} ${gbp(d.portfolio_value)}`}{d.asking_price ? ` · Ask ${gbp(d.asking_price)}` : ''}
                           </div>
                           <div className="flex gap-1 flex-wrap text-[9px] font-bold">
                             {flags > 0 && <span className="bg-red-500 text-white px-1.5 py-0.5 rounded-full">{flags} flag{flags > 1 ? 's' : ''}</span>}
@@ -694,8 +597,6 @@ export default function Pipeline() {
               <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => { uploadDocs(open, e.target.files); e.target.value = ''; }} />
             </Section>
 
-            <RequestsSection deal={open} onAdd={addRequest} onStatus={setReqStatus} onDelete={deleteRequest} onSend={sendRequestEmail} />
-
             <Section title="AI assessment — Officially Invested framework">
               {(() => {
                 const sc = latestScore(open);
@@ -731,7 +632,7 @@ export default function Pipeline() {
                 ) : (
                   <>
                     <KV k="SPV" v={`${open.spv_name ?? ''} · ${open.companies_house_number ?? ''}`} />
-                    <KV k="Portfolio value" v={gbp(open.portfolio_value)} gold />
+                    <KV k={valueLabel(open)} v={gbp(open.portfolio_value)} gold />
                     <KV k="Type" v={open.property_type} />
                     <KV k="Units" v={open.num_units} />
                     <KV k="Locations" v={open.locations} />
