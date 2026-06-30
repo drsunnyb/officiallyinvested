@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check } from 'lucide-react';
+import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video } from 'lucide-react';
+import ScheduleCallModal from './ScheduleCallModal';
 import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, pollBundle, type AcqBundle } from '../lib/acq';
 import { STAGES } from '../lib/stages';
 
@@ -10,6 +11,9 @@ function gbp(v: unknown): string {
   if (Math.abs(n) >= 1e3) return '£' + Math.round(n / 1e3) + 'k';
   return '£' + n.toLocaleString('en-GB');
 }
+
+// strip em/en dashes so nothing the agent wrote reads as AI
+const human = (t: string) => (t || '').replace(/\s*[—–]\s*/g, ', ');
 
 const VERDICT_STYLE: Record<string, string> = {
   BUY: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50',
@@ -63,6 +67,7 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
   const [copied, setCopied] = useState<string | null>(null);
   const [pf, setPf] = useState<Record<string, string>>({});
   const [pBusy, setPBusy] = useState(false);
+  const [showCall, setShowCall] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -134,7 +139,7 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
             {b?.analysis?.score != null && <span className="text-white/55 text-xs">score {b.analysis.score}</span>}
             {res?.red?.overall && <span className="text-white/45 text-xs">· RED {res.red.overall}</span>}
           </div>
-          {headline && <p className="text-white/80 text-[13px] leading-relaxed mb-2">{headline}</p>}
+          {headline && <p className="text-white/80 text-[13px] leading-relaxed mb-2">{human(headline)}</p>}
           {contradiction && (
             <div className="flex items-start gap-2 bg-red-500/10 border border-red-400/40 rounded-lg p-2.5 mb-3 text-xs text-red-200">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /><span>Seller figure contradicted by documents — {contradiction.metric.replace(/_/g, ' ')} {gbp(contradiction.value)} filed. Run the bank-statement test.</span>
@@ -158,6 +163,7 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
         <Btn onClick={() => runStep('analyze')} busy={busy === 'analyze'} icon={Sparkles} label={b?.analysis ? 'Re-run analysis' : 'Run analysis'} primary />
         <Btn onClick={() => runStep('committee')} busy={busy === 'committee'} icon={Gavel} label="Committee" disabled={!b?.analysis} />
         <Btn onClick={() => runStep('memo')} busy={busy === 'memo'} icon={FileText} label="Memo" disabled={!b?.analysis} />
+        <Btn onClick={() => setShowCall(true)} icon={Video} label="Schedule call" />
       </div>
       {busy === 'analyze' && <p className="text-white/45 text-xs mb-3">Running the engine and analyst… about a minute.</p>}
 
@@ -190,11 +196,11 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
                 {openDraft === d.id && (
                   <div className="mt-2">
                     <div className="flex justify-end mb-1">
-                      <button onClick={() => copy(d.id, (d.subject ? d.subject + '\n\n' : '') + d.body)} className="inline-flex items-center gap-1 text-[10px] text-[#FFD700]">
+                      <button onClick={() => copy(d.id, (d.subject ? human(d.subject) + '\n\n' : '') + human(d.body))} className="inline-flex items-center gap-1 text-[10px] text-[#FFD700]">
                         {copied === d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} {copied === d.id ? 'Copied' : 'Copy'}
                       </button>
                     </div>
-                    <pre className="whitespace-pre-wrap text-white/75 text-[12px] leading-relaxed bg-black/20 rounded-lg p-3 max-h-80 overflow-y-auto font-sans">{d.body}</pre>
+                    <pre className="whitespace-pre-wrap text-white/75 text-[12px] leading-relaxed bg-black/20 rounded-lg p-3 max-h-80 overflow-y-auto font-sans">{human(d.body)}</pre>
                   </div>
                 )}
               </div>
@@ -271,11 +277,12 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
               {Array.isArray(risks) && risks.length > 0 && <DetailList t="Key risks" items={risks} />}
               {Array.isArray(det?.conditions) && det.conditions.length > 0 && <DetailList t="Committee conditions" items={det.conditions} />}
               {rep?.suggested_offer && <p className="text-[#FFD700]">Suggested: open {gbp(rep.suggested_offer.opening)} · walk {gbp(rep.suggested_offer.walk_away)}</p>}
-              {b?.memo && <Detail t={b.memo.title || 'Investment memo'} v={b.memo.content} mono />}
+              {b?.memo && <Detail t={human(b.memo.title) || 'Investment memo'} v={human(b.memo.content)} mono />}
             </div>
           )}
         </div>
       )}
+      {showCall && <ScheduleCallModal dealId={dealId!} dealName={b?.deal?.name || 'Deal'} status={status} dealContacts={b?.deal_contacts ?? []} onClose={() => setShowCall(false)} onChanged={load} />}
     </Wrap>
   );
 }
@@ -295,8 +302,8 @@ function Btn({ onClick, busy, icon: Icon, label, primary, disabled }: { onClick:
   );
 }
 function Detail({ t, v, mono }: { t: string; v: string; mono?: boolean }) {
-  return <div><div className="text-white/45 text-[10px] uppercase tracking-wide mb-1">{t}</div>{mono ? <pre className="whitespace-pre-wrap font-sans bg-black/20 rounded-lg p-3 max-h-96 overflow-y-auto">{v}</pre> : <p>{v}</p>}</div>;
+  return <div><div className="text-white/45 text-[10px] uppercase tracking-wide mb-1">{t}</div>{mono ? <pre className="whitespace-pre-wrap font-sans bg-black/20 rounded-lg p-3 max-h-96 overflow-y-auto">{human(v)}</pre> : <p>{human(v)}</p>}</div>;
 }
 function DetailList({ t, items }: { t: string; items: string[] }) {
-  return <div><div className="text-white/45 text-[10px] uppercase tracking-wide mb-1">{t}</div><ul className="list-disc pl-4 space-y-1">{items.slice(0, 6).map((x, i) => <li key={i}>{x}</li>)}</ul></div>;
+  return <div><div className="text-white/45 text-[10px] uppercase tracking-wide mb-1">{t}</div><ul className="list-disc pl-4 space-y-1">{items.slice(0, 6).map((x, i) => <li key={i}>{human(x)}</li>)}</ul></div>;
 }
