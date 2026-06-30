@@ -37,6 +37,14 @@ export const createDeal = (payload: Record<string, unknown>) => invoke<{ ok: boo
 export const addDealContact = (deal_id: string, c: Record<string, unknown>) => invoke('acq-crm', { action: 'add_deal_contact', deal_id, ...c });
 export const commsList = (deal_id: string) => invoke<{ ok: boolean; communications: any[] }>('acq-comms', { action: 'list', deal_id });
 export const commsAdd = (deal_id: string, c: Record<string, unknown>) => invoke<{ ok: boolean; communication: any }>('acq-comms', { action: 'add', deal_id, ...c });
+export const legalGetProfile = () => invoke<{ ok: boolean; profile: any }>('acq-legal', { action: 'get_profile' });
+export const legalSetProfile = (profile: Record<string, unknown>) => invoke<{ ok: boolean; profile: any }>('acq-legal', { action: 'set_profile', profile });
+export const legalList = (deal_id?: string) => invoke<{ ok: boolean; documents: any[] }>('acq-legal', { action: 'list', ...(deal_id ? { deal_id } : {}) });
+export const legalGenerate = (deal_id: string, type: string, counterparty?: string) => invoke<{ ok: boolean; document: any; pdf_base64: string; signed: boolean }>('acq-legal', { action: 'generate', deal_id, type, ...(counterparty ? { counterparty } : {}) });
+export async function legalFillBroker(deal_id: string, file: File, counterparty?: string) {
+  const base64 = await fileToBase64(file);
+  return invoke<{ ok: boolean; document: any; pdf_base64: string; signed: boolean }>('acq-legal', { action: 'fill_broker', deal_id, counterparty, title: file.name.replace(/\.[^.]+$/, ''), inline: { base64, media_type: file.type || 'application/pdf', file_name: file.name } });
+}
 export const crmList = () => invoke<{ ok: boolean; contacts: any[]; tasks: any[] }>('acq-crm', { action: 'list' });
 export const crmAddContact = (c: Record<string, unknown>) => invoke('acq-crm', { action: 'add_contact', ...c });
 export const crmAddTask = (t: Record<string, unknown>) => invoke('acq-crm', { action: 'add_task', ...t });

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video, Inbox, Send, StickyNote, Phone, Folder } from 'lucide-react';
+import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video, Inbox, Send, StickyNote, Phone, Folder, FileSignature } from 'lucide-react';
 import ScheduleCallModal from './ScheduleCallModal';
-import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, commsAdd, pollBundle, type AcqBundle } from '../lib/acq';
+import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, commsAdd, legalList, legalGenerate, legalFillBroker, pollBundle, type AcqBundle } from '../lib/acq';
 import { STAGES } from '../lib/stages';
 
 function gbp(v: unknown): string {
@@ -72,7 +72,10 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
   const [cf, setCf] = useState<Record<string, string>>({});
   const [cBusy, setCBusy] = useState(false);
   const [copiedAlias, setCopiedAlias] = useState(false);
+  const [legalDocs, setLegalDocs] = useState<any[]>([]);
+  const [legalBusy, setLegalBusy] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const ndaRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setErr('');
@@ -81,6 +84,7 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
     finally { setLoading(false); }
   }, [submissionId]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { const id = b?.deal?.id; if (id) legalList(id).then((r) => setLegalDocs(r.documents || [])).catch(() => {}); }, [b?.deal?.id]);
 
   const dealId = b?.deal?.id as string | undefined;
   const stageLabel = STAGES.find((s) => s.key === status)?.label ?? 'this stage';
@@ -120,6 +124,10 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
     try { await commsAdd(dealId, { kind: cf.kind || 'note', subject: cf.subject || null, body: cf.body, direction: cf.kind === 'email' ? 'out' : 'internal' }); setCf({}); await load(); }
     catch (e: any) { setErr(e.message || String(e)); } finally { setCBusy(false); }
   };
+  const loadLegal = async (id: string) => { try { const r = await legalList(id); setLegalDocs(r.documents || []); } catch { /**/ } };
+  const downloadPdf = (b64: string, name: string) => { const bin = atob(b64); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' })); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
+  const genLegal = async (type: string) => { if (!dealId) return; setLegalBusy(type); setErr(''); try { const r = await legalGenerate(dealId, type, b?.deal?.name); downloadPdf(r.pdf_base64, (r.document?.title || 'document') + '.pdf'); await loadLegal(dealId); } catch (e: any) { setErr(e.message || String(e)); } finally { setLegalBusy(''); } };
+  const fillBroker = async (file: File | null) => { if (!file || !dealId) return; setLegalBusy('broker'); setErr(''); try { const r = await legalFillBroker(dealId, file, b?.deal?.name); downloadPdf(r.pdf_base64, (r.document?.title || 'signed-nda') + '.pdf'); await loadLegal(dealId); } catch (e: any) { setErr(e.message || String(e)); } finally { setLegalBusy(''); } };
 
   if (loading) return <Wrap><div className="flex items-center gap-2 text-white/60 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading the agent…</div></Wrap>;
 
@@ -240,6 +248,35 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
           <input value={pf.email ?? ''} onChange={(e) => setPf((p) => ({ ...p, email: e.target.value }))} placeholder="Email" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
           <button onClick={addPerson} disabled={pBusy} className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-white/20 disabled:opacity-50">{pBusy ? '…' : 'Add'}</button>
         </div>
+      </Block>
+
+      {/* broker onboarding & NDA — generated, filled and e-signed for you */}
+      <Block title="Broker onboarding & NDA">
+        <p className="text-white/45 text-[12px] mb-2">Brokers gate the data room behind an NDA and a buyer background. The agent fills and signs these for you from your <a href="/admin/settings" className="text-[#FFD700]">Settings</a> profile.</p>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <LegalBtn onClick={() => genLegal('nda_mutual')} busy={legalBusy === 'nda_mutual'} label="Mutual NDA" sub="Both parties" />
+          <LegalBtn onClick={() => genLegal('nda_oneway')} busy={legalBusy === 'nda_oneway'} label="One-way NDA" sub="You as recipient" />
+          <LegalBtn onClick={() => genLegal('buyer_background')} busy={legalBusy === 'buyer_background'} label="Buyer background" sub="Intro one-pager" />
+          <LegalBtn onClick={() => genLegal('proof_of_funds')} busy={legalBusy === 'proof_of_funds'} label="Proof of funds" sub="Funding statement" />
+        </div>
+        <button onClick={() => ndaRef.current?.click()} disabled={!!legalBusy} className="w-full text-left bg-[#0E2A47] border border-dashed border-white/20 hover:border-[#FFD700]/40 rounded-xl p-2.5 flex gap-2.5 items-center disabled:opacity-50 mb-2">
+          {legalBusy === 'broker' ? <Loader2 className="h-4 w-4 animate-spin text-[#FFD700]" /> : <Upload className="h-4 w-4 text-[#FFD700]" />}
+          <span><span className="block text-[12px] font-semibold text-white">Upload the broker's NDA to fill &amp; sign</span><span className="block text-[11px] text-white/50">PDF, completed and executed for you</span></span>
+        </button>
+        <input ref={ndaRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { fillBroker(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+        {legalDocs.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            {legalDocs.map((d: any) => (
+              <div key={d.id} className="flex items-center gap-2 bg-white/5 rounded-lg p-2">
+                <FileSignature className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
+                <span className="flex-1 truncate text-[12px] text-white">{d.title}</span>
+                <span className={'text-[9px] px-2 py-0.5 rounded-full shrink-0 ' + (d.status === 'signed' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/10 text-white/55')}>{d.status}</span>
+                <span className="text-[9px] text-white/35 shrink-0">{since(d.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p className="text-white/40 text-[12px]">Nothing yet. Generate an NDA or upload the broker's, and it's signed with your e-signature from Settings.</p>}
+        <p className="text-white/30 text-[10px] mt-2">Generated documents are standard templates, not legal advice. Review before sending.</p>
       </Block>
 
       {/* correspondence — every email, note and call on this deal, captured automatically */}
@@ -368,6 +405,14 @@ function Btn({ onClick, busy, icon: Icon, label, primary, disabled }: { onClick:
   return (
     <button onClick={onClick} disabled={busy || disabled} className={'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold disabled:opacity-40 ' + (primary ? 'bg-[#FFD700] text-[#0A2540] hover:bg-opacity-90' : 'bg-white/10 text-white hover:bg-white/20')}>
       {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />} {label}
+    </button>
+  );
+}
+function LegalBtn({ onClick, busy, label, sub }: { onClick: () => void; busy?: boolean; label: string; sub: string }) {
+  return (
+    <button onClick={onClick} disabled={busy} className="text-left bg-[#0E2A47] border border-white/10 hover:border-[#FFD700]/40 rounded-xl p-2.5 flex gap-2.5 disabled:opacity-50">
+      {busy ? <Loader2 className="h-4 w-4 mt-0.5 animate-spin text-[#FFD700]" /> : <FileSignature className="h-4 w-4 mt-0.5 text-[#FFD700]" />}
+      <span><span className="block text-[12px] font-semibold text-white">{label}</span><span className="block text-[11px] text-white/50">{sub}</span></span>
     </button>
   );
 }
