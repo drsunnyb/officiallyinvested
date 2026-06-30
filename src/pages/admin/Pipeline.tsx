@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { STAGES, CHECKLISTS, ITEM_KINDS, TERMINAL_STAGES, PARALLEL_STAGES, STAGE_ASSISTS, gbp } from '../../lib/stages';
+import DealAnalysisPanel from '../../components/DealAnalysisPanel';
+import { getVerdicts } from '../../lib/acq';
 
 const ADMIN_DOMAIN = '@officiallyinvested.com';
 const STALE_DAYS = 5;
@@ -59,6 +61,12 @@ const BALL_STYLES: Record<string, string> = {
   'you-stale': 'bg-red-500/20 text-red-300 border border-red-400/60',
   vendor: 'bg-amber-500/15 text-amber-300 border border-amber-400/50',
   none: 'bg-red-500/10 text-red-300 border border-dashed border-red-400/50',
+};
+
+const VERDICT_PILL: Record<string, string> = {
+  BUY: 'bg-emerald-500/25 text-emerald-200',
+  WATCH: 'bg-amber-500/25 text-amber-100',
+  PASS: 'bg-white/15 text-white/60',
 };
 
 function TierBadge({ r }: { r: Deal }) {
@@ -159,6 +167,16 @@ export default function Pipeline() {
   const [filter, setFilter] = useState('all');
   const [openId, setOpenId] = useState<string | null>(null);
   const [msg, setMsg] = useState('');
+  const [verdictMap, setVerdictMap] = useState<Record<string, { verdict?: string; score?: number }>>({});
+
+  useEffect(() => {
+    if (!session) return;
+    getVerdicts().then((r) => {
+      const m: Record<string, { verdict?: string; score?: number }> = {};
+      (r.verdicts ?? []).forEach((v) => { m[v.submission_id] = { verdict: v.verdict, score: v.score }; });
+      setVerdictMap(m);
+    }).catch(() => {});
+  }, [session, deals.length]);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -456,7 +474,10 @@ export default function Pipeline() {
                           {b && <div className={'text-[10px] font-bold rounded-lg px-2 py-1 mb-1.5 ' + BALL_STYLES[b.cls]}>{b.label}</div>}
                           <div className="flex justify-between items-center mb-1">
                             <span className="text-white/50 text-[10px] font-semibold">{d.reference}</span>
-                            <TierBadge r={d} />
+                            <div className="flex items-center gap-1">
+                              {verdictMap[d.id]?.verdict && <span className={'text-[9px] font-bold px-1.5 py-0.5 rounded-full ' + (VERDICT_PILL[verdictMap[d.id].verdict!] ?? VERDICT_PILL.PASS)}>{verdictMap[d.id].verdict}</span>}
+                              <TierBadge r={d} />
+                            </div>
                           </div>
                           <div className="text-white font-bold text-[13px]">{assetName(d)}</div>
                           <div className="text-[#FFD700] text-[11px] font-semibold mb-1">
@@ -527,6 +548,8 @@ export default function Pipeline() {
             {open.member_listed && !open.network_optin && (
               <p className="text-amber-300 text-xs mb-2">⚠ Seller hasn't given buyer-network consent — get their OK before presenting.</p>
             )}
+
+            <DealAnalysisPanel submissionId={open.id} />
 
             <Section title="Deal stage">
               <div className="flex gap-1.5 flex-wrap">
