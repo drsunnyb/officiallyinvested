@@ -14,6 +14,18 @@ const DB_URL = Deno.env.get('SUPABASE_DB_URL')!;
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acq-secret', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
+// strip AI/markdown remnants so drafts read fully human and client-ready
+function clean(t: string) {
+  return String(t || '').replace(/\r/g, '')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1')
+    .replace(/(^|[^*])\*(?!\*)([^*\n]+?)\*(?!\*)/g, '$1$2')
+    .replace(/`+/g, '')
+    .replace(/^\s*[-*]\s+/gm, '• ')
+    .replace(/\s*[—–]\s*/g, ', ')
+    .replace(/^.*\b(internal working document|internal note|do not issue|working document)\b.*$/gim, '')
+    .replace(/\n{3,}/g, '\n\n').trim();
+}
 
 type Kind = 'email' | 'doc' | 'comparables';
 interface ActionDef { kind: Kind; recipient?: string; label: string; instruction: string; }
@@ -78,7 +90,7 @@ Deno.serve(async (req: Request) => {
       `You are the Acquisition Manager for ${deal.org_name}, drafting on the principal's behalf in their professional voice. ` +
       (cfg.drafting_rules ? `\n\nVOICE & DRAFTING RULES:\n${cfg.drafting_rules}\n` : '') +
       (cfg.acq_analyst_brief ? `\n\nMETHODOLOGY (for grounding, not to quote verbatim):\n${cfg.acq_analyst_brief}\n` : '') +
-      `\n\nWRITE AS A HUMAN — this must read as if the principal wrote it, never as AI. Hard rules: never use the em-dash character; use commas, full stops, or "to". No clichéd openers ("I hope this finds you well", "I trust you are well", "I am reaching out", "I wanted to"), no corporate filler ("leverage", "seamless", "synergies", "delighted", "please find attached", "as per"), no hedging, no over-bulleting an email. Use contractions, vary sentence length, get to the point like a busy operator who knows the deal. NEVER include meta-commentary, "internal notes", "do not issue", caveats-to-self, or any text the recipient should not see — output ONLY what the principal would actually send or use. Use the VERIFIED figures and engine numbers; never invent figures. Address the named recipient by first name if provided. It is a draft for the principal to send; do not say it has been sent.`;
+      `\n\nWRITE AS A HUMAN — this must read as if the principal wrote it, never as AI. Hard rules: never use the em-dash character; use commas, full stops, or "to". No clichéd openers ("I hope this finds you well", "I trust you are well", "I am reaching out", "I wanted to"), no corporate filler ("leverage", "seamless", "synergies", "delighted", "please find attached", "as per"), no hedging, no over-bulleting an email. Use contractions, vary sentence length, get to the point like a busy operator who knows the deal. NEVER include meta-commentary, "internal notes", "do not issue", caveats-to-self, or any text the recipient should not see — output ONLY what the principal would actually send or use. Use the VERIFIED figures and engine numbers; never invent figures. Address the named recipient by first name if provided. It is a draft for the principal to send; do not say it has been sent. Output clean plain text only: never use markdown, no asterisks for emphasis, no hash headings, no backticks, no bullet stars. For documents use plain Title Case headings on their own line. Never include working-document or internal-note framing; the content must be client-ready.`;
 
     const tools = def.kind === 'email'
       ? [{ name: 'submit_email', description: 'Return the drafted email.', input_schema: { type: 'object', properties: { subject: { type: 'string' }, body: { type: 'string', description: 'plain-text email body, with greeting and sign-off' } }, required: ['subject', 'body'] } }]
@@ -101,9 +113,11 @@ Deno.serve(async (req: Request) => {
     if (!ar.ok) { const t = await ar.text(); await sql.end({ timeout: 5 }); return json({ error: 'anthropic ' + ar.status, detail: t.slice(0, 300) }, 502); }
     const aj = await ar.json();
     const out: any = (aj.content ?? []).find((b: any) => b.type === 'tool_use')?.input ?? {};
-    const subject = def.kind === 'email' ? (out.subject ?? null) : (out.title ?? def.label);
-    const bodyText = def.kind === 'email' ? (out.body ?? '') : (out.markdown ?? '');
+    let subject = def.kind === 'email' ? (out.subject ?? null) : (out.title ?? def.label);
+    let bodyText = def.kind === 'email' ? (out.body ?? '') : (out.markdown ?? '');
     if (!bodyText) { await sql.end({ timeout: 5 }); return json({ error: 'no draft produced' }, 502); }
+    subject = subject ? clean(subject) : subject;
+    bodyText = clean(bodyText);
 
     const row = (await sql`insert into acq.drafts (org_id, deal_id, action_key, kind, recipient_role, subject, body, model, created_by)
       values (${deal.org_id}, ${deal.id}, ${body.action_key}, ${def.kind}, ${def.recipient ?? null}, ${subject}, ${bodyText}, ${aj.model ?? 'claude-sonnet-4-6'}, ${userId})

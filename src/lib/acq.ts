@@ -41,6 +41,8 @@ export const legalGetProfile = () => invoke<{ ok: boolean; profile: any }>('acq-
 export const legalSetProfile = (profile: Record<string, unknown>) => invoke<{ ok: boolean; profile: any }>('acq-legal', { action: 'set_profile', profile });
 export const legalList = (deal_id?: string) => invoke<{ ok: boolean; documents: any[] }>('acq-legal', { action: 'list', ...(deal_id ? { deal_id } : {}) });
 export const legalGenerate = (deal_id: string, type: string, counterparty?: string) => invoke<{ ok: boolean; document: any; pdf_base64: string; signed: boolean }>('acq-legal', { action: 'generate', deal_id, type, ...(counterparty ? { counterparty } : {}) });
+export const legalRenderDoc = (title: string, body: string) => invoke<{ ok: boolean; pdf_base64: string; title: string }>('acq-legal', { action: 'render_doc', title, body });
+export const legalSetBrand = (brand: Record<string, unknown>) => invoke<{ ok: boolean; brand: any }>('acq-legal', { action: 'set_brand', brand });
 export async function legalFillBroker(deal_id: string, file: File, counterparty?: string) {
   const base64 = await fileToBase64(file);
   return invoke<{ ok: boolean; document: any; pdf_base64: string; signed: boolean }>('acq-legal', { action: 'fill_broker', deal_id, counterparty, title: file.name.replace(/\.[^.]+$/, ''), inline: { base64, media_type: file.type || 'application/pdf', file_name: file.name } });

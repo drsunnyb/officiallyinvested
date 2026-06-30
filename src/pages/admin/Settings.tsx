@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, ArrowLeft, Check, Upload, PenLine, ShieldCheck, Inbox, Sparkles } from 'lucide-react';
+import { Loader2, ArrowLeft, Check, Upload, PenLine, ShieldCheck, Inbox, Sparkles, Palette } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { legalGetProfile, legalSetProfile } from '../../lib/acq';
+import { legalGetProfile, legalSetProfile, legalSetBrand } from '../../lib/acq';
 
 type Profile = Record<string, any>;
 
@@ -13,16 +13,21 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState('');
+  const [brand, setBrand] = useState<Profile>({});
+  const [savingB, setSavingB] = useState(false);
+  const [savedB, setSavedB] = useState(false);
   const sigRef = useRef<HTMLInputElement>(null);
+  const logoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabase?.auth.getSession().then(({ data }) => {
       const ok = !!data.session;
       setAuthed(ok);
-      if (ok) legalGetProfile().then((r) => setP(r.profile || {})).catch((e) => setErr(String(e))).finally(() => setLoading(false));
+      if (ok) legalGetProfile().then((r: any) => { setP(r.profile || {}); setBrand(r.brand || {}); }).catch((e) => setErr(String(e))).finally(() => setLoading(false));
       else setLoading(false);
     });
   }, []);
+  const saveBrand = async () => { setSavingB(true); setErr(''); try { const r = await legalSetBrand(brand); setBrand(r.brand || brand); setSavedB(true); setTimeout(() => setSavedB(false), 2500); } catch (e: any) { setErr(e.message || String(e)); } finally { setSavingB(false); } };
 
   const set = (k: string, v: any) => { setP((x) => ({ ...x, [k]: v })); setSaved(false); };
   const onSig = (f: File | null) => {
@@ -94,6 +99,24 @@ export default function Settings() {
             <div className="flex items-center gap-3">
               <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 bg-[#FFD700] text-[#0A2540] px-5 py-2.5 rounded-full text-sm font-bold hover:bg-opacity-90 disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}{saved ? 'Saved' : 'Save settings'}</button>
             </div>
+
+            {/* Brand */}
+            <Section icon={<Palette className="h-4 w-4" />} title="Brand" sub="Brands the documents you generate: letterhead, colour and footer on every PDF.">
+              <div className="grid md:grid-cols-2 gap-3">
+                <div><span className={label}>Brand / firm name</span><input className={input} value={brand.name ?? ''} onChange={(e) => setBrand((x) => ({ ...x, name: e.target.value }))} placeholder="Acme Acquisitions" /></div>
+                <div><span className={label}>Brand colour</span><div className="flex items-center gap-2"><input type="color" value={brand.color || '#0A2540'} onChange={(e) => setBrand((x) => ({ ...x, color: e.target.value }))} className="h-9 w-12 bg-transparent rounded cursor-pointer" /><input className={input + ' flex-1'} value={brand.color ?? ''} onChange={(e) => setBrand((x) => ({ ...x, color: e.target.value }))} placeholder="#0A2540" /></div></div>
+                <div className="md:col-span-2"><span className={label}>Footer / letterhead line</span><input className={input} value={brand.footer ?? ''} onChange={(e) => setBrand((x) => ({ ...x, footer: e.target.value }))} placeholder="Acme Acquisitions Ltd · 1 High Street, London · acme.com" /></div>
+              </div>
+              <div className="mt-3"><span className={label}>Logo (PNG/JPG)</span>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => logoRef.current?.click()} className="inline-flex items-center gap-2 bg-white/10 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-white/20"><Upload className="h-4 w-4" /> Upload logo</button>
+                  <input ref={logoRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = () => setBrand((x) => ({ ...x, logo: String(r.result) })); r.readAsDataURL(f); } e.target.value = ''; }} />
+                  {brand.logo && <img src={brand.logo} alt="logo" className="h-10 bg-white rounded px-2" />}
+                  {brand.logo && <button onClick={() => setBrand((x) => ({ ...x, logo: null }))} className="text-white/50 text-xs hover:text-white">Remove</button>}
+                </div>
+              </div>
+              <button onClick={saveBrand} disabled={savingB} className="mt-4 inline-flex items-center gap-2 bg-[#FFD700] text-[#0A2540] px-5 py-2.5 rounded-full text-sm font-bold hover:bg-opacity-90 disabled:opacity-50">{savingB ? <Loader2 className="h-4 w-4 animate-spin" /> : savedB ? <Check className="h-4 w-4" /> : null}{savedB ? 'Saved' : 'Save brand'}</button>
+            </Section>
 
             {/* Email capture */}
             <Section icon={<Inbox className="h-4 w-4" />} title="Email capture" sub="Two ways to get deal emails filed automatically.">
