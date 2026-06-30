@@ -68,7 +68,12 @@ Deno.serve(async (req: Request) => {
     const val = (await sql`select result from acq.valuations where deal_id=${deal.id} order by created_at desc limit 1`)[0];
     const ana = (await sql`select summary from acq.analyses where deal_id=${deal.id} order by created_at desc limit 1`)[0];
 
-    const recipientEmail = def.recipient === 'accountant' ? cfg.accountant_email : def.recipient === 'solicitor' ? cfg.solicitor_email : null;
+    let recipientEmail: string | null = null; let recipientName: string | null = null;
+    if (def.recipient) {
+      const dc = (await sql`select c.name, c.email from acq.deal_contacts dc join acq.contacts c on c.id=dc.contact_id where dc.deal_id=${deal.id} and (dc.role=${def.recipient} or c.role=${def.recipient}) order by dc.role limit 1`)[0];
+      if (dc) { recipientName = dc.name; recipientEmail = dc.email; }
+    }
+    if (!recipientEmail) recipientEmail = def.recipient === 'accountant' ? cfg.accountant_email : def.recipient === 'solicitor' ? cfg.solicitor_email : null;
     const system =
       `You are the Acquisition Manager for ${deal.org_name}, drafting on the principal's behalf in their professional voice. ` +
       (cfg.drafting_rules ? `\n\nVOICE & DRAFTING RULES:\n${cfg.drafting_rules}\n` : '') +
@@ -83,6 +88,7 @@ Deno.serve(async (req: Request) => {
     const user = JSON.stringify({
       task: def.instruction,
       recipient: def.recipient ?? null,
+      recipient_name: recipientName,
       recipient_email: recipientEmail,
       deal: { name: deal.name, asset_type: deal.asset_type, sector: deal.sector, asking_price: deal.asking_price },
       verified_facts: facts, engine: val?.result ?? null, analyst_summary: ana?.summary ?? null,

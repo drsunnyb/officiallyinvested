@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check } from 'lucide-react';
-import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, pollBundle, type AcqBundle } from '../lib/acq';
+import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, pollBundle, type AcqBundle } from '../lib/acq';
 import { STAGES } from '../lib/stages';
 
 function gbp(v: unknown): string {
@@ -61,6 +61,8 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
   const [showFull, setShowFull] = useState(false);
   const [openDraft, setOpenDraft] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [pf, setPf] = useState<Record<string, string>>({});
+  const [pBusy, setPBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -97,6 +99,12 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
     catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
   const copy = async (id: string, text: string) => { try { await navigator.clipboard.writeText(text); setCopied(id); setTimeout(() => setCopied(null), 1500); } catch { /**/ } };
+  const addPerson = async () => {
+    if (!pf.name?.trim() || !dealId) return;
+    setPBusy(true); setErr('');
+    try { await addDealContact(dealId, { name: pf.name, role: pf.role || 'vendor', email: pf.email }); setPf({}); await load(); }
+    catch (e: any) { setErr(e.message || String(e)); } finally { setPBusy(false); }
+  };
 
   if (loading) return <Wrap><div className="flex items-center gap-2 text-white/60 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading the agent…</div></Wrap>;
 
@@ -194,6 +202,29 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
           </div>
         </Block>
       )}
+
+      {/* people on this deal */}
+      <Block title="People on this deal">
+        {(b?.deal_contacts ?? []).length > 0 ? (
+          <div className="flex flex-col gap-1.5 mb-2">
+            {b!.deal_contacts.map((p: any) => (
+              <div key={p.id} className="flex items-center gap-2 bg-white/5 rounded-lg p-2">
+                <span className="text-[12px] text-white flex-1 truncate">{p.name}{p.company ? ' · ' + p.company : ''}</span>
+                {p.role && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#FFD700]/15 text-[#FFD700]">{p.role}</span>}
+                {p.email && <span className="text-[10px] text-white/45 truncate max-w-[38%]">{p.email}</span>}
+              </div>
+            ))}
+          </div>
+        ) : <p className="text-white/40 text-[12px] mb-2">No people yet — add the vendor, agent, accountant or solicitor so the agent emails the right person.</p>}
+        <div className="flex gap-1.5">
+          <input value={pf.name ?? ''} onChange={(e) => setPf((p) => ({ ...p, name: e.target.value }))} placeholder="Name" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
+          <select value={pf.role ?? 'vendor'} onChange={(e) => setPf((p) => ({ ...p, role: e.target.value }))} className="bg-white/5 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
+            {['vendor', 'agent', 'accountant', 'solicitor', 'lender', 'investor', 'other'].map((r) => <option key={r} value={r} className="bg-[#0E3257]">{r}</option>)}
+          </select>
+          <input value={pf.email ?? ''} onChange={(e) => setPf((p) => ({ ...p, email: e.target.value }))} placeholder="Email" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
+          <button onClick={addPerson} disabled={pBusy} className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-white/20 disabled:opacity-50">{pBusy ? '…' : 'Add'}</button>
+        </div>
+      </Block>
 
       {/* data room */}
       <Block title="Data room">
