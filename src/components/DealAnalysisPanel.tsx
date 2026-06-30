@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video, Inbox, Send, StickyNote, Phone, Folder, FileSignature } from 'lucide-react';
+import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video, Inbox, Send, StickyNote, Phone, Folder, FileSignature, Download } from 'lucide-react';
 import ScheduleCallModal from './ScheduleCallModal';
-import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, commsAdd, legalList, legalGenerate, legalFillBroker, pollBundle, type AcqBundle } from '../lib/acq';
+import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, commsAdd, legalList, legalGenerate, legalFillBroker, legalRenderDoc, pollBundle, type AcqBundle } from '../lib/acq';
 import { STAGES } from '../lib/stages';
 
 function gbp(v: unknown): string {
@@ -14,6 +14,12 @@ function gbp(v: unknown): string {
 
 // strip em/en dashes so nothing the agent wrote reads as AI
 const human = (t: string) => (t || '').replace(/\s*[—–]\s*/g, ', ');
+// also strip markdown remnants so drafts read clean (no **, ##, * bullets, backticks)
+const clean = (t: string) => human(t)
+  .replace(/^#{1,6}\s+/gm, '')
+  .replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1')
+  .replace(/(^|[^*])\*(?!\*)([^*\n]+?)\*(?!\*)/g, '$1$2')
+  .replace(/`+/g, '').replace(/^\s*[-*]\s+/gm, '• ');
 const since = (ts: string) => { const s = (Date.now() - new Date(ts).getTime()) / 1000; if (s < 3600) return Math.max(1, Math.round(s / 60)) + 'm'; if (s < 86400) return Math.round(s / 3600) + 'h'; return Math.round(s / 86400) + 'd'; };
 const tierCls = (t: string) => t === 'A' ? 'bg-emerald-600 text-white' : t === 'B' ? 'bg-[#FFD700] text-[#0A2540]' : t === 'C' ? 'bg-amber-500 text-amber-950' : 'bg-white/20 text-white';
 
@@ -67,6 +73,8 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
   const [showFull, setShowFull] = useState(false);
   const [openDraft, setOpenDraft] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState<Record<string, string>>({});
+  const [docBusy, setDocBusy] = useState('');
   const [pf, setPf] = useState<Record<string, string>>({});
   const [pBusy, setPBusy] = useState(false);
   const [showCall, setShowCall] = useState(false);
@@ -129,6 +137,18 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
   const downloadPdf = (b64: string, name: string) => { const bin = atob(b64); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' })); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
   const genLegal = async (type: string) => { if (!dealId) return; setLegalBusy(type); setErr(''); try { const r = await legalGenerate(dealId, type, b?.deal?.name); downloadPdf(r.pdf_base64, (r.document?.title || 'document') + '.pdf'); await loadLegal(dealId); } catch (e: any) { setErr(e.message || String(e)); } finally { setLegalBusy(''); } };
   const fillBroker = async (file: File | null) => { if (!file || !dealId) return; setLegalBusy('broker'); setErr(''); try { const r = await legalFillBroker(dealId, file, b?.deal?.name); downloadPdf(r.pdf_base64, (r.document?.title || 'signed-nda') + '.pdf'); await loadLegal(dealId); } catch (e: any) { setErr(e.message || String(e)); } finally { setLegalBusy(''); } };
+  const draftText = (d: any) => editBody[d.id] ?? clean(d.body);
+  const emailDraft = (d: any) => {
+    const dc = (b?.deal_contacts ?? []);
+    const c = dc.find((x: any) => x.role === d.recipient_role && x.email) || dc.find((x: any) => x.email);
+    const url = `mailto:${encodeURIComponent(c?.email || '')}?subject=${encodeURIComponent(d.subject || '')}&body=${encodeURIComponent(draftText(d))}`;
+    window.location.href = url;
+  };
+  const createDoc = async (d: any) => {
+    setDocBusy(d.id); setErr('');
+    try { const r = await legalRenderDoc(d.subject || ACTION_META[d.action_key]?.label || 'Document', draftText(d)); downloadPdf(r.pdf_base64, (d.subject || 'document').replace(/[^\w.-]+/g, '-') + '.pdf'); }
+    catch (e: any) { setErr(e.message || String(e)); } finally { setDocBusy(''); }
+  };
 
   if (loading) return <Wrap><div className="flex items-center gap-2 text-white/60 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading the agent…</div></Wrap>;
 
@@ -229,12 +249,13 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
                 </button>
                 {openDraft === d.id && (
                   <div className="mt-2">
-                    <div className="flex justify-end mb-1">
-                      <button onClick={() => copy(d.id, (d.subject ? human(d.subject) + '\n\n' : '') + human(d.body))} className="inline-flex items-center gap-1 text-[10px] text-[#FFD700]">
-                        {copied === d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} {copied === d.id ? 'Copied' : 'Copy'}
-                      </button>
+                    <textarea value={draftText(d)} onChange={(e) => setEditBody((p) => ({ ...p, [d.id]: e.target.value }))} className="w-full h-56 bg-black/20 rounded-lg p-3 text-white/85 text-[12px] leading-relaxed font-sans outline-none focus:ring-1 focus:ring-[#FFD700]/50 resize-y" />
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <button onClick={() => copy(d.id, (d.subject ? d.subject + '\n\n' : '') + draftText(d))} className="inline-flex items-center gap-1 text-[11px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1.5 rounded-lg">{copied === d.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied === d.id ? 'Copied' : 'Copy'}</button>
+                      {d.kind === 'email' && <button onClick={() => emailDraft(d)} className="inline-flex items-center gap-1 text-[11px] bg-[#FFD700] text-[#0A2540] font-semibold px-2.5 py-1.5 rounded-lg"><Mail className="h-3.5 w-3.5" /> Email</button>}
+                      <button onClick={() => createDoc(d)} disabled={docBusy === d.id} className="inline-flex items-center gap-1 text-[11px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1.5 rounded-lg disabled:opacity-50">{docBusy === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Create document</button>
+                      <span className="text-[10px] text-white/35">Edit above, then send or download. Branded from Settings.</span>
                     </div>
-                    <pre className="whitespace-pre-wrap text-white/75 text-[12px] leading-relaxed bg-black/20 rounded-lg p-3 max-h-80 overflow-y-auto font-sans">{human(d.body)}</pre>
                   </div>
                 )}
               </div>
