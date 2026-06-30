@@ -9,6 +9,7 @@ import DealAnalysisPanel from '../../components/DealAnalysisPanel';
 import { getVerdicts } from '../../lib/acq';
 import AddDealModal from '../../components/AddDealModal';
 import ThesisSettingsModal from '../../components/ThesisSettingsModal';
+import CRMModal from '../../components/CRMModal';
 
 const ADMIN_DOMAIN = '@officiallyinvested.com';
 const STALE_DAYS = 5;
@@ -172,6 +173,7 @@ export default function Pipeline() {
   const [verdictMap, setVerdictMap] = useState<Record<string, { verdict?: string; score?: number }>>({});
   const [showAdd, setShowAdd] = useState(false);
   const [showThesis, setShowThesis] = useState(false);
+  const [showCRM, setShowCRM] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -418,6 +420,7 @@ export default function Pipeline() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowCRM(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">CRM</button>
           <button onClick={() => setShowThesis(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Thesis</button>
           <button onClick={() => setShowAdd(true)} className="bg-[#FFD700] text-[#0A2540] px-3.5 py-1.5 rounded-full text-sm font-semibold hover:bg-opacity-90 mr-1">+ Add deal</button>
           <button onClick={load} className="text-white/60 hover:text-white p-2" title="Refresh"><RefreshCw className="h-4 w-4" /></button>
@@ -539,6 +542,7 @@ export default function Pipeline() {
 
       {showAdd && <AddDealModal onClose={() => setShowAdd(false)} onCreated={(id) => { setShowAdd(false); load(); setOpenId(id); }} />}
       {showThesis && <ThesisSettingsModal onClose={() => setShowThesis(false)} />}
+      {showCRM && <CRMModal onClose={() => setShowCRM(false)} />}
 
       {/* ============ DETAIL DRAWER ============ */}
       {open && (
