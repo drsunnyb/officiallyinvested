@@ -44,6 +44,10 @@ export const legalGenerate = (deal_id: string, type: string, counterparty?: stri
 export const legalRenderDoc = (title: string, body: string) => invoke<{ ok: boolean; pdf_base64: string; title: string }>('acq-legal', { action: 'render_doc', title, body });
 export const legalSetBrand = (brand: Record<string, unknown>) => invoke<{ ok: boolean; brand: any }>('acq-legal', { action: 'set_brand', brand });
 export const brandExtract = (url: string) => invoke<{ ok: boolean; brand: any; source: string }>('acq-brand-extract', { url });
+export const gmailStatus = () => invoke<{ ok: boolean; configured: boolean; accounts: any[] }>('acq-gmail-auth', { action: 'status' });
+export const gmailStart = () => invoke<{ ok: boolean; configured: boolean; url?: string; error?: string }>('acq-gmail-auth', { action: 'start' });
+export const gmailDisconnect = (email?: string) => invoke('acq-gmail-auth', { action: 'disconnect', ...(email ? { email } : {}) });
+export const gmailSync = () => invoke<{ ok: boolean; accounts: number; results: any[] }>('acq-gmail-sync', {});
 export async function legalFillBroker(deal_id: string, file: File, counterparty?: string) {
   const base64 = await fileToBase64(file);
   return invoke<{ ok: boolean; document: any; pdf_base64: string; signed: boolean }>('acq-legal', { action: 'fill_broker', deal_id, counterparty, title: file.name.replace(/\.[^.]+$/, ''), inline: { base64, media_type: file.type || 'application/pdf', file_name: file.name } });

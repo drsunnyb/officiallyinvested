@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, ArrowLeft, Check, Upload, PenLine, ShieldCheck, Inbox, Sparkles, Palette } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { legalGetProfile, legalSetProfile, legalSetBrand, brandExtract } from '../../lib/acq';
+import { legalGetProfile, legalSetProfile, legalSetBrand, brandExtract, gmailStatus, gmailStart, gmailDisconnect, gmailSync } from '../../lib/acq';
 
 type Profile = Record<string, any>;
 
@@ -23,7 +23,7 @@ export default function Settings() {
     supabase?.auth.getSession().then(({ data }) => {
       const ok = !!data.session;
       setAuthed(ok);
-      if (ok) legalGetProfile().then((r: any) => { setP(r.profile || {}); setBrand(r.brand || {}); }).catch((e) => setErr(String(e))).finally(() => setLoading(false));
+      if (ok) { legalGetProfile().then((r: any) => { setP(r.profile || {}); setBrand(r.brand || {}); }).catch((e) => setErr(String(e))).finally(() => setLoading(false)); gmailStatus().then((g: any) => setGmail(g || { accounts: [] })).catch(() => {}); }
       else setLoading(false);
     });
   }, []);
@@ -31,6 +31,12 @@ export default function Settings() {
   const [pulling, setPulling] = useState(false);
   const saveBrand = async () => { setSavingB(true); setErr(''); try { const r = await legalSetBrand(brand); setBrand(r.brand || brand); setSavedB(true); setTimeout(() => setSavedB(false), 2500); } catch (e: any) { setErr(e.message || String(e)); } finally { setSavingB(false); } };
   const pullBrand = async () => { if (!brandUrl.trim()) return; setPulling(true); setErr(''); try { const r: any = await brandExtract(brandUrl); const x = r.brand || {}; setBrand((b) => ({ ...b, ...(x.name ? { name: x.name } : {}), ...(x.color ? { color: x.color } : {}), ...(x.logo ? { logo: x.logo } : {}) })); } catch (e: any) { setErr(e.message || String(e)); } finally { setPulling(false); } };
+  const [gmail, setGmail] = useState<any>({ accounts: [], configured: false });
+  const [gmailBusy, setGmailBusy] = useState('');
+  const loadGmail = () => gmailStatus().then((r: any) => setGmail(r || { accounts: [] })).catch(() => {});
+  const connectGmail = async () => { setGmailBusy('connect'); setErr(''); try { const r: any = await gmailStart(); if (r.url) window.open(r.url, '_blank', 'width=520,height=700'); else setErr(r.error || 'Gmail is not configured yet.'); } catch (e: any) { setErr(e.message || String(e)); } finally { setGmailBusy(''); } };
+  const syncGmail = async () => { setGmailBusy('sync'); setErr(''); try { await gmailSync(); await loadGmail(); } catch (e: any) { setErr(e.message || String(e)); } finally { setGmailBusy(''); } };
+  const disconnectGmail = async (email: string) => { setGmailBusy('disc'); setErr(''); try { await gmailDisconnect(email); await loadGmail(); } catch (e: any) { setErr(e.message || String(e)); } finally { setGmailBusy(''); } };
 
   const set = (k: string, v: any) => { setP((x) => ({ ...x, [k]: v })); setSaved(false); };
   const onSig = (f: File | null) => {
@@ -130,11 +136,32 @@ export default function Settings() {
 
             {/* Email capture */}
             <Section icon={<Inbox className="h-4 w-4" />} title="Email capture" sub="Two ways to get deal emails filed automatically.">
-              <div className="text-[13px] text-white/70 space-y-2">
-                <p><span className="text-white font-semibold">1. Per-deal address (live now).</span> Every deal has its own capture address, shown at the top of that deal's <span className="text-white">Correspondence</span> section with a Copy button. BCC or forward to it and the email files itself to the deal and matches the CRM contact. The agent's own emails are saved there too.</p>
-                <p><span className="text-white font-semibold">2. Connect your inbox (coming soon).</span> Gmail and Outlook will connect so deal emails are pulled in automatically, with no BCC needed. We'll let you know when it's ready.</p>
+              <div className="text-[13px] text-white/70 space-y-2 mb-3">
+                <p><span className="text-white font-semibold">1. Per-deal address.</span> Every deal has its own capture address in its <span className="text-white">Correspondence</span> section. BCC or forward and the email files itself.</p>
+                <p><span className="text-white font-semibold">2. Connect Gmail.</span> Connect your inbox and deal emails are pulled in automatically, no BCC needed, matched to the deal by the contacts on it.</p>
               </div>
-              <button disabled className="mt-3 inline-flex items-center gap-2 bg-white/8 text-white/45 px-3 py-2 rounded-lg text-sm font-semibold cursor-not-allowed">Connect Gmail / Outlook · coming soon</button>
+              {(gmail.accounts || []).length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {gmail.accounts.map((a: any) => (
+                    <div key={a.email} className="flex items-center gap-2 bg-white/5 rounded-lg p-2.5">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ background: a.status === 'connected' ? '#6EE7B7' : '#FCA5A5' }} />
+                      <span className="text-[13px] text-white flex-1 truncate">{a.email}</span>
+                      <span className="text-[11px] text-white/45 shrink-0">{a.last_synced_at ? 'synced ' + new Date(a.last_synced_at).toLocaleString('en-GB') : 'not synced yet'}</span>
+                      <button onClick={() => disconnectGmail(a.email)} className="text-[11px] text-white/50 hover:text-white shrink-0">Disconnect</button>
+                    </div>
+                  ))}
+                  <div className="flex gap-2">
+                    <button onClick={syncGmail} disabled={gmailBusy === 'sync'} className="inline-flex items-center gap-2 bg-white/10 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-white/20 disabled:opacity-50">{gmailBusy === 'sync' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Sync now</button>
+                    <button onClick={connectGmail} className="inline-flex items-center gap-2 bg-white/10 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-white/20">Connect another</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <button onClick={connectGmail} disabled={gmailBusy === 'connect'} className="inline-flex items-center gap-2 bg-[#FFD700] text-[#0A2540] px-4 py-2.5 rounded-full text-sm font-bold hover:bg-opacity-90 disabled:opacity-50">{gmailBusy === 'connect' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Connect Gmail</button>
+                  {gmail.configured === false && <p className="text-white/35 text-[11px] mt-2">Not configured yet, an admin needs to add the Google credentials.</p>}
+                  <p className="text-white/35 text-[11px] mt-2">After connecting, return here and hit Sync now. Read-only access, we never send from your inbox.</p>
+                </div>
+              )}
             </Section>
 
             <p className="text-white/40 text-xs">Investment thesis and buy box, CRM and alerts are on the <Link to="/admin/pipeline" className="text-[#FFD700]">pipeline board</Link> header.</p>
