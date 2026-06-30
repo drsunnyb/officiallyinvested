@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { STAGES, CHECKLISTS, ITEM_KINDS, TERMINAL_STAGES, PARALLEL_STAGES, STAGE_ASSISTS, gbp } from '../../lib/stages';
 import DealAnalysisPanel from '../../components/DealAnalysisPanel';
 import { getVerdicts } from '../../lib/acq';
+import AddDealModal from '../../components/AddDealModal';
 
 const ADMIN_DOMAIN = '@officiallyinvested.com';
 const STALE_DAYS = 5;
@@ -168,6 +169,7 @@ export default function Pipeline() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [msg, setMsg] = useState('');
   const [verdictMap, setVerdictMap] = useState<Record<string, { verdict?: string; score?: number }>>({});
+  const [showAdd, setShowAdd] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -414,6 +416,7 @@ export default function Pipeline() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowAdd(true)} className="bg-[#FFD700] text-[#0A2540] px-3.5 py-1.5 rounded-full text-sm font-semibold hover:bg-opacity-90 mr-1">+ Add deal</button>
           <button onClick={load} className="text-white/60 hover:text-white p-2" title="Refresh"><RefreshCw className="h-4 w-4" /></button>
           <button onClick={() => supabase!.auth.signOut()} className="text-white/60 hover:text-white p-2" title="Sign out"><LogOut className="h-4 w-4" /></button>
         </div>
@@ -530,6 +533,8 @@ export default function Pipeline() {
           </div>
         )}
       </div>
+
+      {showAdd && <AddDealModal onClose={() => setShowAdd(false)} onCreated={(id) => { setShowAdd(false); load(); setOpenId(id); }} />}
 
       {/* ============ DETAIL DRAWER ============ */}
       {open && (
