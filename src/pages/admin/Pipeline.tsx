@@ -567,7 +567,7 @@ export default function Pipeline() {
               <p className="text-amber-300 text-xs mb-2">⚠ Seller hasn't given buyer-network consent — get their OK before presenting.</p>
             )}
 
-            <DealAnalysisPanel submissionId={open.id} status={open.status} />
+            <DealAnalysisPanel submissionId={open.id} status={open.status} score={latestScore(open)} scoresCount={(open.scores || []).length} onRescore={() => rescore(open.id)} />
 
             <Section title="Deal stage">
               <div className="flex gap-1.5 flex-wrap">
@@ -638,22 +638,7 @@ export default function Pipeline() {
               <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => { uploadDocs(open, e.target.files); e.target.value = ''; }} />
             </Section>
 
-            <Section title="AI assessment — Officially Invested framework">
-              {(() => {
-                const sc = latestScore(open);
-                if (!sc) return <p className="text-white/50 text-sm mb-2">Not scored yet.</p>;
-                return (
-                  <div className="mb-3">
-                    <div className="mb-1.5"><TierBadge r={open} /> <span className="text-white text-sm ml-1">{sc.summary}</span></div>
-                    <p className="text-white/65 text-[13px] leading-relaxed whitespace-pre-wrap">{sc.rationale}</p>
-                    {sc.suggested_action && <p className="text-[#FFD700] text-[13px] mt-2"><b>Suggested action:</b> {sc.suggested_action}</p>}
-                    {(open.scores || []).length > 1 && <p className="text-white/40 text-[11px] mt-2">{open.scores.length} assessments on record — score history preserved.</p>}
-                  </div>
-                );
-              })()}
-              <button onClick={() => rescore(open.id)} className="bg-[#FFD700] text-[#0A2540] px-4 py-2 rounded-full text-sm font-semibold hover:bg-opacity-90">Re-run assessment</button>
-              {msg && <p className="text-emerald-300 text-xs mt-2">{msg}</p>}
-            </Section>
+            {/* AI assessment is shown once, inside the Deal Agent panel above (Officially Invested framework) */}
 
             <Section title="Submission detail">
               <div className="grid grid-cols-2 gap-x-5">
@@ -691,50 +676,7 @@ export default function Pipeline() {
               {open.notes && <KV k="Notes from submitter" v={open.notes} />}
             </Section>
 
-            <Section title="Meetings & activity">
-              <div className="flex gap-2 flex-wrap mb-3">
-                <button
-                  onClick={async () => {
-                    const start = new Date();
-                    start.setDate(start.getDate() + 1);
-                    start.setHours(10, 0, 0, 0);
-                    const end = new Date(start.getTime() + 30 * 60000);
-                    const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
-                    const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-                      + '&text=' + encodeURIComponent(`Officially Invested — ${assetName(open)} (${open.reference})`)
-                      + '&dates=' + fmt(start) + '/' + fmt(end)
-                      + '&add=' + encodeURIComponent(open.email ?? '')
-                      + '&details=' + encodeURIComponent(`Discovery / deal call for ${open.reference}. Google Meet link is added automatically when you save. Confidential.`);
-                    window.open(url, '_blank');
-                    if (supabase) {
-                      await supabase.from('communications').insert({ submission_id: open.id, kind: 'meeting', subject: 'Google Meet invite created', content: 'Calendar event opened pre-filled — adjust time and save to send the invite.' });
-                      load();
-                    }
-                  }}
-                  className="bg-white/10 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-white/20"
-                >
-                  📅 Book Google Meet
-                </button>
-                <button
-                  onClick={async () => {
-                    const note = prompt('Call summary (what was said / agreed):');
-                    if (!note || !supabase) return;
-                    await supabase.from('communications').insert({ submission_id: open.id, kind: 'call', subject: 'Phone call', content: note });
-                    load();
-                  }}
-                  className="bg-white/10 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-white/20"
-                >
-                  📞 Log a call
-                </button>
-              </div>
-              {(open.communications || []).length === 0 && <p className="text-white/40 text-sm">Nothing logged yet.</p>}
-              {[...(open.communications || [])].sort((a, b) => +new Date(b.happened_at) - +new Date(a.happened_at)).slice(0, 10).map((c: any) => (
-                <div key={c.id} className="flex justify-between py-1.5 border-b border-white/5 text-sm">
-                  <span className="text-white/85 truncate mr-3">{c.subject ?? c.kind}</span>
-                  <span className="text-white/40 text-[10px] whitespace-nowrap">{new Date(c.happened_at).toLocaleDateString('en-GB')}</span>
-                </div>
-              ))}
-            </Section>
+            {/* meetings & correspondence are handled in the Deal Agent panel above (Schedule call + Correspondence) */}
           </div>
         </div>
       )}

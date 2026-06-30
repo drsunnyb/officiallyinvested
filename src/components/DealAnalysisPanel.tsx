@@ -15,6 +15,7 @@ function gbp(v: unknown): string {
 // strip em/en dashes so nothing the agent wrote reads as AI
 const human = (t: string) => (t || '').replace(/\s*[—–]\s*/g, ', ');
 const since = (ts: string) => { const s = (Date.now() - new Date(ts).getTime()) / 1000; if (s < 3600) return Math.max(1, Math.round(s / 60)) + 'm'; if (s < 86400) return Math.round(s / 3600) + 'h'; return Math.round(s / 86400) + 'd'; };
+const tierCls = (t: string) => t === 'A' ? 'bg-emerald-600 text-white' : t === 'B' ? 'bg-[#FFD700] text-[#0A2540]' : t === 'C' ? 'bg-amber-500 text-amber-950' : 'bg-white/20 text-white';
 
 const VERDICT_STYLE: Record<string, string> = {
   BUY: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50',
@@ -58,7 +59,7 @@ const ACTION_META: Record<string, { label: string; sub: string; icon: any }> = {
   comparables: { label: 'Find comparables', sub: 'Indicative market', icon: TrendingUp },
 };
 
-export default function DealAnalysisPanel({ submissionId, status }: { submissionId: string; status?: string }) {
+export default function DealAnalysisPanel({ submissionId, status, score, scoresCount, onRescore }: { submissionId: string; status?: string; score?: any; scoresCount?: number; onRescore?: () => void }) {
   const [b, setB] = useState<AcqBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -148,6 +149,21 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
         <button onClick={load} className="text-white/50 hover:text-white" title="Refresh"><RefreshCw className="h-3.5 w-3.5" /></button>
       </div>
       {err && <p className="text-red-300 text-xs mb-2">{err}</p>}
+
+      {/* the single Officially Invested framework assessment */}
+      {score && (
+        <div className="mb-4 bg-white/5 border border-white/10 rounded-xl p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[#FFD700] text-[11px] uppercase tracking-wide font-semibold">Officially Invested assessment</span>
+            {onRescore && <button onClick={onRescore} className="text-[10px] text-[#FFD700] inline-flex items-center gap-1"><RefreshCw className="h-3 w-3" /> Re-run</button>}
+          </div>
+          {score.tier && <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + tierCls(score.tier)}>{score.tier} · {score.fit_score}</span>}
+          {score.summary && <p className="text-white/85 text-[13px] mt-1.5">{human(score.summary)}</p>}
+          {score.rationale && <p className="text-white/65 text-[12px] leading-relaxed whitespace-pre-wrap mt-1.5">{human(score.rationale)}</p>}
+          {score.suggested_action && <p className="text-[#FFD700] text-[12px] mt-2"><b>Suggested action:</b> {human(score.suggested_action)}</p>}
+          {scoresCount && scoresCount > 1 ? <p className="text-white/40 text-[10px] mt-2">{scoresCount} assessments on record.</p> : null}
+        </div>
+      )}
 
       {/* one decision, no duplication */}
       {b?.valuation ? (
