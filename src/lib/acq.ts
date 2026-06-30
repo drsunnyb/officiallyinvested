@@ -1,0 +1,57 @@
+// Client for the acquisition analysis core (acq.* edge functions).
+// supabase.functions.invoke automatically attaches the signed-in user's JWT,
+// which each function validates and checks org membership against.
+import { supabase } from './supabase';
+
+export interface AcqBundle {
+  ok: boolean;
+  deal: any;
+  facts: any[];
+  documents: any[];
+  valuation: any | null;
+  analysis: any | null;
+  verdict: any | null;
+  memo: any | null;
+}
+
+async function invoke<T = any>(fn: string, body: Record<string, unknown>): Promise<T> {
+  if (!supabase) throw new Error('Supabase not configured');
+  const { data, error } = await supabase.functions.invoke(fn, { body });
+  if (error) throw error;
+  if (data && data.error) throw new Error(data.error);
+  return data as T;
+}
+
+export const getDealBySubmission = (submission_id: string) => invoke<AcqBundle>('acq-deal-get', { submission_id });
+export const getDealById = (deal_id: string) => invoke<AcqBundle>('acq-deal-get', { deal_id });
+export const getVerdicts = () => invoke<{ ok: boolean; verdicts: { submission_id: string; verdict?: string; score?: number }[] }>('acq-verdicts', {});
+export const runAnalyze = (deal_id: string) => invoke('acq-analyze', { deal_id });
+export const runCommittee = (deal_id: string) => invoke('acq-committee', { deal_id });
+export const runMemo = (deal_id: string) => invoke('acq-memo', { deal_id });
+
+export async function extractFile(deal_id: string, file: File) {
+  const base64 = await fileToBase64(file);
+  return invoke('acq-extract', { deal_id, inline: { base64, media_type: file.type || 'application/pdf', file_name: file.name } });
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] ?? '');
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Poll the bundle until `predicate` is satisfied (for the non-blocking LLM functions). */
+export async function pollBundle(deal_id: string, predicate: (b: AcqBundle) => boolean, tries = 24, gapMs = 4000): Promise<AcqBundle> {
+  let last = await getDealById(deal_id);
+  for (let i = 0; i < tries; i++) {
+    if (predicate(last)) return last;
+    await sleep(gapMs);
+    last = await getDealById(deal_id);
+  }
+  return last;
+}
