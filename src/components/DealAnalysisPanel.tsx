@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video, Inbox, Send, StickyNote, Phone, Folder, FileSignature, Download } from 'lucide-react';
 import ScheduleCallModal from './ScheduleCallModal';
+import { supabase } from '../lib/supabase';
 import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, commsAdd, legalList, legalGenerate, legalFillBroker, legalRenderDoc, pollBundle, type AcqBundle } from '../lib/acq';
 import { STAGES } from '../lib/stages';
 
@@ -102,7 +103,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
   const onUpload = async (files: FileList | null) => {
     if (!files?.length || !dealId) return;
     setBusy('extract'); setErr('');
-    try { for (const f of Array.from(files)) await extractFile(dealId, f); setB(await getDealById(dealId)); }
+    try { for (const f of Array.from(files)) await extractFile(dealId, f); setB(await getDealById(dealId)); onRescore?.(); }
     catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
   const runStep = async (step: 'analyze' | 'committee' | 'memo') => {
@@ -130,8 +131,15 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
   const addComm = async () => {
     if (!cf.body?.trim() || !dealId) return;
     setCBusy(true); setErr('');
-    try { await commsAdd(dealId, { kind: cf.kind || 'note', subject: cf.subject || null, body: cf.body, direction: cf.kind === 'email' ? 'out' : 'internal' }); setCf({}); await load(); }
-    catch (e: any) { setErr(e.message || String(e)); } finally { setCBusy(false); }
+    try {
+      await commsAdd(dealId, { kind: cf.kind || 'note', subject: cf.subject || null, body: cf.body, direction: cf.kind === 'email' ? 'out' : 'internal' });
+      // a note or update feeds the Officially Invested assessment and re-runs the score
+      if ((cf.kind || 'note') === 'note' && submissionId && supabase) {
+        try { await supabase.from('deal_items').insert({ submission_id: submissionId, kind: 'note', content: cf.body.trim() }); } catch { /**/ }
+        onRescore?.();
+      }
+      setCf({}); await load();
+    } catch (e: any) { setErr(e.message || String(e)); } finally { setCBusy(false); }
   };
   const loadLegal = async (id: string) => { try { const r = await legalList(id); setLegalDocs(r.documents || []); } catch { /**/ } };
   const downloadPdf = (b64: string, name: string) => { const bin = atob(b64); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' })); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
@@ -329,7 +337,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
           <select value={cf.kind ?? 'note'} onChange={(e) => setCf((p) => ({ ...p, kind: e.target.value }))} className="bg-white/5 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
             {['note', 'email', 'call', 'meeting'].map((k) => <option key={k} value={k} className="bg-[#0E3257]">{k}</option>)}
           </select>
-          <input value={cf.body ?? ''} onChange={(e) => setCf((p) => ({ ...p, body: e.target.value }))} placeholder="Log a note, call or email…" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
+          <input value={cf.body ?? ''} onChange={(e) => setCf((p) => ({ ...p, body: e.target.value }))} placeholder="Add a note, call or email… (notes re-run the assessment)" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
           <button onClick={addComm} disabled={cBusy} className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-white/20 disabled:opacity-50">{cBusy ? '…' : 'Log'}</button>
         </div>
         {(b?.communications ?? []).length > 0 ? (
