@@ -286,6 +286,10 @@
   .rstat .l{font-size:13.5px;color:var(--mut);margin-top:9px;line-height:1.45}
   .rstat .src{font-size:10.5px;color:var(--mut2);margin-top:9px;letter-spacing:.04em;text-transform:uppercase}
   @media(max-width:700px){.rstats{grid-template-columns:1fr}}
+  .rstats.macro{margin-top:44px}
+  .rstats.macro .rstat{padding:32px 24px;position:relative;z-index:1}
+  .rstats.macro .rstat .v{font-size:clamp(40px,6.8vw,66px);letter-spacing:-.02em}
+  .rstats.macro .rstat .l{font-size:14px;margin-top:12px}
   /* credibility logo wall */
   .logos{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
   .lchip{height:54px;min-width:108px;padding:10px 20px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px -12px rgba(0,0,0,.6)}
@@ -367,14 +371,15 @@
 </section>
 
 <!-- ===================== WHY NOW (macro opportunity) ===================== -->
-<section class="wrap" id="why-now">
+<section class="wrap" id="why-now" style="position:relative">
+  <div class="glow" style="width:520px;height:520px;background:rgba(255,215,0,.12);top:-40px;left:50%;transform:translateX(-50%)"></div>
   <div class="center" data-animate><div class="eyebrow">Why now</div>
   <h2 class="serif" style="margin-top:14px">The biggest handover of businesses in history is happening right now.</h2>
-  <p class="lead center" style="margin:16px auto 0">A whole generation of owners is retiring at once across the US, UK and Canada, and most have no succession plan. That means more businesses for sale than ever, and the advantage goes to the buyer who can find, value and win them faster than anyone else.</p></div>
-  <div class="rstats" data-animate>
-    <div class="rstat"><div class="v">$10tn+</div><div class="l">of US business assets set to change hands this decade, an estimated 2.3 to 3 million boomer-owned firms</div><div class="src">US industry estimates</div></div>
-    <div class="rstat"><div class="v">$2tn+</div><div class="l">of Canadian business assets at stake. 76% of owners plan to exit within ten years, just 9% have a plan</div><div class="src">CFIB, 2023</div></div>
-    <div class="rstat"><div class="v">850k+</div><div class="l">UK companies run by owners aged 60+ with no succession plan, ~£166bn of value, and a million more right behind</div><div class="src">Ownership at Work · ThinCats</div></div>
+  <p class="lead center" style="margin:16px auto 0">A whole generation of owners is retiring at once across the US, UK and Canada, and most have no succession plan. More businesses are coming to market than ever, and the edge goes to the buyer who can find, value and win them faster than anyone else.</p></div>
+  <div class="rstats macro" data-animate>
+    <div class="rstat"><div class="v gold" style="color:var(--gold)"><span data-count="10" data-prefix="$" data-suffix="tn+">$0</span></div><div class="l">of US business assets set to change hands this decade, an estimated 2.3 to 3 million boomer-owned firms</div><div class="src">US industry estimates</div></div>
+    <div class="rstat"><div class="v" style="color:var(--gold)"><span data-count="2" data-prefix="$" data-suffix="tn+">$0</span></div><div class="l">of Canadian business assets at stake. 76% of owners plan to exit within ten years, just 9% have a plan</div><div class="src">CFIB, 2023</div></div>
+    <div class="rstat"><div class="v" style="color:var(--gold)"><span data-count="850" data-suffix="k+">0</span></div><div class="l">UK companies run by owners aged 60+ with no succession plan, ~£166bn of value, and a million more right behind</div><div class="src">Ownership at Work · ThinCats</div></div>
   </div>
   <div class="gcard" data-animate style="margin-top:18px;border-left:3px solid var(--gold);border-radius:0 16px 16px 0">
     <h3>This is the buyer's decade, if you're equipped for it.</h3>
