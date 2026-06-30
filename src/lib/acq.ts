@@ -12,6 +12,7 @@ export interface AcqBundle {
   analysis: any | null;
   verdict: any | null;
   memo: any | null;
+  drafts: any[];
 }
 
 async function invoke<T = any>(fn: string, body: Record<string, unknown>): Promise<T> {
@@ -28,6 +29,7 @@ export const getVerdicts = () => invoke<{ ok: boolean; verdicts: { submission_id
 export const runAnalyze = (deal_id: string) => invoke('acq-analyze', { deal_id });
 export const runCommittee = (deal_id: string) => invoke('acq-committee', { deal_id });
 export const runMemo = (deal_id: string) => invoke('acq-memo', { deal_id });
+export const draftAction = (deal_id: string, action_key: string) => invoke<{ ok: boolean; draft: any; recipient_email: string | null }>('acq-draft', { deal_id, action_key });
 
 export async function extractFile(deal_id: string, file: File) {
   const base64 = await fileToBase64(file);

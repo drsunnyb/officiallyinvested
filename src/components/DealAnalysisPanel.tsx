@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
-import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, pollBundle, type AcqBundle } from '../lib/acq';
+import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check } from 'lucide-react';
+import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, pollBundle, type AcqBundle } from '../lib/acq';
+import { STAGES } from '../lib/stages';
 
 function gbp(v: unknown): string {
   const n = Number(v);
@@ -15,18 +16,51 @@ const VERDICT_STYLE: Record<string, string> = {
   WATCH: 'bg-amber-500/20 text-amber-200 border-amber-400/50',
   PASS: 'bg-white/15 text-white/70 border-white/30',
 };
-const CHIP: Record<string, string> = {
-  pass: 'bg-emerald-500/15 text-emerald-300',
-  monitor: 'bg-amber-500/15 text-amber-200',
-  fail: 'bg-red-500/20 text-red-300',
+const CHIP: Record<string, string> = { pass: 'bg-emerald-500/15 text-emerald-300', monitor: 'bg-amber-500/15 text-amber-200', fail: 'bg-red-500/20 text-red-300' };
+
+// stage (submission status) -> the agent's suggested action keys
+const STAGE_ACTIONS: Record<string, string[]> = {
+  new: ['request_docs', 'comparables'],
+  reviewing: ['request_docs', 'comparables'],
+  shortlisted: ['approach_vendor', 'discovery_pack', 'comparables'],
+  discovery_call: ['discovery_pack', 'request_docs'],
+  structuring: ['structure_proposal', 'offer_letter', 'comparables'],
+  hots: ['hots_draft', 'email_solicitor'],
+  dd_financial: ['email_accountant', 'chase_vendor'],
+  dd_commercial: ['commercial_dd_plan', 'comparables'],
+  dd_legal: ['email_solicitor'],
+  funding: ['lender_pack', 'email_broker', 'structure_proposal'],
+  pre_completion: ['completion_checklist', 'email_solicitor'],
+  takeover: ['takeover_plan'],
+  completed: ['hundred_day_plan'],
+};
+const ACTION_META: Record<string, { label: string; sub: string; icon: any }> = {
+  request_docs: { label: 'Request documents', sub: 'Email the vendor', icon: Mail },
+  approach_vendor: { label: 'Approach the owner', sub: 'Email the vendor', icon: Mail },
+  chase_vendor: { label: 'Chase the vendor', sub: 'Outstanding docs', icon: Mail },
+  email_accountant: { label: 'Brief the accountant', sub: 'Financial DD', icon: Mail },
+  email_solicitor: { label: 'Brief the solicitor', sub: 'Legal DD', icon: Gavel },
+  email_broker: { label: 'Approach a funder', sub: 'Lender / broker', icon: Mail },
+  offer_letter: { label: 'Draft offer', sub: 'Indicative terms', icon: FileText },
+  discovery_pack: { label: 'Discovery-call pack', sub: 'Agenda + questions', icon: FileText },
+  structure_proposal: { label: 'Deal structure', sub: 'Funding + offer', icon: FileText },
+  hots_draft: { label: 'Heads of Terms', sub: 'Draft + cover', icon: FileText },
+  commercial_dd_plan: { label: 'Commercial DD plan', sub: 'Risks + upside', icon: FileText },
+  lender_pack: { label: 'Lender pack', sub: 'Funding summary', icon: FileText },
+  completion_checklist: { label: 'Completion checklist', sub: 'Pre-completion', icon: FileText },
+  takeover_plan: { label: 'Takeover plan', sub: 'Week one', icon: FileText },
+  hundred_day_plan: { label: '100-day plan', sub: 'Value creation', icon: FileText },
+  comparables: { label: 'Find comparables', sub: 'Indicative market', icon: TrendingUp },
 };
 
-export default function DealAnalysisPanel({ submissionId }: { submissionId: string }) {
+export default function DealAnalysisPanel({ submissionId, status }: { submissionId: string; status?: string }) {
   const [b, setB] = useState<AcqBundle | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<'' | 'extract' | 'analyze' | 'committee' | 'memo'>('');
+  const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
-  const [showMemo, setShowMemo] = useState(false);
+  const [showFull, setShowFull] = useState(false);
+  const [openDraft, setOpenDraft] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -35,196 +69,203 @@ export default function DealAnalysisPanel({ submissionId }: { submissionId: stri
     catch (e: any) { setErr(e.message || String(e)); }
     finally { setLoading(false); }
   }, [submissionId]);
-
   useEffect(() => { load(); }, [load]);
 
   const dealId = b?.deal?.id as string | undefined;
+  const stageLabel = STAGES.find((s) => s.key === status)?.label ?? 'this stage';
+  const actionKeys = (status && STAGE_ACTIONS[status]) || ['request_docs', 'comparables'];
 
   const onUpload = async (files: FileList | null) => {
     if (!files?.length || !dealId) return;
     setBusy('extract'); setErr('');
     try { for (const f of Array.from(files)) await extractFile(dealId, f); setB(await getDealById(dealId)); }
-    catch (e: any) { setErr(e.message || String(e)); }
-    finally { setBusy(''); }
+    catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
-
   const runStep = async (step: 'analyze' | 'committee' | 'memo') => {
     if (!dealId) return;
     setBusy(step); setErr('');
     const prev = step === 'analyze' ? b?.analysis?.id : step === 'committee' ? b?.verdict?.id : b?.memo?.id;
     try {
-      if (step === 'analyze') await runAnalyze(dealId);
-      if (step === 'committee') await runCommittee(dealId);
-      if (step === 'memo') await runMemo(dealId);
-      const fresh = await pollBundle(dealId, (x) =>
-        step === 'analyze' ? !!x.analysis && x.analysis.id !== prev
-        : step === 'committee' ? !!x.verdict && x.verdict.id !== prev
-        : !!x.memo && x.memo.id !== prev);
-      setB(fresh);
-      if (step === 'memo') setShowMemo(true);
-    } catch (e: any) { setErr(e.message || String(e)); }
-    finally { setBusy(''); }
+      if (step === 'analyze') await runAnalyze(dealId); if (step === 'committee') await runCommittee(dealId); if (step === 'memo') await runMemo(dealId);
+      setB(await pollBundle(dealId, (x) => step === 'analyze' ? !!x.analysis && x.analysis.id !== prev : step === 'committee' ? !!x.verdict && x.verdict.id !== prev : !!x.memo && x.memo.id !== prev));
+    } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
+  const onAction = async (key: string) => {
+    if (!dealId) return;
+    setBusy(key); setErr('');
+    try { const r = await draftAction(dealId, key); await load(); if (r?.draft?.id) setOpenDraft(r.draft.id); }
+    catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
+  };
+  const copy = async (id: string, text: string) => { try { await navigator.clipboard.writeText(text); setCopied(id); setTimeout(() => setCopied(null), 1500); } catch { /**/ } };
 
-  if (loading) return <Wrap><div className="flex items-center gap-2 text-white/60 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading analysis…</div></Wrap>;
+  if (loading) return <Wrap><div className="flex items-center gap-2 text-white/60 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading the agent…</div></Wrap>;
 
   const res = b?.valuation?.result;
   const rep = b?.analysis?.report;
+  const det = b?.verdict?.detail;
   const verdict = b?.verdict?.verdict as string | undefined;
   const seven = res?.sevenNumber;
   const verified = (b?.facts ?? []).filter((f) => !f.is_self_reported);
   const contradiction = verified.find((f) => f.contradicts_self_reported);
+  const headline = det?.headline || b?.analysis?.summary || '';
+  const risks: string[] = Array.from(new Set([...(det?.key_risks ?? []), ...(rep?.key_risks ?? [])])).slice(0, 4) as string[];
 
   return (
     <Wrap>
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 text-[#FFD700] font-serif text-lg font-bold"><Sparkles className="h-4 w-4" /> AI Investment Analyst</div>
+        <div className="flex items-center gap-2 text-[#FFD700] font-serif text-lg font-bold"><Sparkles className="h-4 w-4" /> Deal Agent</div>
         <button onClick={load} className="text-white/50 hover:text-white" title="Refresh"><RefreshCw className="h-3.5 w-3.5" /></button>
       </div>
-
       {err && <p className="text-red-300 text-xs mb-2">{err}</p>}
 
-      {!b?.valuation && (
-        <p className="text-white/60 text-sm mb-3">No analysis yet. Upload the accounts for verified figures, or run analysis now on the submitted numbers.</p>
-      )}
-
-      {/* decision header */}
-      {b?.valuation && (
+      {/* one decision, no duplication */}
+      {b?.valuation ? (
         <>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              {verdict
-                ? <span className={'text-sm font-semibold px-3 py-1 rounded-full border ' + (VERDICT_STYLE[verdict] ?? VERDICT_STYLE.PASS)}>{verdict}</span>
-                : <span className="text-sm font-semibold px-3 py-1 rounded-full border bg-white/10 text-white/70 border-white/25">Analysed</span>}
-              {b?.analysis?.score != null && <span className="text-white/55 text-xs">score {b.analysis.score}</span>}
-            </div>
-            {res?.red?.overall && <span className="text-xs text-white/55">RED: <b className={res.red.overall === 'Proceed' ? 'text-emerald-300' : 'text-amber-200'}>{res.red.overall}</b></span>}
+          <div className="flex items-center gap-2 mb-2">
+            <span className={'text-sm font-semibold px-3 py-1 rounded-full border ' + (verdict ? (VERDICT_STYLE[verdict] ?? VERDICT_STYLE.PASS) : 'bg-white/10 text-white/70 border-white/25')}>{verdict ?? 'Analysed'}</span>
+            {b?.analysis?.score != null && <span className="text-white/55 text-xs">score {b.analysis.score}</span>}
+            {res?.red?.overall && <span className="text-white/45 text-xs">· RED {res.red.overall}</span>}
           </div>
-
+          {headline && <p className="text-white/80 text-[13px] leading-relaxed mb-2">{headline}</p>}
           {contradiction && (
             <div className="flex items-start gap-2 bg-red-500/10 border border-red-400/40 rounded-lg p-2.5 mb-3 text-xs text-red-200">
-              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>Seller figure contradicted by documents — {contradiction.metric.replace(/_/g, ' ')} {gbp(contradiction.value)} filed. Run the bank-statement test.</span>
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /><span>Seller figure contradicted by documents — {contradiction.metric.replace(/_/g, ' ')} {gbp(contradiction.value)} filed. Run the bank-statement test.</span>
             </div>
           )}
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
             <Kpi label="Adj EBITDA" value={gbp(b.valuation.adjusted_ebitda)} gold />
             <Kpi label="Opening offer" value={gbp(res?.valuation?.openingOffer)} />
             <Kpi label="DSCR" value={seven?.results?.[0]?.value != null ? seven.results[0].value + '×' : '—'} good />
             <Kpi label="7-Number" value={seven ? `${seven.passes}/7` : '—'} good />
           </div>
         </>
+      ) : (
+        <p className="text-white/60 text-sm mb-3">Not analysed yet. Upload the accounts for verified figures, or run analysis on the submitted numbers.</p>
       )}
 
-      {/* actions */}
+      {/* analysis controls */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <button onClick={() => fileRef.current?.click()} disabled={!!busy} className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3.5 py-2 rounded-full text-xs font-semibold hover:bg-white/20 disabled:opacity-50">
-          {busy === 'extract' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Upload accounts
-        </button>
+        <Btn onClick={() => fileRef.current?.click()} busy={busy === 'extract'} icon={Upload} label="Upload accounts" />
         <input ref={fileRef} type="file" accept="application/pdf,text/csv,text/plain" multiple className="hidden" onChange={(e) => { onUpload(e.target.files); e.target.value = ''; }} />
-        <button onClick={() => runStep('analyze')} disabled={!!busy} className="inline-flex items-center gap-1.5 bg-[#FFD700] text-[#0A2540] px-3.5 py-2 rounded-full text-xs font-semibold hover:bg-opacity-90 disabled:opacity-50">
-          {busy === 'analyze' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} {b?.analysis ? 'Re-run analysis' : 'Run analysis'}
-        </button>
-        <button onClick={() => runStep('committee')} disabled={!!busy || !b?.analysis} className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3.5 py-2 rounded-full text-xs font-semibold hover:bg-white/20 disabled:opacity-40">
-          {busy === 'committee' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gavel className="h-3.5 w-3.5" />} Committee
-        </button>
-        <button onClick={() => runStep('memo')} disabled={!!busy || !b?.analysis} className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3.5 py-2 rounded-full text-xs font-semibold hover:bg-white/20 disabled:opacity-40">
-          {busy === 'memo' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} Memo
-        </button>
+        <Btn onClick={() => runStep('analyze')} busy={busy === 'analyze'} icon={Sparkles} label={b?.analysis ? 'Re-run analysis' : 'Run analysis'} primary />
+        <Btn onClick={() => runStep('committee')} busy={busy === 'committee'} icon={Gavel} label="Committee" disabled={!b?.analysis} />
+        <Btn onClick={() => runStep('memo')} busy={busy === 'memo'} icon={FileText} label="Memo" disabled={!b?.analysis} />
       </div>
-      {busy === 'analyze' && <p className="text-white/45 text-xs mb-3">Running the engine and analyst… this takes about a minute.</p>}
+      {busy === 'analyze' && <p className="text-white/45 text-xs mb-3">Running the engine and analyst… about a minute.</p>}
 
-      {/* verified financials */}
-      {verified.length > 0 && (
-        <Block title={`Verified financials (${verified.length})`}>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
-            {verified.slice(0, 9).map((f) => (
-              <div key={f.id} className={'rounded-lg p-2 ' + (f.contradicts_self_reported ? 'bg-red-500/10 border border-red-400/40' : 'bg-white/5')}>
-                <div className="text-white/45 text-[10px] capitalize">{f.metric.replace(/_/g, ' ')}{f.period ? ' · ' + f.period : ''}</div>
-                <div className={'text-sm font-semibold ' + (f.contradicts_self_reported ? 'text-red-200' : 'text-white')}>{f.metric.endsWith('_pct') ? f.value + '%' : gbp(f.value)}</div>
+      {/* stage-aware agent actions */}
+      <div className="text-white/50 text-[11px] uppercase tracking-wide mb-2">Suggested next steps · {stageLabel}</div>
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {actionKeys.map((k) => {
+          const m = ACTION_META[k]; if (!m) return null; const Icon = m.icon;
+          return (
+            <button key={k} onClick={() => onAction(k)} disabled={!!busy} className="text-left bg-[#0E2A47] border border-white/10 hover:border-[#FFD700]/40 rounded-xl p-2.5 flex gap-2.5 disabled:opacity-50">
+              {busy === k ? <Loader2 className="h-4 w-4 mt-0.5 animate-spin text-[#FFD700]" /> : <Icon className="h-4 w-4 mt-0.5 text-[#FFD700]" />}
+              <span><span className="block text-[12px] font-semibold text-white">{m.label}</span><span className="block text-[11px] text-white/50">{m.sub}</span></span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* drafts the agent has produced (draft-only) */}
+      {(b?.drafts ?? []).length > 0 && (
+        <Block title={`Drafts (${b!.drafts.length})`}>
+          <div className="flex flex-col gap-2">
+            {b!.drafts.map((d: any) => (
+              <div key={d.id} className="bg-white/5 rounded-lg p-2.5">
+                <button onClick={() => setOpenDraft(openDraft === d.id ? null : d.id)} className="w-full flex items-center gap-2 text-left">
+                  {openDraft === d.id ? <ChevronDown className="h-3.5 w-3.5 text-white/50" /> : <ChevronRight className="h-3.5 w-3.5 text-white/50" />}
+                  <span className="flex-1 text-[12px] text-white">{d.subject || ACTION_META[d.action_key]?.label || d.action_key}</span>
+                  {d.recipient_role && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#FFD700]/15 text-[#FFD700]">{d.recipient_role}</span>}
+                  <span className="text-[9px] text-white/40">{d.kind}</span>
+                </button>
+                {openDraft === d.id && (
+                  <div className="mt-2">
+                    <div className="flex justify-end mb-1">
+                      <button onClick={() => copy(d.id, (d.subject ? d.subject + '\n\n' : '') + d.body)} className="inline-flex items-center gap-1 text-[10px] text-[#FFD700]">
+                        {copied === d.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} {copied === d.id ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                    <pre className="whitespace-pre-wrap text-white/75 text-[12px] leading-relaxed bg-black/20 rounded-lg p-3 max-h-80 overflow-y-auto font-sans">{d.body}</pre>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </Block>
       )}
 
-      {/* valuation + 7-number */}
-      {res && (
-        <Block title="Valuation & deal economics">
-          {res.valuation && (
-            <p className="text-white/75 text-[13px] mb-2">Range {gbp(res.valuation.enterpriseValue?.floor)} – {gbp(res.valuation.enterpriseValue?.ceiling)} · open {gbp(res.valuation.openingOffer)} · walk-away {gbp(res.valuation.walkAway)} <span className="text-white/40">({res.valuation.multipleRange?.low}–{res.valuation.multipleRange?.high}× {res.valuation.basis})</span></p>
-          )}
-          {res.fundingStack && (
-            <div className="flex h-5 rounded overflow-hidden text-[10px] text-[#0A2540] font-semibold mb-2">
-              <div style={{ width: (res.fundingStack.senior?.pct ?? 60) + '%' }} className="bg-[#FFD700] flex items-center justify-center">Senior {Math.round(res.fundingStack.senior?.pct ?? 0)}%</div>
-              <div style={{ width: (res.fundingStack.vendor?.pct ?? 25) + '%' }} className="bg-emerald-300 flex items-center justify-center">VF {Math.round(res.fundingStack.vendor?.pct ?? 0)}%</div>
-              <div style={{ width: (res.fundingStack.equity?.pct ?? 15) + '%' }} className="bg-white/50 flex items-center justify-center">Eq {Math.round(res.fundingStack.equity?.pct ?? 0)}%</div>
-            </div>
-          )}
-          {seven?.results && (
-            <div className="flex flex-wrap gap-1.5">
-              {seven.results.map((r: any) => (
-                <span key={r.n} className={'text-[10px] px-2 py-1 rounded-full ' + (CHIP[r.status] ?? CHIP.monitor)}>{r.name} {r.status === 'pass' ? '✓' : r.status === 'fail' ? '✕' : '—'}</span>
-              ))}
-            </div>
-          )}
-        </Block>
-      )}
+      {/* data room */}
+      <Block title="Data room">
+        <div className="flex gap-1.5 flex-wrap mb-2 text-[11px]">
+          {['accounts', 'financials', 'legal', 'property'].map((g) => (
+            <span key={g} className="px-2.5 py-1 rounded-full bg-white/8 text-white/60 capitalize">{g}</span>
+          ))}
+        </div>
+        {(b?.documents ?? []).length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5 mb-2">
+            {b!.documents.map((doc: any) => (
+              <div key={doc.id} className="bg-white/5 rounded-lg p-2 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-white/45 shrink-0" />
+                <span className="flex-1 truncate text-[11px] text-white/75">{doc.file_name}</span>
+                <span className={'text-[9px] ' + (doc.extraction_status === 'done' ? 'text-emerald-300' : 'text-white/40')}>{doc.extraction_status === 'done' ? '✓' : doc.extraction_status}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p className="text-white/40 text-[12px] mb-2">No documents yet — upload accounts above to populate verified figures.</p>}
+        {verified.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+            {verified.slice(0, 9).map((f) => (
+              <div key={f.id} className={'rounded-lg p-2 ' + (f.contradicts_self_reported ? 'bg-red-500/10 border border-red-400/40' : 'bg-white/5')}>
+                <div className="text-white/45 text-[10px] capitalize">{f.metric.replace(/_/g, ' ')}{f.period ? ' · ' + f.period : ''}</div>
+                <div className={'text-[13px] font-semibold ' + (f.contradicts_self_reported ? 'text-red-200' : 'text-white')}>{f.metric.endsWith('_pct') ? f.value + '%' : gbp(f.value)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Block>
 
-      {/* analyst */}
-      {rep && (
-        <Block title="Analyst view">
-          {rep.executive_summary && <p className="text-white/80 text-[13px] leading-relaxed mb-2">{rep.executive_summary}</p>}
-          {Array.isArray(rep.key_risks) && rep.key_risks.length > 0 && (
-            <ul className="list-disc pl-4 text-white/65 text-[12px] space-y-1 mb-2">{rep.key_risks.slice(0, 4).map((r: string, i: number) => <li key={i}>{r}</li>)}</ul>
-          )}
-          {rep.suggested_offer && <p className="text-[#FFD700] text-[12px]">Suggested: open {gbp(rep.suggested_offer.opening)} · walk {gbp(rep.suggested_offer.walk_away)}</p>}
-        </Block>
-      )}
-
-      {/* committee */}
-      {b?.verdict?.detail && (
-        <Block title="Investment Committee">
-          <p className="text-white/80 text-[13px] mb-2">{b.verdict.detail.headline}</p>
-          {Array.isArray(b.verdict.detail.conditions) && b.verdict.detail.conditions.length > 0 && (
-            <>
-              <div className="text-white/45 text-[11px] mb-1">Conditions to proceed</div>
-              <ul className="list-disc pl-4 text-white/70 text-[12px] space-y-1">{b.verdict.detail.conditions.slice(0, 5).map((c: string, i: number) => <li key={i}>{c}</li>)}</ul>
-            </>
-          )}
-        </Block>
-      )}
-
-      {/* memo */}
-      {b?.memo && (
-        <Block title={b.memo.title || 'Investment memo'}>
-          <button onClick={() => setShowMemo((s) => !s)} className="inline-flex items-center gap-1 text-[#FFD700] text-xs font-semibold mb-2">
-            {showMemo ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />} {showMemo ? 'Hide' : 'View'} memo
+      {/* full analysis — verbose detail lives here once, not duplicated above */}
+      {(rep || det || b?.memo) && (
+        <div className="border-t border-white/8 pt-3 mt-3">
+          <button onClick={() => setShowFull((s) => !s)} className="inline-flex items-center gap-1 text-[#FFD700] text-xs font-semibold">
+            {showFull ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />} {showFull ? 'Hide' : 'View'} full analysis
           </button>
-          {showMemo && <pre className="whitespace-pre-wrap text-white/75 text-[12px] leading-relaxed bg-black/20 rounded-lg p-3 max-h-96 overflow-y-auto font-sans">{b.memo.content}</pre>}
-        </Block>
+          {showFull && (
+            <div className="mt-3 flex flex-col gap-3 text-[12px] text-white/75 leading-relaxed">
+              {rep?.financial_analysis && <Detail t="Financial analysis" v={rep.financial_analysis} />}
+              {rep?.valuation_view && <Detail t="Valuation view" v={rep.valuation_view} />}
+              {rep?.recommended_structure && <Detail t="Recommended structure" v={rep.recommended_structure} />}
+              {Array.isArray(rep?.opportunities) && rep.opportunities.length > 0 && <DetailList t="Opportunities" items={rep.opportunities} />}
+              {Array.isArray(risks) && risks.length > 0 && <DetailList t="Key risks" items={risks} />}
+              {Array.isArray(det?.conditions) && det.conditions.length > 0 && <DetailList t="Committee conditions" items={det.conditions} />}
+              {rep?.suggested_offer && <p className="text-[#FFD700]">Suggested: open {gbp(rep.suggested_offer.opening)} · walk {gbp(rep.suggested_offer.walk_away)}</p>}
+              {b?.memo && <Detail t={b.memo.title || 'Investment memo'} v={b.memo.content} mono />}
+            </div>
+          )}
+        </div>
       )}
     </Wrap>
   );
 }
 
-function Wrap({ children }: { children: React.ReactNode }) {
-  return <div className="mb-6 bg-white/5 rounded-2xl p-4 border border-white/10">{children}</div>;
-}
+function Wrap({ children }: { children: React.ReactNode }) { return <div className="mb-6 bg-white/5 rounded-2xl p-4 border border-white/10">{children}</div>; }
 function Kpi({ label, value, gold, good }: { label: string; value: string; gold?: boolean; good?: boolean }) {
-  return (
-    <div className="bg-white/5 rounded-lg p-2.5">
-      <div className="text-white/45 text-[10px]">{label}</div>
-      <div className={'text-base font-semibold ' + (gold ? 'text-[#FFD700]' : good ? 'text-emerald-300' : 'text-white')}>{value}</div>
-    </div>
-  );
+  return <div className="bg-white/5 rounded-lg p-2.5"><div className="text-white/45 text-[10px]">{label}</div><div className={'text-base font-semibold ' + (gold ? 'text-[#FFD700]' : good ? 'text-emerald-300' : 'text-white')}>{value}</div></div>;
 }
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
+  return <div className="border-t border-white/8 pt-3 mt-3"><div className="text-white/50 text-[11px] uppercase tracking-wide mb-2">{title}</div>{children}</div>;
+}
+function Btn({ onClick, busy, icon: Icon, label, primary, disabled }: { onClick: () => void; busy?: boolean; icon: any; label: string; primary?: boolean; disabled?: boolean }) {
   return (
-    <div className="border-t border-white/8 pt-3 mt-3">
-      <div className="text-white/50 text-[11px] uppercase tracking-wide mb-2">{title}</div>
-      {children}
-    </div>
+    <button onClick={onClick} disabled={busy || disabled} className={'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold disabled:opacity-40 ' + (primary ? 'bg-[#FFD700] text-[#0A2540] hover:bg-opacity-90' : 'bg-white/10 text-white hover:bg-white/20')}>
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />} {label}
+    </button>
   );
+}
+function Detail({ t, v, mono }: { t: string; v: string; mono?: boolean }) {
+  return <div><div className="text-white/45 text-[10px] uppercase tracking-wide mb-1">{t}</div>{mono ? <pre className="whitespace-pre-wrap font-sans bg-black/20 rounded-lg p-3 max-h-96 overflow-y-auto">{v}</pre> : <p>{v}</p>}</div>;
+}
+function DetailList({ t, items }: { t: string; items: string[] }) {
+  return <div><div className="text-white/45 text-[10px] uppercase tracking-wide mb-1">{t}</div><ul className="list-disc pl-4 space-y-1">{items.slice(0, 6).map((x, i) => <li key={i}>{x}</li>)}</ul></div>;
 }
