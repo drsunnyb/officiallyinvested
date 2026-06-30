@@ -268,6 +268,16 @@
   .warnmini{display:flex;gap:8px;align-items:center;background:rgba(239,68,68,.1);border:1px solid rgba(248,113,113,.4);border-radius:8px;padding:9px 11px;font-size:11.5px;color:var(--red);font-weight:500}
   .tmbadge{width:46px;height:46px;flex:0 0 auto;border-radius:50%;background:linear-gradient(135deg,var(--gold),#b8860b);color:var(--navy);font-family:'Fraunces',serif;font-weight:700;font-size:21px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 22px rgba(255,215,0,.35)}
   @media(max-width:620px){.why-grid{grid-template-columns:1fr}}
+  /* cost comparison */
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:42px;align-items:start}
+  .cmp-old,.cmp-new{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px}
+  .cmp-new{border:1.5px solid var(--gold);box-shadow:0 30px 70px -30px rgba(255,215,0,.4)}
+  .cmp-h{font-family:'Fraunces',serif;font-weight:600;font-size:18px;margin-bottom:14px}
+  .cmp-row{display:flex;justify-content:space-between;gap:14px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;color:var(--mut)}
+  .cmp-row span:last-child{color:#fff;font-weight:600;white-space:nowrap}
+  .cmp-total{display:flex;justify-content:space-between;align-items:baseline;padding-top:14px;margin-top:6px;font-family:'Fraunces',serif;font-weight:700;font-size:22px;color:#fff}
+  .cmp-note{font-size:12px;color:var(--mut2);margin-top:10px}
+  @media(max-width:640px){.compare{grid-template-columns:1fr}}
   /* frameworks 2-col + credibility badges */
   .fwgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .fw{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px;display:flex;flex-direction:column;transition:.2s}
@@ -690,6 +700,34 @@
     <div class="gcard" data-animate><h3>Diligence + funding</h3><p>Financial, commercial and legal DD scoped, plus a lender-ready funding pack.</p></div>
     <div class="gcard" data-animate><h3>Always watching</h3><p>Companies House changes and refinance windows flagged on your live deals.</p></div>
   </div>
+</section>
+
+<!-- ===================== COST COMPARISON ===================== -->
+<section class="wrap" id="vs">
+  <div class="center" data-animate><div class="eyebrow">A private equity firm in your pocket</div>
+  <h2 class="serif" style="margin-top:14px">The analyst, the data and the deal desk. Without the £100k+ a year.</h2>
+  <p class="lead center" style="margin:16px auto 0">Buying well used to take a PE firm's back office: a deal analyst, expensive data terminals, a deal CRM and a stack of tools. This is all of it, working together, for the price of a subscription.</p></div>
+  <div class="compare" data-animate>
+    <div class="cmp-old">
+      <div class="cmp-h">Build it in-house</div>
+      <div class="cmp-row"><span>A deal analyst (just one)</span><span>£75,000+/yr</span></div>
+      <div class="cmp-row"><span>Market &amp; company data (PitchBook, Capital IQ)</span><span>£15,000–40,000/yr</span></div>
+      <div class="cmp-row"><span>Deal CRM &amp; pipeline software</span><span>£3,000–12,000/yr</span></div>
+      <div class="cmp-row"><span>Valuation, research &amp; DD tools</span><span>£5,000+/yr</span></div>
+      <div class="cmp-total"><span>Realistically</span><span>£100,000+/yr</span></div>
+      <div class="cmp-note">And you still do the analysis, drafting and chasing yourself.</div>
+    </div>
+    <div class="cmp-new">
+      <div class="cmp-h" style="color:var(--gold)">Officially Invested AI</div>
+      <div class="cmp-row"><span>Analyst, committee, due diligence, capital &amp; CRM</span><span>included</span></div>
+      <div class="cmp-row"><span>Valuation on your own trademarked methods</span><span>included</span></div>
+      <div class="cmp-row"><span>Every email &amp; document drafted, signed and branded</span><span>included</span></div>
+      <div class="cmp-row"><span>It does the work, not just hand you the data</span><span>included</span></div>
+      <div class="cmp-total" style="color:var(--gold)"><span>From</span><span>£99–£349/mo</span></div>
+      <div class="cmp-note">Around £1,200 to £4,200 a year. Less than a fortnight of one analyst's time.</div>
+    </div>
+  </div>
+  <p class="center" style="color:var(--mut2);font-size:11.5px;margin-top:16px">Cost ranges from published market data: PitchBook and S&amp;P Capital IQ per-seat pricing, and UK private equity analyst salary benchmarks.</p>
 </section>
 
 <!-- ===================== PRICING ===================== -->
