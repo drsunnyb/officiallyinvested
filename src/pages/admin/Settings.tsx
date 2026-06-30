@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, ArrowLeft, Check, Upload, PenLine, ShieldCheck, Inbox, Sparkles, Palette } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { legalGetProfile, legalSetProfile, legalSetBrand } from '../../lib/acq';
+import { legalGetProfile, legalSetProfile, legalSetBrand, brandExtract } from '../../lib/acq';
 
 type Profile = Record<string, any>;
 
@@ -27,7 +27,10 @@ export default function Settings() {
       else setLoading(false);
     });
   }, []);
+  const [brandUrl, setBrandUrl] = useState('');
+  const [pulling, setPulling] = useState(false);
   const saveBrand = async () => { setSavingB(true); setErr(''); try { const r = await legalSetBrand(brand); setBrand(r.brand || brand); setSavedB(true); setTimeout(() => setSavedB(false), 2500); } catch (e: any) { setErr(e.message || String(e)); } finally { setSavingB(false); } };
+  const pullBrand = async () => { if (!brandUrl.trim()) return; setPulling(true); setErr(''); try { const r: any = await brandExtract(brandUrl); const x = r.brand || {}; setBrand((b) => ({ ...b, ...(x.name ? { name: x.name } : {}), ...(x.color ? { color: x.color } : {}), ...(x.logo ? { logo: x.logo } : {}) })); } catch (e: any) { setErr(e.message || String(e)); } finally { setPulling(false); } };
 
   const set = (k: string, v: any) => { setP((x) => ({ ...x, [k]: v })); setSaved(false); };
   const onSig = (f: File | null) => {
@@ -101,10 +104,17 @@ export default function Settings() {
             </div>
 
             {/* Brand */}
-            <Section icon={<Palette className="h-4 w-4" />} title="Brand" sub="Brands the documents you generate: letterhead, colour and footer on every PDF.">
+            <Section icon={<Palette className="h-4 w-4" />} title="Brand" sub="Brands the documents you generate: letterhead, colour, font and footer on every PDF.">
+              <div className="flex gap-2 mb-2">
+                <input className={input + ' flex-1'} value={brandUrl} onChange={(e) => setBrandUrl(e.target.value)} placeholder="yourcompany.com — pull brand from your website" />
+                <button onClick={pullBrand} disabled={pulling} className="inline-flex items-center gap-2 bg-white/10 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-white/20 disabled:opacity-50 shrink-0">{pulling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Pull from website</button>
+              </div>
+              <p className="text-white/35 text-[11px] mb-3">Defaults to Officially Invested branding. Pull your name, colour and logo from your site, or set them by hand below, then adjust.</p>
               <div className="grid md:grid-cols-2 gap-3">
                 <div><span className={label}>Brand / firm name</span><input className={input} value={brand.name ?? ''} onChange={(e) => setBrand((x) => ({ ...x, name: e.target.value }))} placeholder="Acme Acquisitions" /></div>
                 <div><span className={label}>Brand colour</span><div className="flex items-center gap-2"><input type="color" value={brand.color || '#0A2540'} onChange={(e) => setBrand((x) => ({ ...x, color: e.target.value }))} className="h-9 w-12 bg-transparent rounded cursor-pointer" /><input className={input + ' flex-1'} value={brand.color ?? ''} onChange={(e) => setBrand((x) => ({ ...x, color: e.target.value }))} placeholder="#0A2540" /></div></div>
+                <div><span className={label}>Accent colour</span><div className="flex items-center gap-2"><input type="color" value={brand.accent || '#FFD700'} onChange={(e) => setBrand((x) => ({ ...x, accent: e.target.value }))} className="h-9 w-12 bg-transparent rounded cursor-pointer" /><input className={input + ' flex-1'} value={brand.accent ?? ''} onChange={(e) => setBrand((x) => ({ ...x, accent: e.target.value }))} placeholder="#FFD700" /></div></div>
+                <div><span className={label}>Document font</span><select className={input} value={brand.font || 'sans'} onChange={(e) => setBrand((x) => ({ ...x, font: e.target.value }))}><option value="sans" className="bg-[#0E3257]">Sans (clean, modern)</option><option value="serif" className="bg-[#0E3257]">Serif (classic)</option></select></div>
                 <div className="md:col-span-2"><span className={label}>Footer / letterhead line</span><input className={input} value={brand.footer ?? ''} onChange={(e) => setBrand((x) => ({ ...x, footer: e.target.value }))} placeholder="Acme Acquisitions Ltd · 1 High Street, London · acme.com" /></div>
               </div>
               <div className="mt-3"><span className={label}>Logo (PNG/JPG)</span>
