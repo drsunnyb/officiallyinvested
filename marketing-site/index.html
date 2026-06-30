@@ -163,7 +163,7 @@
   .stp h3{font-size:15.5px;font-weight:600;margin-bottom:6px}
   .stp p{color:var(--mut);font-size:13.5px}
 
-  .team{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:40px}
+  .team{display:grid;grid-template-columns:repeat(auto-fit,minmax(244px,1fr));gap:13px;margin-top:40px}
   .ag{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:18px;transition:.2s}
   .ag:hover{border-color:rgba(255,215,0,.35);transform:translateY(-3px)}
   .ag .r{color:var(--gold);font-weight:600;font-size:14.5px;margin-bottom:4px}
@@ -253,6 +253,32 @@
     .tleft{border-right:none;border-bottom:1px solid var(--line)}
     .statband{grid-template-columns:1fr}
   }
+  /* AI team mini-shots + why-card visuals (slices of the real app) */
+  .ag .agshot{background:var(--navy);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:13px;height:98px;display:flex;flex-direction:column;justify-content:center;gap:6px;overflow:hidden}
+  .mk-k{flex:1;background:var(--card);border-radius:7px;padding:7px 8px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+  .mk-l{font-size:8.5px;color:var(--mut2)} .mk-v{font-size:13px;font-weight:700;color:#fff} .mk-v.gold{color:var(--gold)} .mk-v.green{color:var(--green)}
+  .mini-ck{display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--mut)}
+  .mini-ck .b{width:14px;height:14px;border-radius:4px;background:rgba(110,231,183,.18);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:9px;flex:0 0 auto}
+  .mini-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card);border-radius:6px;padding:4px 8px;font-size:10px;color:#fff}
+  .mini-row .rt{font-size:8px;font-weight:700;padding:1px 6px;border-radius:999px;background:rgba(255,215,0,.16);color:var(--gold);flex:0 0 auto}
+  .chipx{font-size:9px;color:var(--mut);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 8px;white-space:nowrap}
+  .why-grid{grid-template-columns:1fr 1fr}
+  .wcard{display:flex;flex-direction:column}
+  .wviz{background:var(--navy);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:15px;min-height:76px;display:flex;flex-direction:column;justify-content:center;gap:7px;overflow:hidden}
+  .warnmini{display:flex;gap:8px;align-items:center;background:rgba(239,68,68,.1);border:1px solid rgba(248,113,113,.4);border-radius:8px;padding:9px 11px;font-size:11.5px;color:var(--red);font-weight:500}
+  .tmbadge{width:46px;height:46px;flex:0 0 auto;border-radius:50%;background:linear-gradient(135deg,var(--gold),#b8860b);color:var(--navy);font-family:'Fraunces',serif;font-weight:700;font-size:21px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 22px rgba(255,215,0,.35)}
+  @media(max-width:620px){.why-grid{grid-template-columns:1fr}}
+  /* frameworks 2-col + credibility badges */
+  .fwgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .fw{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px;display:flex;flex-direction:column;transition:.2s}
+  .fw:hover{border-color:rgba(255,215,0,.35)}
+  .fw .t{font-size:12px;font-weight:600;color:#fff} .fw .s{font-size:10.5px;color:var(--mut2)}
+  .cred{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:18px 22px;display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center}
+  .cred-l{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut2);font-weight:600}
+  .cred-badges{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .cb{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#fff;background:var(--navy2);border:1px solid var(--line);border-radius:999px;padding:8px 15px;transition:.2s}
+  .cb:hover{border-color:rgba(255,215,0,.4);transform:translateY(-2px)}
+  @media(max-width:420px){.fwgrid{grid-template-columns:1fr}}
   @media(prefers-reduced-motion:reduce){.float{animation:none}*{transition:none!important}}
 </style>
 </head>
@@ -315,6 +341,20 @@
           <div class="dcard"><div class="nm">Tyne Joinery</div><div class="sb">Manufacturing · Newcastle</div><div class="ft"><span class="pill buy">BUY</span><span class="mv">£2.7M</span></div></div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CREDIBILITY BADGES ===================== -->
+<section class="wrap" style="padding:20px 0 0">
+  <div class="cred" data-animate>
+    <div class="cred-l">Built and used by operators from</div>
+    <div class="cred-badges">
+      <span class="cb">🏥 The NHS</span>
+      <span class="cb">📈 Private equity</span>
+      <span class="cb">🩺 Medicine</span>
+      <span class="cb">⚖️ Law</span>
+      <span class="cb">💻 Engineering &amp; tech</span>
     </div>
   </div>
 </section>
@@ -450,12 +490,19 @@
     </div>
     <div class="panel" data-animate>
       <div class="sub-l">The trademarked frameworks, in the engine</div>
-      <div class="tact"><span class="ic">①</span><span><span class="t">The RED Framework</span><span class="s">Filter every deal fast against your criteria</span></span></div>
-      <div class="tact" style="margin-top:9px"><span class="ic">②</span><span><span class="t">The 4-Multiple Method</span><span class="s">Value it the way the market really prices</span></span></div>
-      <div class="tact" style="margin-top:9px"><span class="ic">③</span><span><span class="t">The 7-Number Test</span><span class="s">Does the deal actually stack up?</span></span></div>
-      <div class="tact" style="margin-top:9px"><span class="ic">④</span><span><span class="t">Funding architecture</span><span class="s">Senior, vendor and equity, structured</span></span></div>
-      <div class="tact" style="margin-top:9px"><span class="ic">⑤</span><span><span class="t">Deal &amp; corporate structure</span><span class="s">HoldCo, SPVs, the way it should be</span></span></div>
-      <div class="tact" style="margin-top:12px;border-color:rgba(255,215,0,.45);background:rgba(255,215,0,.07)"><span class="ic">✦</span><span><span class="t" style="color:var(--gold)">Then trained on your deals &amp; structures</span><span class="s">It adapts to how you buy and structure, deal after deal</span></span></div>
+      <div class="fwgrid">
+        <div class="fw"><span class="t">RED Framework</span><span class="s">Filter every deal fast</span></div>
+        <div class="fw"><span class="t">4-Multiple Method</span><span class="s">Value the way the market prices</span></div>
+        <div class="fw"><span class="t">7-Number Test</span><span class="s">Does it actually stack up?</span></div>
+        <div class="fw"><span class="t">PROFIT Framework</span><span class="s">Engineer and protect the profit</span></div>
+        <div class="fw"><span class="t">ACQUIRE Framework</span><span class="s">Run the deal end to end</span></div>
+        <div class="fw"><span class="t">5-Layer Funding Stack</span><span class="s">Senior, vendor, equity and more</span></div>
+        <div class="fw"><span class="t">Deal Architecture</span><span class="s">HoldCo, SPVs, the right structure</span></div>
+        <div class="fw"><span class="t">Deal Review Scorecard</span><span class="s">Green flags vs red flags</span></div>
+        <div class="fw"><span class="t">Deal Finder + DD checklists</span><span class="s">Never miss a step</span></div>
+        <div class="fw" style="border-color:rgba(255,215,0,.25)"><span class="t" style="color:var(--gold)">+ more, always growing</span><span class="s">The full Officially Invested toolkit</span></div>
+      </div>
+      <div class="tact" style="margin-top:11px;border-color:rgba(255,215,0,.45);background:rgba(255,215,0,.07)"><span class="ic">✦</span><span><span class="t" style="color:var(--gold)">Then trained on your deals &amp; structures</span><span class="s">It adapts to how you buy and structure, deal after deal</span></span></div>
     </div>
   </div>
   <div class="statband" data-animate>
@@ -468,11 +515,30 @@
 <!-- ===================== WHY DIFFERENT ===================== -->
 <section class="wrap" id="why">
   <div class="center" data-animate><div class="eyebrow">Why it's different</div><h2 class="serif" style="margin-top:14px">Not a chatbot bolted onto a spreadsheet.</h2></div>
-  <div class="card-grid" style="margin-top:42px">
-    <div class="gcard" data-animate><h3>Computed, never guessed</h3><p>A real engine calculates the EBITDA, valuation, DSCR and funding stack. The AI explains the numbers; it never invents them.</p></div>
-    <div class="gcard" data-animate><h3>The bank-statement test, automatic</h3><p>Every figure the seller claims is checked against the documents, and contradictions are flagged before you waste a week.</p></div>
-    <div class="gcard" data-animate><h3>Trademarked IP, then tuned to you</h3><p>It values deals on Officially Invested's trademarked methods, the frameworks behind billions analysed, then trains on your own deals and structures.</p></div>
-    <div class="gcard" data-animate><h3>It sounds like you</h3><p>Every email and memo reads like you wrote it. No AI tells, no filler, nothing you'd be embarrassed to send.</p></div>
+  <div class="card-grid why-grid" style="margin-top:42px">
+    <div class="gcard wcard" data-animate>
+      <div class="wviz" style="flex-direction:row;align-items:stretch;gap:8px">
+        <div class="mk-k"><div class="mk-l">Adj EBITDA</div><div class="mk-v gold">£310k</div></div>
+        <div class="mk-k"><div class="mk-l">DSCR</div><div class="mk-v green">1.65×</div></div>
+        <div class="mk-k"><div class="mk-l">7-Number</div><div class="mk-v">6/7</div></div>
+      </div>
+      <h3>Computed, never guessed</h3><p>A real engine calculates the EBITDA, valuation, DSCR and funding stack. The AI explains the numbers; it never invents them.</p>
+    </div>
+    <div class="gcard wcard" data-animate>
+      <div class="wviz"><div class="warnmini"><span>⚠</span>Turnover £1.05M filed vs £1.2M claimed, run the bank-statement test</div></div>
+      <h3>The bank-statement test, automatic</h3><p>Every figure the seller claims is checked against the documents, and contradictions are flagged before you waste a week.</p>
+    </div>
+    <div class="gcard wcard" data-animate>
+      <div class="wviz" style="flex-direction:row;align-items:center;gap:12px"><div class="tmbadge">™</div><div style="display:flex;flex-wrap:wrap;gap:5px"><span class="chipx">RED</span><span class="chipx">4-Multiple</span><span class="chipx">7-Number</span><span class="chipx" style="color:var(--gold);border-color:rgba(255,215,0,.4)">+ your deals</span></div></div>
+      <h3>Trademarked IP, then tuned to you</h3><p>It values deals on Officially Invested's trademarked methods, the frameworks behind billions analysed, then trains on your own deals and structures.</p>
+    </div>
+    <div class="gcard wcard" data-animate>
+      <div class="wviz">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#fff;font-weight:600">Dear Margaret,</span><span class="tag">human voice</span></div>
+        <div class="docline" style="margin:0;width:92%"></div><div class="docline" style="margin:0;width:80%"></div>
+      </div>
+      <h3>It sounds like you</h3><p>Every email and memo reads like you wrote it. No AI tells, no filler, nothing you'd be embarrassed to send.</p>
+    </div>
   </div>
 </section>
 
@@ -482,14 +548,71 @@
 <section class="wrap" id="team">
   <div class="center" data-animate><div class="eyebrow">Your AI team</div><h2 class="serif" style="margin-top:14px">One platform. A firm's worth of specialists.</h2></div>
   <div class="team">
-    <div class="ag" data-animate><div class="r">Screening Analyst</div><p>Triages every opportunity against your buy box in seconds.</p></div>
-    <div class="ag" data-animate><div class="r">Investment Analyst</div><p>Reads the accounts and builds the valuation on real figures.</p></div>
-    <div class="ag" data-animate><div class="r">Investment Committee</div><p>Challenges the deal and calls it: buy, watch or pass.</p></div>
-    <div class="ag" data-animate><div class="r">Acquisition Manager</div><p>Drafts every email to the right person, in your voice.</p></div>
-    <div class="ag" data-animate><div class="r">Due Diligence</div><p>Financial, commercial and legal scope, ready for your advisers.</p></div>
-    <div class="ag" data-animate><div class="r">Capital</div><p>Builds the funding stack and the lender-ready pack.</p></div>
-    <div class="ag" data-animate><div class="r">CRM &amp; Monitoring</div><p>Remembers everyone, chases follow-ups, watches your live deals.</p></div>
-    <div class="ag" data-animate><div class="r">Your thesis, encoded</div><p>It scores every deal against the box you actually buy in.</p></div>
+    <div class="ag" data-animate>
+      <div class="agshot">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:600;color:#fff">Meadowbrook Care</span><span class="pill watch">WATCH·68</span></div>
+        <div style="font-size:9.5px;color:var(--mut2)">Healthcare · Cheshire · ~£1M</div>
+        <div class="mini-ck"><span class="b">✓</span>Matches your buy box</div>
+      </div>
+      <div class="r">Screening Analyst</div><p>Triages every opportunity against your buy box in seconds.</p>
+    </div>
+    <div class="ag" data-animate>
+      <div class="agshot" style="flex-direction:row;gap:7px">
+        <div class="mk-k"><div class="mk-l">Adj EBITDA</div><div class="mk-v gold">£310k</div></div>
+        <div class="mk-k"><div class="mk-l">DSCR</div><div class="mk-v green">1.65×</div></div>
+        <div class="mk-k"><div class="mk-l">7-No.</div><div class="mk-v">6/7</div></div>
+      </div>
+      <div class="r">Investment Analyst</div><p>Reads the accounts and builds the valuation on real figures.</p>
+    </div>
+    <div class="ag" data-animate>
+      <div class="agshot" style="align-items:center;text-align:center">
+        <div style="display:flex;gap:6px;justify-content:center"><span class="pill buy">BUY</span><span class="pill watch" style="box-shadow:0 0 0 2px rgba(253,230,138,.5)">WATCH</span><span class="pill pass">PASS</span></div>
+        <div style="font-size:9.5px;color:var(--mut)">Called it: WATCH, on conditions</div>
+      </div>
+      <div class="r">Investment Committee</div><p>Challenges the deal and calls it: buy, watch or pass.</p>
+    </div>
+    <div class="ag" data-animate>
+      <div class="agshot" style="justify-content:center;gap:7px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;font-weight:600;color:#fff">A quick introduction</span><span class="tag">vendor</span></div>
+        <div class="docline" style="margin:0;width:94%"></div><div class="docline" style="margin:0;width:82%"></div><div class="docline" style="margin:0;width:88%"></div>
+      </div>
+      <div class="r">Acquisition Manager</div><p>Drafts every email to the right person, in your voice.</p>
+    </div>
+    <div class="ag" data-animate>
+      <div class="agshot">
+        <div class="mini-ck"><span class="b">✓</span>Financial DD scoped</div>
+        <div class="mini-ck"><span class="b">✓</span>Commercial DD scoped</div>
+        <div class="mini-ck"><span class="b">✓</span>Legal DD scoped</div>
+      </div>
+      <div class="r">Due Diligence</div><p>Financial, commercial and legal scope, ready for your advisers.</p>
+    </div>
+    <div class="ag" data-animate>
+      <div class="agshot">
+        <div style="font-size:9.5px;color:var(--mut2)">Funding stack</div>
+        <div style="display:flex;height:22px;border-radius:6px;overflow:hidden">
+          <span style="background:var(--gold);color:var(--navy);width:60%;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700">60</span>
+          <span style="background:#caa52b;color:var(--navy);width:25%;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700">25</span>
+          <span style="background:#8a6d12;color:#fff;width:15%;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700">15</span>
+        </div>
+        <div style="font-size:8.5px;color:var(--mut2)">Senior · Vendor · Equity</div>
+      </div>
+      <div class="r">Capital</div><p>Builds the funding stack and the lender-ready pack.</p>
+    </div>
+    <div class="ag" data-animate>
+      <div class="agshot" style="gap:5px">
+        <div class="mini-row"><span>Margaret Hill</span><span class="rt">vendor</span></div>
+        <div class="mini-row"><span>D. Shah</span><span class="rt">accountant</span></div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:9px;color:var(--amber)"><span>●</span>New charge filed · review</div>
+      </div>
+      <div class="r">CRM &amp; Monitoring</div><p>Remembers everyone, chases follow-ups, watches your live deals.</p>
+    </div>
+    <div class="ag" data-animate>
+      <div class="agshot" style="gap:8px">
+        <div style="display:flex;flex-wrap:wrap;gap:4px"><span class="chipx">£1M–5M</span><span class="chipx">Care · Services</span><span class="chipx">North</span></div>
+        <div class="mini-ck"><span class="b">✓</span>Fit score 82 / 100</div>
+      </div>
+      <div class="r">Your thesis, encoded</div><p>It scores every deal against the box you actually buy in.</p>
+    </div>
   </div>
 </section>
 
