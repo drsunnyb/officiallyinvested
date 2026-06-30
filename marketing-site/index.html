@@ -132,13 +132,13 @@
 
   /* ---------- deal flow rail ---------- */
   .flow{position:relative;margin-top:46px}
-  .rail{position:relative;display:flex;justify-content:space-between;max-width:920px;margin:0 auto;padding:0 10px}
-  .rail::before{content:"";position:absolute;top:23px;left:40px;right:40px;height:2px;background:var(--line)}
-  .rail .fill{position:absolute;top:23px;left:40px;height:2px;background:linear-gradient(90deg,var(--gold),#b8860b);width:0;transition:width .6s ease;box-shadow:0 0 12px rgba(255,215,0,.6);z-index:1}
-  .node{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:10px;width:108px}
+  .rail{position:relative;display:flex;justify-content:center;gap:6px;max-width:100%;margin:0 auto;padding:2px 6px}
+  .railline{position:absolute;top:23px;height:2px;background:var(--line);z-index:0}
+  .rail .fill{position:absolute;top:23px;left:40px;height:2px;background:linear-gradient(90deg,var(--gold),#b8860b);width:0;transition:width .6s ease,left .6s ease;box-shadow:0 0 12px rgba(255,215,0,.6);z-index:1}
+  .node{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:9px;width:100px;flex:0 0 100px;cursor:pointer}
   .node .dot{width:46px;height:46px;border-radius:50%;background:var(--navy2);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:19px;transition:.4s;color:var(--mut2)}
   .node.on .dot{border-color:var(--gold);background:rgba(255,215,0,.14);color:var(--gold);box-shadow:0 0 0 6px rgba(255,215,0,.1),0 0 26px rgba(255,215,0,.45);transform:scale(1.06)}
-  .node .lbl{font-size:11.5px;color:var(--mut2);text-align:center;font-weight:600;transition:.3s}
+  .node .lbl{font-size:11.5px;line-height:1.25;color:var(--mut2);text-align:center;font-weight:600;transition:.3s;min-height:30px}
   .node.on .lbl{color:#fff}
   .flow-cap{max-width:560px;margin:34px auto 0;text-align:center;min-height:54px}
   .flow-cap .t{color:var(--gold);font-weight:600;font-size:14px;margin-bottom:4px}
@@ -208,10 +208,10 @@
     .steps{grid-template-columns:1fr 1fr}
     .nav-links{display:none}
     section{padding:70px 0}
-    .rail .node .lbl{font-size:10px}
-    .node{width:64px}
-    .rail::before,.rail .fill{left:28px;right:28px}
-    .rail .fill{left:28px}
+    .rail{justify-content:flex-start;overflow-x:auto;scrollbar-width:none;gap:10px}
+    .rail::-webkit-scrollbar{display:none}
+    .node{width:86px;flex:0 0 86px}
+    .node .lbl{font-size:10.5px;min-height:28px}
   }
   @media(max-width:520px){.kpis{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr}.stat{gap:28px}}
   /* founder / methodology */
@@ -279,11 +279,19 @@
   .cb{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#fff;background:var(--navy2);border:1px solid var(--line);border-radius:999px;padding:8px 15px;transition:.2s}
   .cb:hover{border-color:rgba(255,215,0,.4);transform:translateY(-2px)}
   @media(max-width:420px){.fwgrid{grid-template-columns:1fr}}
+  /* research stat band */
+  .rstats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:38px 0 6px}
+  .rstat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;text-align:center}
+  .rstat .v{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(28px,4vw,40px);color:var(--gold);line-height:1}
+  .rstat .l{font-size:13.5px;color:var(--mut);margin-top:9px;line-height:1.45}
+  .rstat .src{font-size:10.5px;color:var(--mut2);margin-top:9px;letter-spacing:.04em;text-transform:uppercase}
+  @media(max-width:700px){.rstats{grid-template-columns:1fr}}
   /* credibility logo wall */
-  .logos{display:flex;align-items:center;justify-content:center;gap:13px;flex-wrap:wrap}
-  .logo{height:48px;min-width:96px;padding:9px 17px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px -12px rgba(0,0,0,.6)}
-  .logo img{max-height:26px;max-width:112px;width:auto;object-fit:contain;display:block}
+  .logos{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+  .lchip{height:54px;min-width:108px;padding:10px 20px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px -12px rgba(0,0,0,.6)}
+  .lchip img{max-height:30px;max-width:118px;width:auto;object-fit:contain;display:block}
   .lw{font-family:'Inter',sans-serif;font-weight:700;font-size:16px;color:#0A2540;letter-spacing:.01em}
+  .cred-names{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(16px,2.4vw,21px);color:#dbe3ee;letter-spacing:.03em;text-align:center;line-height:1.6}
   @media(prefers-reduced-motion:reduce){.float{animation:none}*{transition:none!important}}
 </style>
 </head>
@@ -354,21 +362,20 @@
 <section class="wrap" style="padding:20px 0 0">
   <div class="cred" data-animate>
     <div class="cred-l">Built and used by operators who've worked at</div>
-    <div class="logos">
-      <span class="logo"><img src="https://logo.clearbit.com/nhs.uk" alt="NHS" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'NHS'}))"></span>
-      <span class="logo"><img src="https://logo.clearbit.com/bt.com" alt="BT" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'BT'}))"></span>
-      <span class="logo"><img src="https://logo.clearbit.com/deloitte.com" alt="Deloitte" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'Deloitte'}))"></span>
-      <span class="logo"><img src="https://logo.clearbit.com/pwc.com" alt="PwC" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'PwC'}))"></span>
-      <span class="logo"><img src="https://logo.clearbit.com/kpmg.com" alt="KPMG" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'KPMG'}))"></span>
-      <span class="logo"><img src="https://logo.clearbit.com/ey.com" alt="EY" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'EY'}))"></span>
-    </div>
+    <div class="cred-names">NHS · BT · Deloitte · PwC · KPMG · EY</div>
   </div>
 </section>
 
 <!-- ===================== PAIN ===================== -->
 <section class="wrap" id="pain" style="padding-top:40px">
-  <div class="center" data-animate><div class="eyebrow">If you're buying a business, you already know</div>
+  <div class="center" data-animate><div class="eyebrow">If you're buying a business, property or land, you already know</div>
   <h2 class="serif" style="margin-top:14px">It's a second full-time job of admin and guesswork.</h2></div>
+  <div class="rstats" data-animate>
+    <div class="rstat"><div class="v">70–90%</div><div class="l">of acquisitions fail to create the value the buyer expected</div><div class="src">Harvard Business Review</div></div>
+    <div class="rstat"><div class="v">60%+</div><div class="l">of dealmakers blame weak due diligence when a deal goes wrong</div><div class="src">Bain &amp; Company</div></div>
+    <div class="rstat"><div class="v">90 days</div><div class="l">once diligence drags past this, the odds of completing fall sharply</div><div class="src">M&amp;A advisory data</div></div>
+  </div>
+  <p class="center" data-animate style="color:var(--mut);max-width:700px;margin:8px auto 0;font-size:16px">Officially Invested AI is built to flip those odds: analyse in minutes not weeks, value it so you don't overpay, and keep every deal moving so momentum never kills it.</p>
   <div class="pain">
     <div class="gcard" data-animate><h3>You are the whole team</h3><p>Analyst, the lawyer's project manager, the chaser, the negotiator. All at once, on top of your day job.</p></div>
     <div class="gcard" data-animate><h3>You're half-guessing the numbers</h3><p>Hours in spreadsheets to work out if a deal stacks up, and you still only half-trust what the seller told you.</p></div>
@@ -383,6 +390,7 @@
   <p class="lead center" style="margin:16px auto 0">Move a deal across your board and the right specialist does that stage's work. Watch it run, or click any stage.</p></div>
   <div class="flow" data-animate>
     <div class="rail" id="rail">
+      <div class="railline" id="railline"></div>
       <div class="fill" id="fill"></div>
       <div class="node on" data-i="0" onclick="setStage(0)"><div class="dot">📥</div><div class="lbl">New</div></div>
       <div class="node" data-i="1" onclick="setStage(1)"><div class="dot">🔎</div><div class="lbl">Discovery</div></div>
@@ -785,6 +793,10 @@
     snodes.forEach(function(n,k){ n.classList.toggle('on', k<=si); });
     var c0=snodes[0].offsetLeft+snodes[0].offsetWidth/2, cc=snodes[si].offsetLeft+snodes[si].offsetWidth/2;
     sfill.style.left=c0+'px'; sfill.style.right='auto'; sfill.style.width=Math.max(0,cc-c0)+'px';
+    var last=snodes[snodes.length-1], cL=last.offsetLeft+last.offsetWidth/2;
+    var dot0=snodes[0].querySelector('.dot'), top=dot0.offsetTop+dot0.offsetHeight/2;
+    var rl=document.getElementById('railline'); if(rl){ rl.style.left=c0+'px'; rl.style.width=(cL-c0)+'px'; rl.style.top=top+'px'; }
+    sfill.style.top=top+'px';
     try{ srail.scrollTo({left:snodes[si].offsetLeft-srail.clientWidth/2+snodes[si].offsetWidth/2, behavior:'smooth'}); }catch(e){}
     document.getElementById('tUrl').innerHTML='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> officiallyinvested.com/admin/pipeline · '+s.url;
     document.getElementById('tNum').textContent='Stage '+('0'+(si+1)).slice(-2)+' of '+('0'+ST.length).slice(-2);
