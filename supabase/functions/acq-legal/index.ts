@@ -61,36 +61,47 @@ function makeRenderer(pdf: any, fonts: any, brand: any) {
   let page = pdf.addPage([W, H]); let y = topY;
   const ensure = (need = lh) => { if (y - need < margin + 40) { page = pdf.addPage([W, H]); y = topY; } };
   const wrap = (text: string, f: any, s: number) => { const out: string[] = []; for (const raw of text.split('\n')) { if (raw.trim() === '') { out.push(''); continue; } const words = raw.split(/\s+/); let line = ''; for (const w of words) { const t = line ? line + ' ' + w : w; if (f.widthOfTextAtSize(t, s) > maxW && line) { out.push(line); line = w; } else line = t; } if (line) out.push(line); } return out; };
-  const para = (text: string, f = font, s = size, gap = 0) => { for (const l of wrap(text, f, s)) { if (l === '') { y -= lh * 0.5; continue; } ensure(); page.drawText(l, { x: margin, y, size: s, font: f, color: rgb(0.09, 0.13, 0.2) }); y -= lh; } if (gap) y -= gap; };
+  const para = (text: string, f = font, s = size, gap = 0, col = rgb(0.12, 0.16, 0.22)) => { for (const l of wrap(text, f, s)) { if (l === '') { y -= lh * 0.5; continue; } ensure(); page.drawText(l, { x: margin, y, size: s, font: f, color: col }); y -= lh; } if (gap) y -= gap; };
   return { get page() { return page; }, get y() { return y; }, set y(v: number) { y = v; }, W, H, margin, size, lh, topY, ensure, para, wrap };
 }
 
 async function buildPdf(opts: { title: string; body: string; sig: any | null; brand?: any; signBlock?: boolean; legal?: boolean }) {
+  const b = { name: 'Officially Invested', color: '#0A2540', accent: '#FFD700', ...(opts.brand || {}) };
+  const serif = b.font === 'serif';
   const pdf = await PDFDocument.create();
-  const fonts = { font: await pdf.embedFont(StandardFonts.Helvetica), bold: await pdf.embedFont(StandardFonts.HelveticaBold), ital: await pdf.embedFont(StandardFonts.HelveticaOblique) };
-  const r = makeRenderer(pdf, fonts, opts.brand || {});
-  const brand = opts.brand || {};
-  if (brand.logo || brand.name) r.y = await header(pdf, r.page, r.y, r.margin, r.W, brand, fonts.bold);
-  r.para(opts.title, fonts.bold, 16, 8);
+  const fonts = { font: await pdf.embedFont(serif ? StandardFonts.TimesRoman : StandardFonts.Helvetica), bold: await pdf.embedFont(serif ? StandardFonts.TimesRomanBold : StandardFonts.HelveticaBold), ital: await pdf.embedFont(serif ? StandardFonts.TimesRomanItalic : StandardFonts.HelveticaOblique) };
+  const r = makeRenderer(pdf, fonts, b);
+  const primary = hexRgb(b.color, rgb(0.04, 0.145, 0.25));
+  const accent = hexRgb(b.accent || b.color, rgb(1, 0.84, 0));
+  // branded header band
+  const bandH = 84;
+  r.page.drawRectangle({ x: 0, y: r.H - bandH, width: r.W, height: bandH, color: primary });
+  r.page.drawRectangle({ x: 0, y: r.H - bandH - 4, width: r.W, height: 4, color: accent });
+  let hx = r.margin;
+  if (b.logo) { try { const m = String(b.logo).match(/^data:(image\/(png|jpe?g));base64,(.*)$/); if (m) { const img = /jpe?g/.test(m[1]) ? await pdf.embedJpg(m[3]) : await pdf.embedPng(m[3]); const s = img.scale(1); const h = 38, w = Math.min(150, h * (s.width / s.height)); r.page.drawRectangle({ x: hx - 6, y: r.H - bandH / 2 - h / 2 - 5, width: w + 12, height: h + 10, color: rgb(1, 1, 1) }); r.page.drawImage(img, { x: hx, y: r.H - bandH / 2 - h / 2, width: w, height: h }); hx += w + 20; } } catch (_) { /**/ } }
+  r.page.drawText(String(b.name), { x: hx, y: r.H - bandH / 2 - 6, size: 16, font: fonts.bold, color: rgb(1, 1, 1) });
+  r.y = r.H - bandH - 30;
+  r.para(opts.title, fonts.bold, 18, 12, primary);
   for (const block of cleanInline(opts.body).split('\n')) {
     const isH = /^#{1,6}\s/.test(block);
-    const clean = block.replace(/^#{1,6}\s/, '');
-    if (isH) { r.y -= 4; r.para(clean, fonts.bold, 12, 2); } else r.para(clean, fonts.font, r.size);
+    const c = block.replace(/^#{1,6}\s/, '');
+    if (isH) { r.y -= 5; r.para(c, fonts.bold, 12.5, 3, primary); } else r.para(c, fonts.font, r.size);
   }
   if (opts.signBlock !== false) {
     r.y -= r.lh; r.ensure(110);
-    r.page.drawText('Signed for and on behalf of the buyer:', { x: r.margin, y: r.y, size: r.size, font: fonts.bold }); r.y -= r.lh * 1.4;
+    r.page.drawText('Signed for and on behalf of the buyer:', { x: r.margin, y: r.y, size: r.size, font: fonts.bold, color: primary }); r.y -= r.lh * 1.4;
     if (opts.sig?.image_b64) { try { const img = opts.sig.image_is_jpg ? await pdf.embedJpg(opts.sig.image_b64) : await pdf.embedPng(opts.sig.image_b64); const s = img.scale(1); const w = Math.min(180, s.width); r.page.drawImage(img, { x: r.margin, y: r.y - 50, width: w, height: Math.min(60, w * (s.height / s.width)) }); r.y -= 64; } catch (_) { /**/ } }
-    else if (opts.sig?.typed) { r.page.drawText(opts.sig.typed, { x: r.margin, y: r.y - 22, size: 22, font: fonts.ital, color: rgb(0.05, 0.1, 0.25) }); r.y -= 40; }
+    else if (opts.sig?.typed) { r.page.drawText(opts.sig.typed, { x: r.margin, y: r.y - 22, size: 22, font: fonts.ital, color: primary }); r.y -= 40; }
     else { r.page.drawLine({ start: { x: r.margin, y: r.y - 18 }, end: { x: r.margin + 200, y: r.y - 18 }, thickness: 0.7, color: rgb(0.6, 0.6, 0.6) }); r.y -= 30; }
     r.page.drawText(opts.sig?.name || '________________________', { x: r.margin, y: r.y, size: r.size, font: fonts.font }); r.y -= r.lh;
     if (opts.sig?.company) { r.page.drawText(opts.sig.company, { x: r.margin, y: r.y, size: r.size, font: fonts.font, color: rgb(0.3, 0.35, 0.42) }); r.y -= r.lh; }
     r.page.drawText('Date: ' + (opts.sig?.when || today()), { x: r.margin, y: r.y, size: r.size, font: fonts.font }); r.y -= r.lh;
-    if (opts.sig?.electronic) { r.y -= 4; r.para('Signed electronically by ' + (opts.sig.name || '') + ' on ' + (opts.sig.when || today()) + ', with the signatory’s consent.', fonts.ital, 8.5); }
+    if (opts.sig?.electronic) { r.y -= 4; r.para('Signed electronically by ' + (opts.sig.name || '') + ' on ' + (opts.sig.when || today()) + ', with the signatory’s consent.', fonts.ital, 8.5, 0, rgb(0.4, 0.43, 0.48)); }
   }
-  r.y -= 8;
-  if (brand.footer) r.para(String(brand.footer), fonts.ital, 8.5, 2);
-  if (opts.legal !== false) r.para('This document was generated as a standard template for convenience only. It is not legal advice. Have it reviewed before relying on it.', fonts.ital, 8, 0);
+  r.y -= 10; r.ensure(24);
+  r.page.drawLine({ start: { x: r.margin, y: r.y + 6 }, end: { x: r.W - r.margin, y: r.y + 6 }, thickness: 1, color: accent });
+  if (b.footer) r.para(String(b.footer), fonts.ital, 8.5, 2, rgb(0.4, 0.43, 0.48));
+  if (opts.legal !== false) r.para('This document was generated as a standard template for convenience only. It is not legal advice. Have it reviewed before relying on it.', fonts.ital, 8, 0, rgb(0.5, 0.53, 0.58));
   return await pdf.saveAsBase64();
 }
 
