@@ -8,6 +8,7 @@ import { STAGES, CHECKLISTS, ITEM_KINDS, TERMINAL_STAGES, PARALLEL_STAGES, STAGE
 import DealAnalysisPanel from '../../components/DealAnalysisPanel';
 import { getVerdicts } from '../../lib/acq';
 import AddDealModal from '../../components/AddDealModal';
+import ThesisSettingsModal from '../../components/ThesisSettingsModal';
 
 const ADMIN_DOMAIN = '@officiallyinvested.com';
 const STALE_DAYS = 5;
@@ -170,6 +171,7 @@ export default function Pipeline() {
   const [msg, setMsg] = useState('');
   const [verdictMap, setVerdictMap] = useState<Record<string, { verdict?: string; score?: number }>>({});
   const [showAdd, setShowAdd] = useState(false);
+  const [showThesis, setShowThesis] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -416,6 +418,7 @@ export default function Pipeline() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowThesis(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Thesis</button>
           <button onClick={() => setShowAdd(true)} className="bg-[#FFD700] text-[#0A2540] px-3.5 py-1.5 rounded-full text-sm font-semibold hover:bg-opacity-90 mr-1">+ Add deal</button>
           <button onClick={load} className="text-white/60 hover:text-white p-2" title="Refresh"><RefreshCw className="h-4 w-4" /></button>
           <button onClick={() => supabase!.auth.signOut()} className="text-white/60 hover:text-white p-2" title="Sign out"><LogOut className="h-4 w-4" /></button>
@@ -535,6 +538,7 @@ export default function Pipeline() {
       </div>
 
       {showAdd && <AddDealModal onClose={() => setShowAdd(false)} onCreated={(id) => { setShowAdd(false); load(); setOpenId(id); }} />}
+      {showThesis && <ThesisSettingsModal onClose={() => setShowThesis(false)} />}
 
       {/* ============ DETAIL DRAWER ============ */}
       {open && (
