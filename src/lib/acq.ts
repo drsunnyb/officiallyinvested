@@ -49,6 +49,7 @@ export const crmList = () => invoke<{ ok: boolean; contacts: any[]; tasks: any[]
 export const crmAddContact = (c: Record<string, unknown>) => invoke('acq-crm', { action: 'add_contact', ...c });
 export const crmAddTask = (t: Record<string, unknown>) => invoke('acq-crm', { action: 'add_task', ...t });
 export const crmCompleteTask = (task_id: string) => invoke('acq-crm', { action: 'complete_task', task_id });
+export const crmSuggest = (deal_id: string, roles?: string[]) => invoke<{ ok: boolean; suggestions: any[] }>('acq-crm', { action: 'suggest', deal_id, ...(roles ? { roles } : {}) });
 export const monitorList = () => invoke<{ ok: boolean; alerts: any[] }>('acq-monitor', { action: 'list' });
 export const monitorRun = () => invoke<{ ok: boolean; deals: number; checked: number; alerts_created: number }>('acq-monitor', { action: 'run' });
 export const monitorDismiss = (alert_id: string) => invoke('acq-monitor', { action: 'dismiss', alert_id });

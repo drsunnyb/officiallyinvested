@@ -96,8 +96,12 @@ export default function Settings() {
             </div>
 
             {/* Email capture */}
-            <Section icon={<Inbox className="h-4 w-4" />} title="Email capture" sub="Forward or BCC deal emails and they file themselves to the deal and CRM.">
-              <p className="text-[13px] text-white/65">Each deal shows its own capture address in the deal drawer (under Correspondence). Forward or BCC there and the email is logged automatically; the agent's own emails are saved too.</p>
+            <Section icon={<Inbox className="h-4 w-4" />} title="Email capture" sub="Two ways to get deal emails filed automatically.">
+              <div className="text-[13px] text-white/70 space-y-2">
+                <p><span className="text-white font-semibold">1. Per-deal address (live now).</span> Every deal has its own capture address, shown at the top of that deal's <span className="text-white">Correspondence</span> section with a Copy button. BCC or forward to it and the email files itself to the deal and matches the CRM contact. The agent's own emails are saved there too.</p>
+                <p><span className="text-white font-semibold">2. Connect your inbox (coming soon).</span> Gmail and Outlook will connect so deal emails are pulled in automatically, with no BCC needed. We'll let you know when it's ready.</p>
+              </div>
+              <button disabled className="mt-3 inline-flex items-center gap-2 bg-white/8 text-white/45 px-3 py-2 rounded-lg text-sm font-semibold cursor-not-allowed">Connect Gmail / Outlook · coming soon</button>
             </Section>
 
             <p className="text-white/40 text-xs">Investment thesis and buy box, CRM and alerts are on the <Link to="/admin/pipeline" className="text-[#FFD700]">pipeline board</Link> header.</p>

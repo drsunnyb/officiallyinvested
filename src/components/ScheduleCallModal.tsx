@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Loader2, X, Video, Plus, Check } from 'lucide-react';
-import { addDealContact } from '../lib/acq';
+import { useEffect, useState } from 'react';
+import { Loader2, X, Video, Plus, Check, UserPlus } from 'lucide-react';
+import { addDealContact, crmSuggest } from '../lib/acq';
 
 // Who belongs on a call at each stage. The agent suggests these from the deal's
 // people and lets you add anyone missing while setting the call up.
@@ -24,6 +24,13 @@ export default function ScheduleCallModal({ dealId, dealName, status, dealContac
   const [nf, setNf] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [sugs, setSugs] = useState<any[]>([]);
+  useEffect(() => { crmSuggest(dealId, roles).then((r) => setSugs(r.suggestions || [])).catch(() => {}); }, [dealId]);
+  const addSuggestion = async (c: any) => {
+    setBusy(true); setErr('');
+    try { await addDealContact(dealId, { contact_id: c.id, role: c.role || roles[0] }); setPeople((p) => [...p, c]); if (c.email) setSelected((s) => new Set(s).add(c.email)); setSugs((x) => x.filter((s) => s.id !== c.id)); onChanged(); }
+    catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(false); }
+  };
 
   const input = 'bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60';
   const toggle = (email: string) => setSelected((s) => { const n = new Set(s); n.has(email) ? n.delete(email) : n.add(email); return n; });
@@ -84,6 +91,21 @@ export default function ScheduleCallModal({ dealId, dealName, status, dealContac
             );
           })}
         </div>
+
+        {sugs.length > 0 && (
+          <div className="mb-4">
+            <div className="text-white/45 text-[11px] mb-1.5">Suggested from your CRM</div>
+            <div className="flex flex-col gap-1">
+              {sugs.slice(0, 6).map((c) => (
+                <button key={c.id} onClick={() => addSuggestion(c)} disabled={busy} className="w-full text-left flex items-center gap-2 bg-white/5 hover:bg-white/10 rounded-lg p-2 disabled:opacity-50">
+                  <UserPlus className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
+                  <span className="text-[12px] text-white flex-1 truncate">{c.name}{c.company ? ' · ' + c.company : ''}</span>
+                  {c.role && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#FFD700]/15 text-[#FFD700] shrink-0">{c.role}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2.5 mb-4">
           <div><span className="text-white/55 text-[11px] block mb-1">When</span><input type="datetime-local" className={input + ' w-full'} value={when} onChange={(e) => setWhen(e.target.value)} /></div>

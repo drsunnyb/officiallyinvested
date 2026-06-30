@@ -15,6 +15,7 @@ function due(d: string | null): { t: string; c: string } {
   return { t: `in ${days}d`, c: 'bg-white/10 text-white/65' };
 }
 function initials(n: string) { return (n || '?').split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join(''); }
+function fmtSince(ts: string) { const s = (Date.now() - new Date(ts).getTime()) / 1000; if (s < 3600) return Math.max(1, Math.round(s / 60)) + 'm'; if (s < 86400) return Math.round(s / 3600) + 'h'; return Math.round(s / 86400) + 'd'; }
 
 export default function CRMModal({ onClose }: { onClose: () => void }) {
   const [contacts, setContacts] = useState<any[]>([]);
@@ -24,6 +25,7 @@ export default function CRMModal({ onClose }: { onClose: () => void }) {
   const [tf, setTf] = useState<Record<string, string>>({});
   const [cf, setCf] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState('');
+  const [cat, setCat] = useState('all');
 
   const load = async () => {
     setLoading(true); setErr('');
@@ -66,20 +68,38 @@ export default function CRMModal({ onClose }: { onClose: () => void }) {
               <button onClick={addTask} disabled={busy === 'task'} className="bg-[#FFD700] text-[#0A2540] px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50">Add</button>
             </div>
 
-            <div className="text-white/50 text-[11px] uppercase tracking-wide mb-2">Contacts · {contacts.length}</div>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              {contacts.map((c) => (
-                <div key={c.id} className="bg-[#0A2540] border border-white/10 rounded-xl p-2.5">
-                  <div className="flex items-center gap-2.5 mb-1.5">
-                    <div className="w-8 h-8 rounded-full bg-[#FFD700]/15 text-[#FFD700] flex items-center justify-center text-[11px] font-semibold shrink-0">{initials(c.name)}</div>
-                    <div className="min-w-0"><div className="text-[13px] font-medium text-white truncate">{c.name}</div><div className="text-[10px] text-white/50 truncate">{c.company || c.email || ''}</div></div>
+            {(() => {
+              const counts: Record<string, number> = {};
+              contacts.forEach((c) => { const k = c.role || 'other'; counts[k] = (counts[k] || 0) + 1; });
+              const cats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+              const shown = cat === 'all' ? contacts : contacts.filter((c) => (c.role || 'other') === cat);
+              return (
+                <>
+                  <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
+                    <span className="text-white/50 text-[11px] uppercase tracking-wide mr-1">Contacts · {contacts.length}</span>
+                    <button onClick={() => setCat('all')} className={'text-[10px] px-2.5 py-1 rounded-full ' + (cat === 'all' ? 'bg-[#FFD700] text-[#0A2540] font-semibold' : 'bg-white/8 text-white/60')}>all {contacts.length}</button>
+                    {cats.map(([k, n]) => <button key={k} onClick={() => setCat(k)} className={'text-[10px] px-2.5 py-1 rounded-full capitalize ' + (cat === k ? 'bg-[#FFD700] text-[#0A2540] font-semibold' : 'bg-white/8 text-white/60')}>{k} {n}</button>)}
                   </div>
-                  {c.role && <span className={'text-[9px] font-semibold px-2 py-0.5 rounded-full ' + (ROLE_TINT[c.role] || 'bg-white/12 text-white/70')}>{c.role}</span>}
-                  <div className="text-[11px] text-white/50 mt-2 border-t border-white/8 pt-1.5">{Number(c.deal_count) > 0 ? c.deal_count + ' deal(s)' : 'Directory'}{c.next_task ? <span className="block text-[#FCD34D] truncate">Next: {c.next_task}</span> : ''}</div>
-                </div>
-              ))}
-              {contacts.length === 0 && <p className="text-white/40 text-[12px] col-span-2">No contacts yet.</p>}
-            </div>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {shown.map((c) => (
+                      <div key={c.id} className="bg-[#0A2540] border border-white/10 rounded-xl p-2.5">
+                        <div className="flex items-center gap-2.5 mb-1.5">
+                          <div className="w-8 h-8 rounded-full bg-[#FFD700]/15 text-[#FFD700] flex items-center justify-center text-[11px] font-semibold shrink-0">{initials(c.name)}</div>
+                          <div className="min-w-0 flex-1"><div className="text-[13px] font-medium text-white truncate">{c.name}</div><div className="text-[10px] text-white/50 truncate">{c.company || c.email || ''}</div></div>
+                          {c.role && <span className={'text-[9px] font-semibold px-2 py-0.5 rounded-full shrink-0 ' + (ROLE_TINT[c.role] || 'bg-white/12 text-white/70')}>{c.role}</span>}
+                        </div>
+                        <div className="text-[11px] text-white/55 border-t border-white/8 pt-1.5 space-y-0.5">
+                          <div className="truncate">{Number(c.deal_count) > 0 ? `On ${c.deal_count} deal${Number(c.deal_count) > 1 ? 's' : ''}` : 'Directory'}{Array.isArray(c.deals) && c.deals.length ? ': ' + c.deals.slice(0, 2).map((d: any) => d.name).join(', ') : ''}</div>
+                          <div className="text-white/45">{c.last_interaction ? `Last ${c.last_direction === 'in' ? 'heard from them' : (c.last_kind || 'contact')} ${fmtSince(c.last_interaction)} ago` : 'No contact logged yet'}{Number(c.interaction_count) > 0 ? ` · ${c.interaction_count} touch${Number(c.interaction_count) > 1 ? 'es' : ''}` : ''}</div>
+                          {c.next_task && <div className="text-[#FCD34D] truncate">Next: {c.next_task}</div>}
+                        </div>
+                      </div>
+                    ))}
+                    {shown.length === 0 && <p className="text-white/40 text-[12px] col-span-2">No contacts in this category.</p>}
+                  </div>
+                </>
+              );
+            })()}
             <div className="flex gap-1.5">
               <input className={input + ' flex-1 min-w-0'} placeholder="Name" value={cf.name ?? ''} onChange={(e) => setCf((p) => ({ ...p, name: e.target.value }))} />
               <select className={input} value={cf.role ?? 'broker'} onChange={(e) => setCf((p) => ({ ...p, role: e.target.value }))}>{['vendor', 'agent', 'broker', 'accountant', 'solicitor', 'lender', 'investor', 'other'].map((r) => <option key={r} value={r} className="bg-[#0E3257]">{r}</option>)}</select>
