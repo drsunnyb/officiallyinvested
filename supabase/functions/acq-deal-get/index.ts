@@ -91,8 +91,9 @@ Deno.serve(async (req: Request) => {
     const analysis = (await sql`select id, summary, report, score, created_at from acq.analyses where deal_id=${deal.id} order by created_at desc limit 1`)[0] ?? null;
     const verdict = (await sql`select id, verdict, detail, created_at from acq.committee_verdicts where deal_id=${deal.id} order by created_at desc limit 1`)[0] ?? null;
     const memo = (await sql`select id, title, content, created_at from acq.memos where deal_id=${deal.id} order by created_at desc limit 1`)[0] ?? null;
+    const drafts = await sql`select id, action_key, kind, recipient_role, subject, body, created_at from acq.drafts where deal_id=${deal.id} order by created_at desc limit 30`;
 
-    return json({ ok: true, deal, facts, documents, valuation, analysis, verdict, memo });
+    return json({ ok: true, deal, facts, documents, valuation, analysis, verdict, memo, drafts });
   } catch (e) {
     return json({ error: String(e) }, 500);
   } finally {

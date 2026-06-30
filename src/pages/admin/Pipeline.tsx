@@ -549,7 +549,7 @@ export default function Pipeline() {
               <p className="text-amber-300 text-xs mb-2">⚠ Seller hasn't given buyer-network consent — get their OK before presenting.</p>
             )}
 
-            <DealAnalysisPanel submissionId={open.id} />
+            <DealAnalysisPanel submissionId={open.id} status={open.status} />
 
             <Section title="Deal stage">
               <div className="flex gap-1.5 flex-wrap">
