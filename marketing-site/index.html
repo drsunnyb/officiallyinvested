@@ -6,177 +6,504 @@
 <title>Officially Invested AI — your AI deal team for buying businesses</title>
 <meta name="description" content="Officially Invested AI reads the accounts, values the deal on your own methodology, challenges it like an investment committee, drafts every email and never lets a follow-up slip. The AI deal team for acquisition entrepreneurs." />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{ --navy:#0A2540; --navy2:#0E2A47; --navy3:#13355a; --gold:#FFD700; --ink:#ffffff; --mut:rgba(255,255,255,.62); --mut2:rgba(255,255,255,.42); --line:rgba(255,255,255,.12); --green:#6EE7B7; }
+  :root{
+    --navy:#0A2540; --navy2:#0E2A47; --navy3:#0E3257; --card:rgba(255,255,255,.05); --card2:rgba(255,255,255,.08);
+    --gold:#FFD700; --ink:#ffffff; --mut:rgba(255,255,255,.62); --mut2:rgba(255,255,255,.42); --line:rgba(255,255,255,.12);
+    --green:#6EE7B7; --amber:#FDE68A; --red:#FECACA;
+  }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--navy);color:var(--ink);font-family:'Inter',system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
-  .serif{font-family:'Fraunces',Georgia,serif;font-weight:500;letter-spacing:-.01em}
+  html{scroll-behavior:smooth}
+  body{background:var(--navy);color:var(--ink);font-family:'Inter',system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .serif{font-family:'Fraunces',Georgia,serif;font-weight:600;letter-spacing:-.015em}
   a{color:inherit;text-decoration:none}
-  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
-  .eyebrow{color:var(--gold);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
-  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;padding:13px 22px;border-radius:999px;cursor:pointer;border:1px solid transparent;transition:.15s}
-  .btn-gold{background:var(--gold);color:var(--navy)}
-  .btn-gold:hover{transform:translateY(-1px)}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+  .eyebrow{color:var(--gold);font-size:12.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;padding:13px 24px;border-radius:999px;cursor:pointer;border:1px solid transparent;transition:.18s}
+  .btn-gold{background:var(--gold);color:var(--navy);box-shadow:0 10px 30px -10px rgba(255,215,0,.5)}
+  .btn-gold:hover{transform:translateY(-2px);box-shadow:0 16px 40px -12px rgba(255,215,0,.65)}
   .btn-ghost{border-color:rgba(255,255,255,.28);color:#fff}
   .btn-ghost:hover{background:rgba(255,255,255,.06)}
-  header{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:rgba(10,37,64,.78);border-bottom:1px solid var(--line)}
+  h1{font-size:clamp(38px,6.4vw,68px);line-height:1.02;font-weight:700}
+  h2{font-size:clamp(28px,4.2vw,44px);line-height:1.06}
+  .lead{font-size:clamp(17px,2vw,21px);color:var(--mut);max-width:640px}
+
+  /* ---------- glow / atmosphere (pure CSS, no stock art) ---------- */
+  .glow{position:absolute;border-radius:50%;filter:blur(90px);opacity:.5;pointer-events:none;z-index:0}
+  .grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:46px 46px;mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 30%,transparent 75%);pointer-events:none;z-index:0}
+
+  header{position:sticky;top:0;z-index:60;backdrop-filter:blur(12px);background:rgba(10,37,64,.72);border-bottom:1px solid var(--line)}
   .nav{display:flex;align-items:center;justify-content:space-between;height:66px}
   .logo{font-weight:600;font-size:17px;display:flex;align-items:center;gap:9px}
   .logo b{color:var(--gold)}
-  .nav-links{display:flex;gap:28px;font-size:14px;color:var(--mut)}
+  .logo .mk{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--gold),#b8860b);display:flex;align-items:center;justify-content:center;color:var(--navy);font-weight:800;font-size:15px;font-family:'Fraunces',serif}
+  .nav-links{display:flex;gap:30px;font-size:14px;color:var(--mut)}
   .nav-links a:hover{color:#fff}
-  section{padding:96px 0}
-  h1{font-size:clamp(36px,6vw,62px);line-height:1.05;font-weight:600}
-  h2{font-size:clamp(28px,4vw,40px);line-height:1.1}
-  .lead{font-size:20px;color:var(--mut);max-width:620px}
-  .hero{padding:84px 0 72px;text-align:center}
-  .hero h1{max-width:900px;margin:18px auto 0}
-  .hero .lead{margin:22px auto 0}
-  .hero-cta{display:flex;gap:12px;justify-content:center;margin-top:30px;flex-wrap:wrap}
-  .micro{color:var(--mut2);font-size:13px;margin-top:14px}
-  .shot{margin:54px auto 0;max-width:880px;background:var(--navy2);border:1px solid var(--line);border-radius:16px;padding:14px}
-  .shot-bar{display:flex;gap:6px;padding:4px 6px 12px}
-  .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.18)}
-  .card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
-  .card{background:var(--navy2);border:1px solid var(--line);border-radius:14px;padding:22px}
-  .card h3{font-size:17px;font-weight:600;margin-bottom:6px}
-  .card p{color:var(--mut);font-size:14.5px}
-  .pain{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:40px}
-  .pain .card{border-left:2px solid var(--gold);border-radius:0 14px 14px 0}
-  .steps{counter-reset:s;display:grid;gap:14px;margin-top:36px}
-  .step{display:flex;gap:18px;align-items:flex-start;background:var(--navy2);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
-  .step .n{counter-increment:s;flex:0 0 auto;width:34px;height:34px;border-radius:50%;background:rgba(255,215,0,.14);color:var(--gold);font-weight:600;display:flex;align-items:center;justify-content:center}
-  .step .n::before{content:counter(s)}
-  .step h3{font-size:16px;font-weight:600}
-  .step p{color:var(--mut);font-size:14.5px}
-  .team{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:36px}
-  .ag{background:var(--navy2);border:1px solid var(--line);border-radius:12px;padding:16px}
-  .ag .r{color:var(--gold);font-weight:600;font-size:14px;margin-bottom:3px}
-  .ag p{color:var(--mut);font-size:13.5px}
+  section{padding:100px 0;position:relative;z-index:1}
+
+  /* ---------- hero ---------- */
+  .hero{padding:70px 0 40px;position:relative}
+  .hero-grid{display:grid;grid-template-columns:1.05fr 1.15fr;gap:48px;align-items:center}
+  .badge-row{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:12.5px;color:var(--mut)}
+  .badge-row .pip{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+  .hero h1{margin:20px 0 0}
+  .hero h1 .hl{color:var(--gold)}
+  .hero .lead{margin:20px 0 0}
+  .hero-cta{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
+  .micro{color:var(--mut2);font-size:13px;margin-top:16px}
+
+  /* ---------- browser frame (the "product screenshots") ---------- */
+  .frame{background:var(--navy2);border:1px solid var(--line);border-radius:16px;box-shadow:0 40px 80px -30px rgba(0,0,0,.7);overflow:hidden}
+  .frame-bar{display:flex;align-items:center;gap:7px;padding:11px 14px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.18)}
+  .frame-bar .d{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.16)}
+  .frame-url{margin-left:10px;flex:1;background:rgba(255,255,255,.06);border-radius:7px;font-size:11.5px;color:var(--mut2);padding:5px 11px;display:flex;align-items:center;gap:6px}
+  .frame-url svg{opacity:.6}
+  .float{animation:float 7s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+  /* ---------- kanban ---------- */
+  .kanban{display:flex;gap:11px;padding:16px;overflow-x:auto;scrollbar-width:none}
+  .kanban::-webkit-scrollbar{display:none}
+  .col{flex:0 0 165px;min-width:165px}
+  .col-h{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--mut);margin-bottom:9px;padding:0 2px;font-weight:600}
+  .col-h .ct{background:var(--card2);border-radius:6px;padding:1px 7px;color:var(--mut2);font-size:10.5px}
+  .dcard{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:9px;transition:.2s;cursor:default}
+  .dcard:hover{border-color:rgba(255,215,0,.4);transform:translateY(-2px)}
+  .dcard .nm{font-size:12.5px;font-weight:600;color:#fff;margin-bottom:2px}
+  .dcard .sb{font-size:10.5px;color:var(--mut2);margin-bottom:8px}
+  .dcard .ft{display:flex;align-items:center;justify-content:space-between}
+  .dcard .mv{font-size:11px;color:var(--gold);font-weight:600}
+  .pill{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid;letter-spacing:.03em}
+  .pill.buy{background:rgba(16,185,129,.18);color:var(--green);border-color:rgba(110,231,183,.5)}
+  .pill.watch{background:rgba(245,158,11,.18);color:var(--amber);border-color:rgba(253,230,138,.5)}
+  .pill.pass{background:rgba(255,255,255,.1);color:var(--mut);border-color:rgba(255,255,255,.3)}
+  .dcard.featured{border-color:rgba(255,215,0,.55);box-shadow:0 0 0 1px rgba(255,215,0,.25),0 10px 30px -12px rgba(255,215,0,.4)}
+  .dcard.featured::after{content:"";position:absolute}
+
+  /* ---------- deal agent panel ---------- */
+  .agent-wrap{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .agent-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .agent-title{display:flex;align-items:center;gap:8px;color:var(--gold);font-family:'Fraunces',serif;font-weight:600;font-size:18px}
+  .vrow{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+  .vpill{font-size:13px;font-weight:600;padding:4px 14px;border-radius:999px;border:1px solid;transform:scale(.6);opacity:0;transition:.5s cubic-bezier(.34,1.56,.64,1)}
+  .vis .vpill{transform:scale(1);opacity:1}
+  .vpill.watch{background:rgba(245,158,11,.2);color:var(--amber);border-color:rgba(253,230,138,.5)}
+  .vscore{font-size:12px;color:var(--mut)}
+  .ahead{color:rgba(255,255,255,.82);font-size:13px;line-height:1.55;margin-bottom:12px}
+  .warn{display:flex;gap:9px;align-items:flex-start;background:rgba(239,68,68,.1);border:1px solid rgba(248,113,113,.4);border-radius:11px;padding:11px;font-size:12px;color:var(--red);margin-bottom:14px;opacity:0;transform:translateY(8px);transition:.5s .25s}
+  .vis .warn{opacity:1;transform:none}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .kpi .l{font-size:10px;color:var(--mut2);margin-bottom:3px}
+  .kpi .v{font-size:17px;font-weight:700}
+  .kpi .v.gold{color:var(--gold)} .kpi .v.green{color:var(--green)}
+  .ctrls{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+  .cbtn{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:7px 13px;border-radius:999px;background:var(--card2);color:#fff;border:none}
+  .cbtn.p{background:var(--gold);color:var(--navy)}
+  .sub-l{font-size:10.5px;color:var(--mut2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px}
+  .acts{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:8px}
+  .act{background:var(--navy2);border:1px solid var(--line);border-radius:12px;padding:11px;display:flex;gap:9px;transition:.2s}
+  .act:hover{border-color:rgba(255,215,0,.4)}
+  .act .ic{color:var(--gold);font-size:15px;margin-top:1px}
+  .act .t{font-size:12px;font-weight:600;color:#fff}
+  .act .s{font-size:10.5px;color:var(--mut2)}
+  .act.live{border-color:rgba(255,215,0,.55);box-shadow:0 0 0 1px rgba(255,215,0,.25)}
+
+  /* draft email (typed) */
+  .draft{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:4px}
+  .draft .dh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .draft .subj{font-size:12px;color:#fff;font-weight:600;display:flex;align-items:center;gap:8px}
+  .tag{font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(255,215,0,.16);color:var(--gold)}
+  .draft pre{white-space:pre-wrap;font-family:'Inter',sans-serif;font-size:12px;color:rgba(255,255,255,.78);line-height:1.62;min-height:150px}
+  .cursor{display:inline-block;width:7px;height:14px;background:var(--gold);margin-left:1px;vertical-align:-2px;animation:blink 1s step-end infinite}
+  @keyframes blink{50%{opacity:0}}
+  .copy{font-size:10px;color:var(--gold);display:inline-flex;gap:4px;align-items:center}
+
+  /* people + data room */
+  .person,.docrow{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:9px;padding:8px 10px;margin-bottom:7px;font-size:12px}
+  .person .nm{flex:1;color:#fff} .person .em{color:var(--mut2);font-size:10.5px}
+  .roletag{font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(255,215,0,.16);color:var(--gold)}
+  .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
+  .fact{background:var(--card);border-radius:9px;padding:8px}
+  .fact.bad{background:rgba(239,68,68,.1);border:1px solid rgba(248,113,113,.4)}
+  .fact .l{font-size:9.5px;color:var(--mut2)} .fact .v{font-size:13px;font-weight:700;color:#fff} .fact.bad .v{color:var(--red)}
+
+  /* ---------- deal flow rail ---------- */
+  .flow{position:relative;margin-top:46px}
+  .rail{position:relative;display:flex;justify-content:space-between;max-width:920px;margin:0 auto;padding:0 10px}
+  .rail::before{content:"";position:absolute;top:23px;left:40px;right:40px;height:2px;background:var(--line)}
+  .rail .fill{position:absolute;top:23px;left:40px;height:2px;background:linear-gradient(90deg,var(--gold),#b8860b);width:0;transition:width .6s ease;box-shadow:0 0 12px rgba(255,215,0,.6);z-index:1}
+  .node{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:10px;width:108px}
+  .node .dot{width:46px;height:46px;border-radius:50%;background:var(--navy2);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:19px;transition:.4s;color:var(--mut2)}
+  .node.on .dot{border-color:var(--gold);background:rgba(255,215,0,.14);color:var(--gold);box-shadow:0 0 0 6px rgba(255,215,0,.1),0 0 26px rgba(255,215,0,.45);transform:scale(1.06)}
+  .node .lbl{font-size:11.5px;color:var(--mut2);text-align:center;font-weight:600;transition:.3s}
+  .node.on .lbl{color:#fff}
+  .flow-cap{max-width:560px;margin:34px auto 0;text-align:center;min-height:54px}
+  .flow-cap .t{color:var(--gold);font-weight:600;font-size:14px;margin-bottom:4px}
+  .flow-cap .d{color:var(--mut);font-size:14px}
+
+  /* ---------- generic cards / sections ---------- */
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:14px}
+  .gcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;transition:.2s}
+  .gcard:hover{border-color:rgba(255,215,0,.35);transform:translateY(-3px)}
+  .gcard h3{font-size:17px;font-weight:600;margin-bottom:7px}
+  .gcard p{color:var(--mut);font-size:14.5px}
+  .pain{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:16px;margin-top:42px}
+  .pain .gcard{border-left:2px solid var(--gold);border-radius:0 16px 16px 0}
   .center{text-align:center}
-  .pricing{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:42px;align-items:start}
-  .tier{background:var(--navy2);border:1px solid var(--line);border-radius:18px;padding:30px}
-  .tier.feat{border:1.5px solid var(--gold);position:relative}
-  .tier .badge{position:absolute;top:-12px;left:30px;background:var(--gold);color:var(--navy);font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px}
-  .tier h3{font-size:15px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
-  .price{font-size:46px;font-weight:600;margin:12px 0 2px}
-  .price span{font-size:16px;color:var(--mut);font-weight:400}
-  .tier ul{list-style:none;margin:20px 0 24px;display:flex;flex-direction:column;gap:10px}
+  .stat{display:flex;gap:46px;justify-content:center;margin-top:30px;flex-wrap:wrap}
+  .stat b{display:block;font-size:34px;font-weight:600;color:var(--gold);font-family:'Fraunces',serif;line-height:1}
+  .stat span{font-size:13px;color:var(--mut);margin-top:6px;display:block}
+
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:40px}
+  .stp{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;position:relative}
+  .stp .n{width:34px;height:34px;border-radius:50%;background:rgba(255,215,0,.14);color:var(--gold);font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+  .stp h3{font-size:15.5px;font-weight:600;margin-bottom:6px}
+  .stp p{color:var(--mut);font-size:13.5px}
+
+  .team{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:40px}
+  .ag{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:18px;transition:.2s}
+  .ag:hover{border-color:rgba(255,215,0,.35);transform:translateY(-3px)}
+  .ag .r{color:var(--gold);font-weight:600;font-size:14.5px;margin-bottom:4px}
+  .ag p{color:var(--mut);font-size:13px}
+
+  /* pricing */
+  .pricing{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px;margin-top:42px;align-items:start}
+  .tier{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px;transition:.2s}
+  .tier:hover{transform:translateY(-3px)}
+  .tier.feat{border:1.5px solid var(--gold);position:relative;box-shadow:0 30px 70px -30px rgba(255,215,0,.4)}
+  .tier .badge{position:absolute;top:-13px;left:32px;background:var(--gold);color:var(--navy);font-size:12px;font-weight:700;padding:5px 13px;border-radius:999px}
+  .tier h3{font-size:14px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+  .price{font-size:48px;font-weight:700;margin:14px 0 0;font-family:'Fraunces',serif}
+  .tier ul{list-style:none;margin:22px 0 26px;display:flex;flex-direction:column;gap:11px}
   .tier li{font-size:14.5px;color:var(--mut);display:flex;gap:9px;align-items:flex-start}
-  .tier li b{color:#fff;font-weight:500}
-  .tick{color:var(--green);flex:0 0 auto}
+  .tier li b{color:#fff;font-weight:600}
+  .tick{color:var(--green);flex:0 0 auto;font-weight:700}
   .tier .btn{width:100%;justify-content:center}
-  .toggle{display:inline-flex;background:var(--navy2);border:1px solid var(--line);border-radius:999px;padding:4px;margin-top:22px}
-  .toggle button{border:none;background:none;color:var(--mut);font:inherit;font-size:14px;font-weight:600;padding:7px 16px;border-radius:999px;cursor:pointer}
+  .toggle{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;margin-top:24px}
+  .toggle button{border:none;background:none;color:var(--mut);font:inherit;font-size:14px;font-weight:600;padding:8px 18px;border-radius:999px;cursor:pointer;transition:.15s}
   .toggle button.on{background:var(--gold);color:var(--navy)}
-  .faq{max-width:760px;margin:36px auto 0;display:flex;flex-direction:column;gap:0}
+
+  .faq{max-width:780px;margin:38px auto 0}
   .faq details{border-bottom:1px solid var(--line);padding:18px 0}
-  .faq summary{font-weight:600;cursor:pointer;list-style:none;font-size:16.5px}
+  .faq summary{font-weight:600;cursor:pointer;list-style:none;font-size:16.5px;display:flex;justify-content:space-between;gap:12px}
   .faq summary::-webkit-details-marker{display:none}
-  .faq p{color:var(--mut);font-size:15px;margin-top:10px}
-  .cta-band{background:linear-gradient(0deg,var(--navy),var(--navy2));border:1px solid var(--line);border-radius:20px;text-align:center;padding:56px 24px}
-  footer{border-top:1px solid var(--line);padding:40px 0;color:var(--mut2);font-size:13.5px}
-  .stat{display:flex;gap:40px;justify-content:center;margin-top:40px;flex-wrap:wrap}
-  .stat div b{display:block;font-size:30px;font-weight:600;color:var(--gold);font-family:'Fraunces',serif}
-  .stat div span{font-size:13.5px;color:var(--mut)}
-  @media(max-width:640px){.nav-links{display:none}section{padding:64px 0}}
+  .faq summary::after{content:"+";color:var(--gold);font-weight:400;font-size:22px;line-height:1}
+  .faq details[open] summary::after{content:"–"}
+  .faq p{color:var(--mut);font-size:15px;margin-top:11px}
+
+  .cta-band{position:relative;overflow:hidden;background:linear-gradient(120deg,var(--navy3),var(--navy2));border:1px solid var(--line);border-radius:24px;text-align:center;padding:64px 24px}
+
+  footer{border-top:1px solid var(--line);padding:44px 0;color:var(--mut2);font-size:13.5px}
+
+  /* scroll reveal */
+  [data-animate]{opacity:0;transform:translateY(26px);transition:.7s cubic-bezier(.2,.7,.2,1)}
+  [data-animate].vis{opacity:1;transform:none}
+
+  @media(max-width:860px){
+    .hero-grid{grid-template-columns:1fr;gap:30px}
+    .agent-wrap{grid-template-columns:1fr}
+    .steps{grid-template-columns:1fr 1fr}
+    .nav-links{display:none}
+    section{padding:70px 0}
+    .rail .node .lbl{font-size:10px}
+    .node{width:64px}
+    .rail::before,.rail .fill{left:28px;right:28px}
+    .rail .fill{left:28px}
+  }
+  @media(max-width:520px){.kpis{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr}.stat{gap:28px}}
+  /* founder / methodology */
+  .founder{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;align-items:center}
+  .sig{font-family:'Fraunces',serif;font-style:italic;color:var(--gold);font-size:17px;margin-top:20px}
+  .tact{display:flex;gap:11px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;transition:.2s}
+  .tact:hover{border-color:rgba(255,215,0,.35)}
+  .tact .ic{color:var(--gold);font-size:15px;font-weight:700;line-height:1.4}
+  .tact .t{display:block;font-size:13px;font-weight:600;color:#fff} .tact .s{display:block;font-size:11.5px;color:var(--mut2)}
+  .statband{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:46px auto 0;max-width:840px}
+  .stat3{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px;text-align:center;transition:.2s}
+  .stat3:hover{border-color:rgba(255,215,0,.35);transform:translateY(-3px)}
+  .stat3 .v{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(32px,4.6vw,48px);color:var(--gold);line-height:1}
+  .stat3 .l{font-size:13px;color:var(--mut);margin-top:9px}
+
+  /* pipeline theatre */
+  .tbody{display:grid;grid-template-columns:1fr 1.08fr}
+  .tleft{padding:24px 26px;border-right:1px solid var(--line)}
+  .tnum{font-size:10.5px;color:var(--mut2);letter-spacing:.12em;text-transform:uppercase}
+  .tstage{font-family:'Fraunces',serif;font-weight:600;font-size:23px;margin:6px 0 10px}
+  .tdesc{color:var(--mut);font-size:14px;line-height:1.6;margin-bottom:16px;min-height:66px}
+  .tacts{display:flex;flex-direction:column;gap:8px}
+  .tright{padding:24px 26px;display:flex;align-items:center}
+  .tr-card{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;animation:fadein .5s}
+  @keyframes fadein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .bigpill{display:inline-block;font-size:14px;font-weight:700;padding:5px 16px;border-radius:999px;border:1px solid}
+  .stack{display:flex;height:36px;border-radius:8px;overflow:hidden;margin:12px 0}
+  .stack span{display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;color:var(--navy);width:0;white-space:nowrap;animation:grow .9s forwards}
+  @keyframes grow{to{width:var(--w)}}
+  .seg-s{background:var(--gold)} .seg-v{background:#caa52b} .seg-e{background:#8a6d12;color:#fff}
+  .ck{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--mut);padding:5px 0;opacity:0;animation:ckin .45s forwards}
+  .ck .b{width:18px;height:18px;border-radius:5px;background:rgba(110,231,183,.18);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:11px;flex:0 0 auto}
+  @keyframes ckin{to{opacity:1}}
+  .docline{height:9px;border-radius:4px;background:rgba(255,255,255,.1);margin:8px 0}
+  .email-mini{font-size:12.5px;color:rgba(255,255,255,.78);line-height:1.6;white-space:pre-wrap}
+  @media(max-width:760px){
+    .founder{grid-template-columns:1fr;gap:26px}
+    .tbody{grid-template-columns:1fr}
+    .tleft{border-right:none;border-bottom:1px solid var(--line)}
+    .statband{grid-template-columns:1fr}
+  }
+  @media(prefers-reduced-motion:reduce){.float{animation:none}*{transition:none!important}}
 </style>
 </head>
 <body>
 
 <header><div class="wrap nav">
-  <div class="logo">Officially&nbsp;Invested<b>&nbsp;AI</b></div>
+  <div class="logo"><span class="mk">OI</span> Officially&nbsp;Invested<b>&nbsp;AI</b></div>
   <nav class="nav-links">
-    <a href="#how">How it works</a><a href="#team">The team</a><a href="#why">Why it's different</a><a href="#pricing">Pricing</a>
+    <a href="#flow">How it works</a><a href="#agent">The agent</a><a href="#team">The team</a><a href="#pricing">Pricing</a>
   </nav>
   <a class="btn btn-gold" href="#pricing" style="padding:9px 18px;font-size:14px">Start free</a>
 </div></header>
 
-<section class="hero wrap">
-  <div class="eyebrow">The AI deal team for acquisition entrepreneurs</div>
-  <h1 class="serif">Buy businesses like you've got an analyst, a lawyer and a broker on call.</h1>
-  <p class="lead">Drop in a deal. Officially Invested AI reads the accounts, values it on your own methodology, challenges it like an investment committee, drafts every email in your voice, and never lets a follow-up slip.</p>
-  <div class="hero-cta">
-    <a class="btn btn-gold" href="#pricing">Start free</a>
-    <a class="btn btn-ghost" href="#how">See how it works</a>
-  </div>
-  <div class="micro">No card to start · Built on the methodology behind real acquisitions</div>
+<!-- ===================== HERO ===================== -->
+<section class="hero">
+  <div class="grid-bg"></div>
+  <div class="glow" style="width:520px;height:520px;background:#143a63;top:-120px;right:-80px"></div>
+  <div class="glow" style="width:360px;height:360px;background:rgba(255,215,0,.18);top:120px;left:-120px"></div>
+  <div class="wrap hero-grid">
+    <div>
+      <span class="badge-row"><span class="pip"></span> The AI deal team for acquisition entrepreneurs</span>
+      <h1 class="serif">Buy businesses like you've got an <span class="hl">analyst, a lawyer and a broker</span> on call.</h1>
+      <p class="lead">Drop in a deal. Officially Invested AI reads the accounts, values it on your own methodology, challenges it like an investment committee, drafts every email in your voice, and never lets a follow-up slip.</p>
+      <div class="hero-cta">
+        <a class="btn btn-gold" href="#pricing">Start free</a>
+        <a class="btn btn-ghost" href="#flow">See it work →</a>
+      </div>
+      <div class="micro">No card to start · Built on the frameworks Sandeep has used to analyse £5bn+ of deals</div>
+    </div>
 
-  <div class="shot">
-    <div class="shot-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-    <div style="background:var(--navy);border-radius:10px;padding:20px;text-align:left">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div style="color:var(--gold);font-weight:600;display:flex;gap:8px;align-items:center">✦ Deal Agent</div>
-        <span style="font-size:12px;background:rgba(245,158,11,.2);color:#FCD34D;padding:4px 11px;border-radius:999px">WATCH · 68</span>
+    <!-- LIVE PRODUCT FRAME: the actual kanban board -->
+    <div class="frame float" aria-label="Officially Invested AI pipeline board">
+      <div class="frame-bar">
+        <span class="d"></span><span class="d"></span><span class="d"></span>
+        <span class="frame-url"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> officiallyinvested.com/admin/pipeline</span>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
-        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--mut2)">Adj EBITDA</div><div style="font-weight:600;color:var(--gold)">£310k</div></div>
-        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--mut2)">Opening offer</div><div style="font-weight:600">£1.085M</div></div>
-        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--mut2)">DSCR</div><div style="font-weight:600;color:var(--green)">1.65×</div></div>
-        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--mut2)">7-Number</div><div style="font-weight:600;color:var(--green)">6/7</div></div>
+      <div class="kanban">
+        <div class="col">
+          <div class="col-h"><span>New</span><span class="ct">3</span></div>
+          <div class="dcard featured"><div class="nm">Meadowbrook Care</div><div class="sb">Healthcare · Cheshire</div><div class="ft"><span class="pill watch">WATCH</span><span class="mv">£1.05M</span></div></div>
+          <div class="dcard"><div class="nm">Pennine Logistics</div><div class="sb">Transport · Leeds</div><div class="ft"><span class="pill buy">BUY</span><span class="mv">£2.4M</span></div></div>
+          <div class="dcard"><div class="nm">Harbour Dental</div><div class="sb">Dental · Bristol</div><div class="ft"><span class="pill pass">PASS</span><span class="mv">£780k</span></div></div>
+        </div>
+        <div class="col">
+          <div class="col-h"><span>Initial review</span><span class="ct">2</span></div>
+          <div class="dcard"><div class="nm">Ashgrove Plant Hire</div><div class="sb">Equipment · Derby</div><div class="ft"><span class="pill buy">BUY</span><span class="mv">£1.9M</span></div></div>
+          <div class="dcard"><div class="nm">Calder Fasteners</div><div class="sb">Manufacturing · Halifax</div><div class="ft"><span class="pill watch">WATCH</span><span class="mv">£3.1M</span></div></div>
+        </div>
+        <div class="col">
+          <div class="col-h"><span>Discovery call</span><span class="ct">2</span></div>
+          <div class="dcard"><div class="nm">Northgate HVAC</div><div class="sb">Services · Manchester</div><div class="ft"><span class="pill buy">BUY</span><span class="mv">£1.4M</span></div></div>
+          <div class="dcard"><div class="nm">Riverside Care</div><div class="sb">Healthcare · York</div><div class="ft"><span class="pill watch">WATCH</span><span class="mv">£2.2M</span></div></div>
+        </div>
+        <div class="col">
+          <div class="col-h"><span>Structuring</span><span class="ct">1</span></div>
+          <div class="dcard"><div class="nm">Selby Coatings</div><div class="sb">Industrial · Selby</div><div class="ft"><span class="pill buy">BUY</span><span class="mv">£4.0M</span></div></div>
+        </div>
+        <div class="col">
+          <div class="col-h"><span>Heads of Terms</span><span class="ct">1</span></div>
+          <div class="dcard"><div class="nm">Tyne Joinery</div><div class="sb">Manufacturing · Newcastle</div><div class="ft"><span class="pill buy">BUY</span><span class="mv">£2.7M</span></div></div>
+        </div>
       </div>
-      <div style="font-size:13.5px;color:var(--mut)">Top risk: the filed accounts show £1.05M turnover against the £1.2M the seller claimed. Run the bank-statement test before any offer.</div>
     </div>
   </div>
 </section>
 
-<section class="wrap" id="pain" style="padding-top:30px">
-  <div class="center"><div class="eyebrow">If you're buying a business, you already know</div>
+<!-- ===================== PAIN ===================== -->
+<section class="wrap" id="pain" style="padding-top:40px">
+  <div class="center" data-animate><div class="eyebrow">If you're buying a business, you already know</div>
   <h2 class="serif" style="margin-top:14px">It's a second full-time job of admin and guesswork.</h2></div>
   <div class="pain">
-    <div class="card"><h3>You are the whole team</h3><p>Analyst, the lawyer's project manager, the chaser, the negotiator. All at once, on top of your day job.</p></div>
-    <div class="card"><h3>You're half-guessing the numbers</h3><p>Hours in spreadsheets to work out if a deal stacks up, and you still only half-trust what the seller told you.</p></div>
-    <div class="card"><h3>Good deals don't wait</h3><p>The ones worth having move fast. They're gone by the time you've got round to the analysis.</p></div>
-    <div class="card"><h3>A slipped follow-up is a dead deal</h3><p>Emails to the vendor, the accountant, the lender. Miss one and momentum, and the deal, quietly dies.</p></div>
+    <div class="gcard" data-animate><h3>You are the whole team</h3><p>Analyst, the lawyer's project manager, the chaser, the negotiator. All at once, on top of your day job.</p></div>
+    <div class="gcard" data-animate><h3>You're half-guessing the numbers</h3><p>Hours in spreadsheets to work out if a deal stacks up, and you still only half-trust what the seller told you.</p></div>
+    <div class="gcard" data-animate><h3>Good deals don't wait</h3><p>The ones worth having move fast. They're gone by the time you've got round to the analysis.</p></div>
+    <div class="gcard" data-animate><h3>A slipped follow-up is a dead deal</h3><p>Emails to the vendor, the accountant, the lender. Miss one and momentum, and the deal, quietly dies.</p></div>
   </div>
 </section>
 
-<section class="wrap" id="how">
-  <div class="center"><div class="eyebrow">How it works</div><h2 class="serif" style="margin-top:14px">Four steps from "found it" to "should I buy it".</h2></div>
-  <div class="steps">
-    <div class="step"><div class="n"></div><div><h3>Add the deal</h3><p>Type it, paste a listing link, drop the teaser in a folder, or let it come through your enquiry form. However it arrives, it lands on your board.</p></div></div>
-    <div class="step"><div class="n"></div><div><h3>It reads and verifies the numbers</h3><p>Upload the accounts and it pulls every figure with the source line, then flags anything that contradicts what the seller claimed.</p></div></div>
-    <div class="step"><div class="n"></div><div><h3>You get a valuation, a verdict and a memo</h3><p>Adjusted EBITDA, the multiple, the 7-Number Test, a funding structure and a BUY / WATCH / PASS with conditions. Computed, not guessed.</p></div></div>
-    <div class="step"><div class="n"></div><div><h3>The agent drafts the next move</h3><p>The right email to the vendor, accountant, solicitor or lender, in your voice, plus the call booked with the right people and the follow-up tracked.</p></div></div>
+<!-- ===================== PIPELINE THEATRE (animated) ===================== -->
+<section class="wrap" id="flow">
+  <div class="center" data-animate><div class="eyebrow">The pipeline</div><h2 class="serif" style="margin-top:14px">Every stage of the deal, run for you.</h2>
+  <p class="lead center" style="margin:16px auto 0">Move a deal across your board and the right specialist does that stage's work. Watch it run, or click any stage.</p></div>
+  <div class="flow" data-animate>
+    <div class="rail" id="rail">
+      <div class="fill" id="fill"></div>
+      <div class="node on" data-i="0" onclick="setStage(0)"><div class="dot">📥</div><div class="lbl">New</div></div>
+      <div class="node" data-i="1" onclick="setStage(1)"><div class="dot">🔎</div><div class="lbl">Discovery</div></div>
+      <div class="node" data-i="2" onclick="setStage(2)"><div class="dot">⚖️</div><div class="lbl">Verdict</div></div>
+      <div class="node" data-i="3" onclick="setStage(3)"><div class="dot">🧩</div><div class="lbl">Structure</div></div>
+      <div class="node" data-i="4" onclick="setStage(4)"><div class="dot">📝</div><div class="lbl">Heads of Terms</div></div>
+      <div class="node" data-i="5" onclick="setStage(5)"><div class="dot">📊</div><div class="lbl">Financial DD</div></div>
+      <div class="node" data-i="6" onclick="setStage(6)"><div class="dot">💷</div><div class="lbl">Funding</div></div>
+      <div class="node" data-i="7" onclick="setStage(7)"><div class="dot">✅</div><div class="lbl">Completion</div></div>
+    </div>
+    <div class="frame" style="margin-top:30px">
+      <div class="frame-bar"><span class="d"></span><span class="d"></span><span class="d"></span><span class="frame-url" id="tUrl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> officiallyinvested.com/admin/pipeline · Meadowbrook Care</span></div>
+      <div class="tbody">
+        <div class="tleft">
+          <div class="tnum" id="tNum">Stage 01 of 08</div>
+          <div class="tstage" id="tStage">New</div>
+          <div class="tdesc" id="tDesc"></div>
+          <div class="tacts" id="tActs"></div>
+        </div>
+        <div class="tright" id="tRight"></div>
+      </div>
+    </div>
   </div>
 </section>
 
-<section class="wrap" id="team">
-  <div class="center"><div class="eyebrow">Your AI team</div><h2 class="serif" style="margin-top:14px">One platform. A firm's worth of specialists.</h2></div>
-  <div class="team">
-    <div class="ag"><div class="r">Screening Analyst</div><p>Triages every opportunity against your buy box in seconds.</p></div>
-    <div class="ag"><div class="r">Investment Analyst</div><p>Reads the accounts and builds the valuation on real figures.</p></div>
-    <div class="ag"><div class="r">Investment Committee</div><p>Challenges the deal and calls it: buy, watch or pass.</p></div>
-    <div class="ag"><div class="r">Acquisition Manager</div><p>Drafts every email to the right person, in your voice.</p></div>
-    <div class="ag"><div class="r">Due Diligence</div><p>Financial, commercial and legal scope, ready for your advisers.</p></div>
-    <div class="ag"><div class="r">Capital</div><p>Builds the funding stack and the lender-ready pack.</p></div>
-    <div class="ag"><div class="r">CRM &amp; Monitoring</div><p>Remembers everyone, chases the follow-ups, watches your live deals.</p></div>
-    <div class="ag"><div class="r">Your thesis, encoded</div><p>It scores every deal against the box you actually buy in.</p></div>
+<!-- ===================== THE AGENT (animated product frame) ===================== -->
+<section style="position:relative" id="agent">
+  <div class="glow" style="width:480px;height:480px;background:rgba(255,215,0,.12);top:40px;right:-140px"></div>
+  <div class="wrap">
+    <div class="center" data-animate><div class="eyebrow">The Deal Agent</div><h2 class="serif" style="margin-top:14px">It doesn't summarise. It decides, and acts.</h2>
+    <p class="lead center" style="margin:16px auto 0">One screen per deal: the verdict, the numbers behind it, and the next move already drafted.</p></div>
+
+    <div class="frame" data-animate id="agentFrame" style="margin-top:44px">
+      <div class="frame-bar">
+        <span class="d"></span><span class="d"></span><span class="d"></span>
+        <span class="frame-url"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> officiallyinvested.com/admin/pipeline · Meadowbrook Care</span>
+      </div>
+      <div class="agent-wrap">
+        <!-- LEFT: decision -->
+        <div>
+          <div class="agent-head">
+            <div class="agent-title">✦ Deal Agent</div>
+            <span style="color:var(--mut2);font-size:13px">↻</span>
+          </div>
+          <div class="vrow">
+            <span class="vpill watch">WATCH</span>
+            <span class="vscore">score 68 · RED Park</span>
+          </div>
+          <p class="ahead">The filed accounts support a sound, cash-generative care business, but the seller's headline turnover looks high against what's filed. Worth pursuing on the right structure, once the numbers are confirmed.</p>
+          <div class="warn">
+            <span>⚠️</span><span>Seller figure contradicted by documents, turnover £1.05M filed against £1.2M claimed. Run the bank-statement test.</span>
+          </div>
+          <div class="kpis">
+            <div class="kpi"><div class="l">Adj EBITDA</div><div class="v gold" data-count="310" data-suffix="k" data-prefix="£">£0</div></div>
+            <div class="kpi"><div class="l">Opening offer</div><div class="v" data-count="1.085" data-suffix="M" data-prefix="£" data-dec="3">£0</div></div>
+            <div class="kpi"><div class="l">DSCR</div><div class="v green" data-count="1.65" data-suffix="×" data-dec="2">0</div></div>
+            <div class="kpi"><div class="l">7-Number</div><div class="v green" data-count="6" data-suffix="/7">0</div></div>
+          </div>
+          <div class="ctrls">
+            <span class="cbtn">⬆ Upload accounts</span>
+            <span class="cbtn p">✦ Re-run analysis</span>
+            <span class="cbtn">⚖ Committee</span>
+            <span class="cbtn">▤ Memo</span>
+            <span class="cbtn">▷ Schedule call</span>
+          </div>
+          <div class="sub-l">Suggested next steps · Initial review</div>
+          <div class="acts">
+            <div class="act live"><span class="ic">✉</span><span><span class="t">Approach the owner</span><span class="s">Email the vendor</span></span></div>
+            <div class="act"><span class="ic">▤</span><span><span class="t">Discovery-call pack</span><span class="s">Agenda + questions</span></span></div>
+            <div class="act"><span class="ic">↗</span><span><span class="t">Find comparables</span><span class="s">Indicative market</span></span></div>
+            <div class="act"><span class="ic">✉</span><span><span class="t">Request documents</span><span class="s">Email the vendor</span></span></div>
+          </div>
+        </div>
+
+        <!-- RIGHT: the drafted email (types out) + people + data room -->
+        <div>
+          <div class="sub-l">Draft · the agent wrote this for you</div>
+          <div class="draft">
+            <div class="dh">
+              <span class="subj">A quick introduction <span class="tag">vendor</span></span>
+              <span class="copy">⧉ Copy</span>
+            </div>
+            <pre id="typed"></pre>
+          </div>
+
+          <div class="sub-l" style="margin-top:18px">People on this deal</div>
+          <div class="person"><span class="nm">Margaret Hill</span><span class="roletag">vendor</span><span class="em">m.hill@…</span></div>
+          <div class="person"><span class="nm">J. Okafor · Hilltop Corporate</span><span class="roletag">agent</span><span class="em">jo@…</span></div>
+
+          <div class="sub-l" style="margin-top:18px">Data room · verified figures</div>
+          <div class="facts">
+            <div class="fact bad"><div class="l">Turnover · FY24</div><div class="v">£1.05M</div></div>
+            <div class="fact"><div class="l">Gross profit</div><div class="v">£612k</div></div>
+            <div class="fact"><div class="l">Adj EBITDA</div><div class="v">£310k</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
+<!-- ===================== METHODOLOGY / FOUNDER ===================== -->
+<section class="wrap" id="method">
+  <div class="founder">
+    <div data-animate>
+      <div class="eyebrow">The methodology</div>
+      <h2 class="serif" style="margin-top:14px">It runs to Sandeep's playbook, not a generic AI's.</h2>
+      <p class="lead" style="margin-top:16px">Officially Invested AI is built on the frameworks Sandeep has used for 25 years to analyse over £5bn of deals and to buy and sell more than £100m of businesses. The RED filter, the 4-Multiple Method, the 7-Number Test and the funding architecture are all in the engine, working on every deal from day one.</p>
+      <p class="lead" style="margin-top:14px">Built for owners running and acquiring multi-million-pound portfolios who want that discipline on every deal, without doing it all by hand.</p>
+      <div class="sig">The frameworks behind real acquisitions, working for you.</div>
+    </div>
+    <div class="panel" data-animate>
+      <div class="sub-l">In the engine, out of the box</div>
+      <div class="tact"><span class="ic">①</span><span><span class="t">The RED Framework</span><span class="s">Filter every deal fast against your criteria</span></span></div>
+      <div class="tact" style="margin-top:9px"><span class="ic">②</span><span><span class="t">The 4-Multiple Method</span><span class="s">Value it the way the market really prices</span></span></div>
+      <div class="tact" style="margin-top:9px"><span class="ic">③</span><span><span class="t">The 7-Number Test</span><span class="s">Does the deal actually stack up?</span></span></div>
+      <div class="tact" style="margin-top:9px"><span class="ic">④</span><span><span class="t">Funding architecture</span><span class="s">Senior, vendor and equity, structured</span></span></div>
+      <div class="tact" style="margin-top:9px"><span class="ic">⑤</span><span><span class="t">Deal &amp; corporate structure</span><span class="s">HoldCo, SPVs, the way it should be</span></span></div>
+    </div>
+  </div>
+  <div class="statband" data-animate>
+    <div class="stat3"><div class="v"><span data-count="5" data-prefix="£" data-suffix="bn+">£0</span></div><div class="l">of deals analysed</div></div>
+    <div class="stat3"><div class="v"><span data-count="100" data-prefix="£" data-suffix="m+">£0</span></div><div class="l">of businesses bought &amp; sold</div></div>
+    <div class="stat3"><div class="v"><span data-count="25" data-suffix=" yrs">0</span></div><div class="l">of acquisition experience</div></div>
+  </div>
+</section>
+
+<!-- ===================== WHY DIFFERENT ===================== -->
 <section class="wrap" id="why">
-  <div class="center"><div class="eyebrow">Why it's different</div><h2 class="serif" style="margin-top:14px">Not a chatbot bolted onto a spreadsheet.</h2></div>
-  <div class="card-grid" style="margin-top:40px">
-    <div class="card"><h3>Computed, never guessed</h3><p>A real engine calculates the EBITDA, valuation, DSCR and funding stack. The AI explains the numbers; it never invents them.</p></div>
-    <div class="card"><h3>The bank-statement test, automatic</h3><p>Every figure the seller claims is checked against the documents, and contradictions are flagged before you waste a week.</p></div>
-    <div class="card"><h3>Your methodology, not generic AI</h3><p>It works the way a disciplined acquirer works: RED filter, the 4-Multiple Method, the 7-Number Test, deal architecture.</p></div>
-    <div class="card"><h3>It sounds like you</h3><p>Every email and memo reads like you wrote it. No AI tells, no filler, nothing you'd be embarrassed to send.</p></div>
+  <div class="center" data-animate><div class="eyebrow">Why it's different</div><h2 class="serif" style="margin-top:14px">Not a chatbot bolted onto a spreadsheet.</h2></div>
+  <div class="card-grid" style="margin-top:42px">
+    <div class="gcard" data-animate><h3>Computed, never guessed</h3><p>A real engine calculates the EBITDA, valuation, DSCR and funding stack. The AI explains the numbers; it never invents them.</p></div>
+    <div class="gcard" data-animate><h3>The bank-statement test, automatic</h3><p>Every figure the seller claims is checked against the documents, and contradictions are flagged before you waste a week.</p></div>
+    <div class="gcard" data-animate><h3>Your methodology, not generic AI</h3><p>It works the way a disciplined acquirer works: RED filter, the 4-Multiple Method, the 7-Number Test, deal architecture.</p></div>
+    <div class="gcard" data-animate><h3>It sounds like you</h3><p>Every email and memo reads like you wrote it. No AI tells, no filler, nothing you'd be embarrassed to send.</p></div>
   </div>
 </section>
 
+<!-- steps merged into the pipeline theatre above -->
+
+<!-- ===================== TEAM ===================== -->
+<section class="wrap" id="team">
+  <div class="center" data-animate><div class="eyebrow">Your AI team</div><h2 class="serif" style="margin-top:14px">One platform. A firm's worth of specialists.</h2></div>
+  <div class="team">
+    <div class="ag" data-animate><div class="r">Screening Analyst</div><p>Triages every opportunity against your buy box in seconds.</p></div>
+    <div class="ag" data-animate><div class="r">Investment Analyst</div><p>Reads the accounts and builds the valuation on real figures.</p></div>
+    <div class="ag" data-animate><div class="r">Investment Committee</div><p>Challenges the deal and calls it: buy, watch or pass.</p></div>
+    <div class="ag" data-animate><div class="r">Acquisition Manager</div><p>Drafts every email to the right person, in your voice.</p></div>
+    <div class="ag" data-animate><div class="r">Due Diligence</div><p>Financial, commercial and legal scope, ready for your advisers.</p></div>
+    <div class="ag" data-animate><div class="r">Capital</div><p>Builds the funding stack and the lender-ready pack.</p></div>
+    <div class="ag" data-animate><div class="r">CRM &amp; Monitoring</div><p>Remembers everyone, chases follow-ups, watches your live deals.</p></div>
+    <div class="ag" data-animate><div class="r">Your thesis, encoded</div><p>It scores every deal against the box you actually buy in.</p></div>
+  </div>
+</section>
+
+<!-- ===================== PRICING ===================== -->
 <section class="wrap center" id="pricing">
-  <div class="eyebrow">Pricing</div>
+  <div data-animate><div class="eyebrow">Pricing</div>
   <h2 class="serif" style="margin-top:14px">Less than a day of an analyst's time. Every month.</h2>
   <div class="toggle" role="tablist">
     <button id="m" class="on" onclick="setBill('m')">Monthly</button>
     <button id="y" onclick="setBill('y')">Annual · 2 months free</button>
-  </div>
+  </div></div>
   <div class="pricing">
-    <div class="tier">
+    <div class="tier" data-animate>
       <h3>Individual</h3>
-      <div class="price" data-m="£99" data-y="£82">£99</div><div style="color:var(--mut);font-size:14px" data-ms=" / month" data-ys=" / month, billed annually"> / month</div>
+      <div class="price" data-m="£99" data-y="£82">£99</div><div style="color:var(--mut);font-size:14px" data-ms="/ month" data-ys="/ month, billed annually">/ month</div>
       <ul>
         <li><span class="tick">✓</span><span>One user, <b>unlimited deals</b></span></li>
         <li><span class="tick">✓</span><span>The full <b>Deal Agent</b>: analysis, valuation, committee, memo</span></li>
@@ -186,10 +513,10 @@
       </ul>
       <a class="btn btn-ghost" href="mailto:deals@officiallyinvested.com?subject=Officially%20Invested%20AI%20-%20Individual">Start free</a>
     </div>
-    <div class="tier feat">
+    <div class="tier feat" data-animate>
       <div class="badge">Most popular</div>
       <h3>Team</h3>
-      <div class="price" data-m="£349" data-y="£291">£349</div><div style="color:var(--mut);font-size:14px" data-ms=" / month" data-ys=" / month, billed annually"> / month</div>
+      <div class="price" data-m="£349" data-y="£291">£349</div><div style="color:var(--mut);font-size:14px" data-ms="/ month" data-ys="/ month, billed annually">/ month</div>
       <ul>
         <li><span class="tick">✓</span><span>Up to <b>5 users</b>, then £59 / user</span></li>
         <li><span class="tick">✓</span><span>Everything in Individual</span></li>
@@ -199,7 +526,7 @@
       </ul>
       <a class="btn btn-gold" href="mailto:deals@officiallyinvested.com?subject=Officially%20Invested%20AI%20-%20Team">Start free</a>
     </div>
-    <div class="tier">
+    <div class="tier" data-animate>
       <h3>Enterprise</h3>
       <div class="price">Let's talk</div><div style="color:var(--mut);font-size:14px">&nbsp;</div>
       <ul>
@@ -215,9 +542,10 @@
   <p class="micro">Prices in GBP, exclude VAT. Cancel anytime.</p>
 </section>
 
+<!-- ===================== FAQ ===================== -->
 <section class="wrap">
-  <div class="center"><div class="eyebrow">Questions</div><h2 class="serif" style="margin-top:14px">The honest answers.</h2></div>
-  <div class="faq">
+  <div class="center" data-animate><div class="eyebrow">Questions</div><h2 class="serif" style="margin-top:14px">The honest answers.</h2></div>
+  <div class="faq" data-animate>
     <details><summary>Is this just ChatGPT for deals?</summary><p>No. The valuation, EBITDA, DSCR and funding maths are computed by a deterministic engine, not generated by a language model. The AI reads documents and writes the words around the numbers, but it can't invent a figure.</p></details>
     <details><summary>Will the emails read like AI wrote them?</summary><p>No, and we're strict about it. Every draft is written to read like you wrote it, with no AI tells, no filler and nothing you'd be embarrassed to send. You review and send.</p></details>
     <details><summary>Do I have to learn prompts?</summary><p>No. You move a deal across your board and the right specialist does the work for that stage. There's nothing to prompt.</p></details>
@@ -226,11 +554,13 @@
   </div>
 </section>
 
+<!-- ===================== CTA ===================== -->
 <section class="wrap">
-  <div class="cta-band">
-    <h2 class="serif">Stop doing the work of five people.</h2>
-    <p class="lead" style="margin:16px auto 0">Put a deal through it and see the analysis, the verdict and the first email in minutes.</p>
-    <div class="hero-cta"><a class="btn btn-gold" href="#pricing">Start free</a><a class="btn btn-ghost" href="mailto:deals@officiallyinvested.com?subject=Officially%20Invested%20AI%20demo">Book a demo</a></div>
+  <div class="cta-band" data-animate>
+    <div class="glow" style="width:340px;height:340px;background:rgba(255,215,0,.16);top:-80px;left:50%;transform:translateX(-50%)"></div>
+    <h2 class="serif" style="position:relative">Stop doing the work of five people.</h2>
+    <p class="lead" style="margin:16px auto 0;position:relative">Put a deal through it and see the analysis, the verdict and the first email in minutes.</p>
+    <div class="hero-cta" style="justify-content:center;position:relative"><a class="btn btn-gold" href="#pricing">Start free</a><a class="btn btn-ghost" href="mailto:deals@officiallyinvested.com?subject=Officially%20Invested%20AI%20demo">Book a demo</a></div>
   </div>
 </section>
 
@@ -240,12 +570,95 @@
 </div></footer>
 
 <script>
+  /* pricing toggle */
   function setBill(b){
     document.getElementById('m').classList.toggle('on', b==='m');
     document.getElementById('y').classList.toggle('on', b==='y');
     document.querySelectorAll('.price[data-m]').forEach(function(el){ el.textContent = b==='m'?el.dataset.m:el.dataset.y; });
     document.querySelectorAll('[data-ms]').forEach(function(el){ el.textContent = b==='m'?el.dataset.ms:el.dataset.ys; });
   }
+
+  /* count-up (reusable) */
+  function countUp(el){ if(el._c) return; el._c=true;
+    var to=parseFloat(el.dataset.count), dec=parseInt(el.dataset.dec||'0'),
+        pre=el.dataset.prefix||'', suf=el.dataset.suffix||'', t0=null, dur=1100;
+    function step(ts){ if(!t0)t0=ts; var p=Math.min((ts-t0)/dur,1); var e=1-Math.pow(1-p,3);
+      el.textContent=pre+(to*e).toFixed(dec)+suf; if(p<1) requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  }
+  var cio=new IntersectionObserver(function(es){es.forEach(function(e){ if(e.isIntersecting){ countUp(e.target); cio.unobserve(e.target); }});},{threshold:.5});
+  document.querySelectorAll('[data-count]').forEach(function(el){ cio.observe(el); });
+
+  /* scroll reveal */
+  var io = new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('vis'); io.unobserve(e.target);
+      if(e.target.id==='agentFrame'){ typeEmail(); }
+    }});
+  },{threshold:.18});
+  document.querySelectorAll('[data-animate]').forEach(function(el){ io.observe(el); });
+
+  /* email typewriter (loops) */
+  var emailText="Dear Margaret,\n\nI came across Meadowbrook Care and wanted to introduce myself directly. I run an acquisition focused on care businesses in the region, and I think a lot of what you've built.\n\nBefore taking up your time, would you be open to a short, confidential call so I can understand your plans and whether there's a fit? I'm happy to work around you.\n\nBest wishes,\nSandeep";
+  var typedStarted=false;
+  function typeEmail(){ if(typedStarted) return; typedStarted=true;
+    var el=document.getElementById('typed'); var i=0;
+    el.innerHTML='<span class="cursor"></span>';
+    function tick(){
+      if(i<=emailText.length){
+        el.innerHTML=emailText.slice(0,i).replace(/\n/g,'<br>')+'<span class="cursor"></span>';
+        i++;
+        var ch=emailText[i-1]; setTimeout(tick, ch==='\n'?120:(ch===' '?22:18));
+      } else { setTimeout(function(){ i=0; tick(); }, 4200); }
+    }
+    tick();
+  }
+
+  /* ===== pipeline theatre ===== */
+  var ST=[
+   {url:"New", stage:"Screened in seconds", desc:"The moment it lands it's checked against your thesis: sector, size, geography, returns. A fit score and a read before you've finished your coffee.",
+    acts:[["✦","Screening brief","Fit vs your buy box"],["↗","Find comparables","Indicative market"]],
+    out:'<div class="tr-card"><div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span class="bigpill" style="background:rgba(245,158,11,.2);color:var(--amber);border-color:rgba(253,230,138,.5)">WATCH · 68</span><span style="color:var(--mut);font-size:12px">RED · Park</span></div><div style="color:rgba(255,255,255,.82);font-size:13.5px;line-height:1.6">Care sector, Cheshire, about £1M turnover. Inside your size band and target geography. Margins worth a closer look.</div></div>'},
+   {url:"Discovery call", stage:"Ready for the call", desc:"Before you dial, it hands you the agenda and the questions that actually move a deal forward.",
+    acts:[["✦","Discovery-call pack","Agenda + questions"],["✉","Request documents","From the vendor"]],
+    out:'<div class="tr-card"><div class="sub-l">Discovery call · agenda</div><div class="ck"><span class="b">✓</span>Why are you selling, and why now?</div><div class="ck" style="animation-delay:.1s"><span class="b">✓</span>Owner dependence and the team</div><div class="ck" style="animation-delay:.2s"><span class="b">✓</span>Customer concentration and recurring revenue</div><div class="ck" style="animation-delay:.3s"><span class="b">✓</span>The real, normalised profit</div></div>'},
+   {url:"Committee", stage:"The verdict", desc:"The investment committee challenges the case and calls it, with the conditions you'd want attached.",
+    acts:[["⚖","Committee","BUY / WATCH / PASS"],["▤","Investment memo","Full write-up"]],
+    out:'<div class="tr-card"><span class="bigpill" style="background:rgba(245,158,11,.2);color:var(--amber);border-color:rgba(253,230,138,.5)">WATCH</span><div style="color:rgba(255,255,255,.82);font-size:13px;margin:12px 0 10px">Proceed, on conditions:</div><div class="ck"><span class="b">✓</span>Verify FY24 turnover against bank statements</div><div class="ck" style="animation-delay:.1s"><span class="b">✓</span>Confirm owner-replacement cost in the EBITDA build</div><div class="ck" style="animation-delay:.2s"><span class="b">✓</span>Vendor finance of at least 25%</div></div>'},
+   {url:"Structuring", stage:"The offer, structured", desc:"It builds the offer and the funding around it: how much senior debt, how much from the vendor, how much equity.",
+    acts:[["▤","Deal structure","Funding + offer"],["▤","Draft offer","Indicative terms"]],
+    out:'<div class="tr-card"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:var(--mut);font-size:12px">Opening offer</span><span style="color:var(--gold);font-weight:700">£1.085M</span></div><div class="stack"><span class="seg-s" style="--w:60%">Senior 60%</span><span class="seg-v" style="--w:25%">Vendor 25%</span><span class="seg-e" style="--w:15%">Equity 15%</span></div><div style="color:var(--mut);font-size:12px">Structured so the business services its own debt. DSCR 1.65×.</div></div>'},
+   {url:"Heads of Terms", stage:"Heads of Terms, drafted", desc:"It drafts the Heads of Terms and the covering note, ready for your solicitor to take to close.",
+    acts:[["▤","Heads of Terms","Draft + cover"],["⚖","Brief the solicitor","Legal DD"]],
+    out:'<div class="tr-card"><div class="sub-l">Heads of Terms · draft</div><div style="font-weight:600;color:#fff;font-size:13px;margin-bottom:10px">Re: Proposed acquisition of Meadowbrook Care</div><div class="docline" style="width:92%"></div><div class="docline" style="width:80%"></div><div class="docline" style="width:88%"></div><div class="docline" style="width:58%"></div><div style="color:var(--gold);font-size:12px;margin-top:12px">Ready to send to your solicitor →</div></div>'},
+   {url:"DD · Financial", stage:"Diligence, briefed", desc:"It briefs your accountant with exactly what to verify, addressed to the right person on the deal.",
+    acts:[["✉","Brief the accountant","Financial DD"],["✉","Chase the vendor","Outstanding docs"]],
+    out:'<div class="tr-card"><div class="draft" style="margin:0;border:none;padding:0;background:none"><div class="dh"><span class="subj">Financial DD, what to verify <span class="tag">accountant</span></span></div><div class="email-mini">Hi David,\n\nWe\'re proceeding on Meadowbrook Care. Before we commit, could you verify the FY24 turnover and the adjusted profit against the bank statements, and confirm the add-backs are reasonable?\n\nHappy to talk it through.</div></div></div>'},
+   {url:"Funding", stage:"Funding, packaged", desc:"It packages the funding case for lenders: the ask, the cover and the security, ready to send.",
+    acts:[["▤","Lender pack","Funding summary"],["✉","Approach a funder","Lender / broker"]],
+    out:'<div class="tr-card"><div class="sub-l">Lender pack · summary</div><div class="kpis" style="grid-template-columns:repeat(3,1fr);margin:0"><div class="kpi"><div class="l">Senior debt</div><div class="v gold" data-count="651" data-prefix="£" data-suffix="k">£0</div></div><div class="kpi"><div class="l">DSCR</div><div class="v green" data-count="1.65" data-dec="2" data-suffix="×">0</div></div><div class="kpi"><div class="l">Term</div><div class="v">7 yrs</div></div></div></div>'},
+   {url:"Completion", stage:"Completion, handled", desc:"It runs the pre-completion checklist and hands you the 100-day plan for week one.",
+    acts:[["▤","Completion checklist","Pre-completion"],["▤","100-day plan","Value creation"]],
+    out:'<div class="tr-card"><div class="sub-l">Pre-completion checklist</div><div class="ck"><span class="b">✓</span>Funds confirmed and in place</div><div class="ck" style="animation-delay:.1s"><span class="b">✓</span>Bank access arranged with the seller</div><div class="ck" style="animation-delay:.2s"><span class="b">✓</span>Legals and structure aligned</div><div class="ck" style="animation-delay:.3s"><span class="b">✓</span>Day-one comms ready for the team</div></div>'}
+  ];
+  var si=0, snodes=document.querySelectorAll('#rail .node'), sfill=document.getElementById('fill'), srail=document.getElementById('rail'), stimer=null;
+  function paintStage(){
+    var s=ST[si];
+    snodes.forEach(function(n,k){ n.classList.toggle('on', k<=si); });
+    var c0=snodes[0].offsetLeft+snodes[0].offsetWidth/2, cc=snodes[si].offsetLeft+snodes[si].offsetWidth/2;
+    sfill.style.left=c0+'px'; sfill.style.right='auto'; sfill.style.width=Math.max(0,cc-c0)+'px';
+    try{ srail.scrollTo({left:snodes[si].offsetLeft-srail.clientWidth/2+snodes[si].offsetWidth/2, behavior:'smooth'}); }catch(e){}
+    document.getElementById('tUrl').innerHTML='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> officiallyinvested.com/admin/pipeline · '+s.url;
+    document.getElementById('tNum').textContent='Stage '+('0'+(si+1)).slice(-2)+' of 08';
+    document.getElementById('tStage').textContent=s.stage;
+    document.getElementById('tDesc').textContent=s.desc;
+    document.getElementById('tActs').innerHTML=s.acts.map(function(a){return '<div class="tact"><span class="ic">'+a[0]+'</span><span><span class="t">'+a[1]+'</span><span class="s">'+a[2]+'</span></span></div>';}).join('');
+    var tr=document.getElementById('tRight'); tr.innerHTML=s.out;
+    tr.querySelectorAll('[data-count]').forEach(function(el){ countUp(el); });
+  }
+  function setStage(i){ si=i; paintStage(); resetTimer(); }
+  function resetTimer(){ clearInterval(stimer); stimer=setInterval(function(){ si=(si+1)%ST.length; paintStage(); }, 3000); }
+  window.addEventListener('resize', paintStage);
+  paintStage(); resetTimer();
 </script>
 </body>
 </html>
