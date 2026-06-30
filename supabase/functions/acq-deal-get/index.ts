@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
   const sql = postgres(DB_URL, { prepare: false });
   try {
     const body = await req.json().catch(() => ({} as any));
-    const cfg = Object.fromEntries((await sql`select key, value from public.oi_config where key in ('acq_internal_secret')`).map((r: any) => [r.key, r.value]));
+    const cfg = Object.fromEntries((await sql`select key, value from public.oi_config where key in ('acq_internal_secret','acq_inbox_domain')`).map((r: any) => [r.key, r.value]));
     const trusted = !!req.headers.get('x-acq-secret') && req.headers.get('x-acq-secret') === cfg.acq_internal_secret;
     let userId: string | null = null;
     if (!trusted) {
@@ -93,8 +93,13 @@ Deno.serve(async (req: Request) => {
     const memo = (await sql`select id, title, content, created_at from acq.memos where deal_id=${deal.id} order by created_at desc limit 1`)[0] ?? null;
     const drafts = await sql`select id, action_key, kind, recipient_role, subject, body, created_at from acq.drafts where deal_id=${deal.id} order by created_at desc limit 30`;
     const deal_contacts = await sql`select c.id, c.name, c.company, c.email, c.phone, dc.role from acq.deal_contacts dc join acq.contacts c on c.id=dc.contact_id where dc.deal_id=${deal.id} order by dc.role`;
+    const communications = await sql`select cm.id, cm.kind, cm.direction, cm.subject, cm.body, cm.from_addr, cm.to_addr, cm.happened_at, c.name as contact_name, c.role as contact_role
+      from acq.communications cm left join acq.contacts c on c.id=cm.contact_id
+      where cm.deal_id=${deal.id} order by cm.happened_at desc limit 100`;
+    const inboxDomain = (cfg.acq_inbox_domain || 'inbox.officiallyinvested.com').toString();
+    const email_alias = deal.email_token ? `deal-${deal.email_token}@${inboxDomain}` : null;
 
-    return json({ ok: true, deal, facts, documents, valuation, analysis, verdict, memo, drafts, deal_contacts });
+    return json({ ok: true, deal, facts, documents, valuation, analysis, verdict, memo, drafts, deal_contacts, communications, email_alias });
   } catch (e) {
     return json({ error: String(e) }, 500);
   } finally {

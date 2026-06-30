@@ -109,6 +109,13 @@ Deno.serve(async (req: Request) => {
       values (${deal.org_id}, ${deal.id}, ${body.action_key}, ${def.kind}, ${def.recipient ?? null}, ${subject}, ${bodyText}, ${aj.model ?? 'claude-sonnet-4-6'}, ${userId})
       returning id, action_key, kind, recipient_role, subject, body, created_at`)[0];
 
+    // log the agent's outgoing correspondence onto the deal timeline + CRM
+    if (def.kind === 'email') {
+      const cId = recipientEmail ? (await sql`select id from acq.contacts where org_id=${deal.org_id} and lower(email)=${recipientEmail.toLowerCase()} limit 1`)[0]?.id ?? null : null;
+      await sql`insert into acq.communications (org_id, deal_id, contact_id, kind, direction, subject, body, to_addr, happened_at, created_by)
+        values (${deal.org_id}, ${deal.id}, ${cId}, 'email', 'out', ${subject}, ${bodyText}, ${recipientEmail}, now(), ${userId})`;
+    }
+
     return json({ ok: true, draft: row, recipient_email: recipientEmail });
   } catch (e) {
     return json({ error: String(e) }, 500);
