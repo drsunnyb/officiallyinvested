@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Officially Invested AI — your AI deal team for buying businesses</title>
+<meta name="description" content="Officially Invested AI reads the accounts, values the deal on your own methodology, challenges it like an investment committee, drafts every email and never lets a follow-up slip. The AI deal team for acquisition entrepreneurs." />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0A2540; --navy2:#0E2A47; --navy3:#13355a; --gold:#FFD700; --ink:#ffffff; --mut:rgba(255,255,255,.62); --mut2:rgba(255,255,255,.42); --line:rgba(255,255,255,.12); --green:#6EE7B7; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--navy);color:var(--ink);font-family:'Inter',system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .serif{font-family:'Fraunces',Georgia,serif;font-weight:500;letter-spacing:-.01em}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  .eyebrow{color:var(--gold);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;padding:13px 22px;border-radius:999px;cursor:pointer;border:1px solid transparent;transition:.15s}
+  .btn-gold{background:var(--gold);color:var(--navy)}
+  .btn-gold:hover{transform:translateY(-1px)}
+  .btn-ghost{border-color:rgba(255,255,255,.28);color:#fff}
+  .btn-ghost:hover{background:rgba(255,255,255,.06)}
+  header{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:rgba(10,37,64,.78);border-bottom:1px solid var(--line)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+  .logo{font-weight:600;font-size:17px;display:flex;align-items:center;gap:9px}
+  .logo b{color:var(--gold)}
+  .nav-links{display:flex;gap:28px;font-size:14px;color:var(--mut)}
+  .nav-links a:hover{color:#fff}
+  section{padding:96px 0}
+  h1{font-size:clamp(36px,6vw,62px);line-height:1.05;font-weight:600}
+  h2{font-size:clamp(28px,4vw,40px);line-height:1.1}
+  .lead{font-size:20px;color:var(--mut);max-width:620px}
+  .hero{padding:84px 0 72px;text-align:center}
+  .hero h1{max-width:900px;margin:18px auto 0}
+  .hero .lead{margin:22px auto 0}
+  .hero-cta{display:flex;gap:12px;justify-content:center;margin-top:30px;flex-wrap:wrap}
+  .micro{color:var(--mut2);font-size:13px;margin-top:14px}
+  .shot{margin:54px auto 0;max-width:880px;background:var(--navy2);border:1px solid var(--line);border-radius:16px;padding:14px}
+  .shot-bar{display:flex;gap:6px;padding:4px 6px 12px}
+  .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.18)}
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+  .card{background:var(--navy2);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .card h3{font-size:17px;font-weight:600;margin-bottom:6px}
+  .card p{color:var(--mut);font-size:14.5px}
+  .pain{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:40px}
+  .pain .card{border-left:2px solid var(--gold);border-radius:0 14px 14px 0}
+  .steps{counter-reset:s;display:grid;gap:14px;margin-top:36px}
+  .step{display:flex;gap:18px;align-items:flex-start;background:var(--navy2);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+  .step .n{counter-increment:s;flex:0 0 auto;width:34px;height:34px;border-radius:50%;background:rgba(255,215,0,.14);color:var(--gold);font-weight:600;display:flex;align-items:center;justify-content:center}
+  .step .n::before{content:counter(s)}
+  .step h3{font-size:16px;font-weight:600}
+  .step p{color:var(--mut);font-size:14.5px}
+  .team{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:36px}
+  .ag{background:var(--navy2);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .ag .r{color:var(--gold);font-weight:600;font-size:14px;margin-bottom:3px}
+  .ag p{color:var(--mut);font-size:13.5px}
+  .center{text-align:center}
+  .pricing{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:42px;align-items:start}
+  .tier{background:var(--navy2);border:1px solid var(--line);border-radius:18px;padding:30px}
+  .tier.feat{border:1.5px solid var(--gold);position:relative}
+  .tier .badge{position:absolute;top:-12px;left:30px;background:var(--gold);color:var(--navy);font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px}
+  .tier h3{font-size:15px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+  .price{font-size:46px;font-weight:600;margin:12px 0 2px}
+  .price span{font-size:16px;color:var(--mut);font-weight:400}
+  .tier ul{list-style:none;margin:20px 0 24px;display:flex;flex-direction:column;gap:10px}
+  .tier li{font-size:14.5px;color:var(--mut);display:flex;gap:9px;align-items:flex-start}
+  .tier li b{color:#fff;font-weight:500}
+  .tick{color:var(--green);flex:0 0 auto}
+  .tier .btn{width:100%;justify-content:center}
+  .toggle{display:inline-flex;background:var(--navy2);border:1px solid var(--line);border-radius:999px;padding:4px;margin-top:22px}
+  .toggle button{border:none;background:none;color:var(--mut);font:inherit;font-size:14px;font-weight:600;padding:7px 16px;border-radius:999px;cursor:pointer}
+  .toggle button.on{background:var(--gold);color:var(--navy)}
+  .faq{max-width:760px;margin:36px auto 0;display:flex;flex-direction:column;gap:0}
+  .faq details{border-bottom:1px solid var(--line);padding:18px 0}
+  .faq summary{font-weight:600;cursor:pointer;list-style:none;font-size:16.5px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq p{color:var(--mut);font-size:15px;margin-top:10px}
+  .cta-band{background:linear-gradient(0deg,var(--navy),var(--navy2));border:1px solid var(--line);border-radius:20px;text-align:center;padding:56px 24px}
+  footer{border-top:1px solid var(--line);padding:40px 0;color:var(--mut2);font-size:13.5px}
+  .stat{display:flex;gap:40px;justify-content:center;margin-top:40px;flex-wrap:wrap}
+  .stat div b{display:block;font-size:30px;font-weight:600;color:var(--gold);font-family:'Fraunces',serif}
+  .stat div span{font-size:13.5px;color:var(--mut)}
+  @media(max-width:640px){.nav-links{display:none}section{padding:64px 0}}
+</style>
+</head>
+<body>
+
+<header><div class="wrap nav">
+  <div class="logo">Officially&nbsp;Invested<b>&nbsp;AI</b></div>
+  <nav class="nav-links">
+    <a href="#how">How it works</a><a href="#team">The team</a><a href="#why">Why it's different</a><a href="#pricing">Pricing</a>
+  </nav>
+  <a class="btn btn-gold" href="#pricing" style="padding:9px 18px;font-size:14px">Start free</a>
+</div></header>
+
+<section class="hero wrap">
+  <div class="eyebrow">The AI deal team for acquisition entrepreneurs</div>
+  <h1 class="serif">Buy businesses like you've got an analyst, a lawyer and a broker on call.</h1>
+  <p class="lead">Drop in a deal. Officially Invested AI reads the accounts, values it on your own methodology, challenges it like an investment committee, drafts every email in your voice, and never lets a follow-up slip.</p>
+  <div class="hero-cta">
+    <a class="btn btn-gold" href="#pricing">Start free</a>
+    <a class="btn btn-ghost" href="#how">See how it works</a>
+  </div>
+  <div class="micro">No card to start · Built on the methodology behind real acquisitions</div>
+
+  <div class="shot">
+    <div class="shot-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+    <div style="background:var(--navy);border-radius:10px;padding:20px;text-align:left">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="color:var(--gold);font-weight:600;display:flex;gap:8px;align-items:center">✦ Deal Agent</div>
+        <span style="font-size:12px;background:rgba(245,158,11,.2);color:#FCD34D;padding:4px 11px;border-radius:999px">WATCH · 68</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--mut2)">Adj EBITDA</div><div style="font-weight:600;color:var(--gold)">£310k</div></div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--mut2)">Opening offer</div><div style="font-weight:600">£1.085M</div></div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--mut2)">DSCR</div><div style="font-weight:600;color:var(--green)">1.65×</div></div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--mut2)">7-Number</div><div style="font-weight:600;color:var(--green)">6/7</div></div>
+      </div>
+      <div style="font-size:13.5px;color:var(--mut)">Top risk: the filed accounts show £1.05M turnover against the £1.2M the seller claimed. Run the bank-statement test before any offer.</div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" id="pain" style="padding-top:30px">
+  <div class="center"><div class="eyebrow">If you're buying a business, you already know</div>
+  <h2 class="serif" style="margin-top:14px">It's a second full-time job of admin and guesswork.</h2></div>
+  <div class="pain">
+    <div class="card"><h3>You are the whole team</h3><p>Analyst, the lawyer's project manager, the chaser, the negotiator. All at once, on top of your day job.</p></div>
+    <div class="card"><h3>You're half-guessing the numbers</h3><p>Hours in spreadsheets to work out if a deal stacks up, and you still only half-trust what the seller told you.</p></div>
+    <div class="card"><h3>Good deals don't wait</h3><p>The ones worth having move fast. They're gone by the time you've got round to the analysis.</p></div>
+    <div class="card"><h3>A slipped follow-up is a dead deal</h3><p>Emails to the vendor, the accountant, the lender. Miss one and momentum, and the deal, quietly dies.</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="how">
+  <div class="center"><div class="eyebrow">How it works</div><h2 class="serif" style="margin-top:14px">Four steps from "found it" to "should I buy it".</h2></div>
+  <div class="steps">
+    <div class="step"><div class="n"></div><div><h3>Add the deal</h3><p>Type it, paste a listing link, drop the teaser in a folder, or let it come through your enquiry form. However it arrives, it lands on your board.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>It reads and verifies the numbers</h3><p>Upload the accounts and it pulls every figure with the source line, then flags anything that contradicts what the seller claimed.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>You get a valuation, a verdict and a memo</h3><p>Adjusted EBITDA, the multiple, the 7-Number Test, a funding structure and a BUY / WATCH / PASS with conditions. Computed, not guessed.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>The agent drafts the next move</h3><p>The right email to the vendor, accountant, solicitor or lender, in your voice, plus the call booked with the right people and the follow-up tracked.</p></div></div>
+  </div>
+</section>
+
+<section class="wrap" id="team">
+  <div class="center"><div class="eyebrow">Your AI team</div><h2 class="serif" style="margin-top:14px">One platform. A firm's worth of specialists.</h2></div>
+  <div class="team">
+    <div class="ag"><div class="r">Screening Analyst</div><p>Triages every opportunity against your buy box in seconds.</p></div>
+    <div class="ag"><div class="r">Investment Analyst</div><p>Reads the accounts and builds the valuation on real figures.</p></div>
+    <div class="ag"><div class="r">Investment Committee</div><p>Challenges the deal and calls it: buy, watch or pass.</p></div>
+    <div class="ag"><div class="r">Acquisition Manager</div><p>Drafts every email to the right person, in your voice.</p></div>
+    <div class="ag"><div class="r">Due Diligence</div><p>Financial, commercial and legal scope, ready for your advisers.</p></div>
+    <div class="ag"><div class="r">Capital</div><p>Builds the funding stack and the lender-ready pack.</p></div>
+    <div class="ag"><div class="r">CRM &amp; Monitoring</div><p>Remembers everyone, chases the follow-ups, watches your live deals.</p></div>
+    <div class="ag"><div class="r">Your thesis, encoded</div><p>It scores every deal against the box you actually buy in.</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="why">
+  <div class="center"><div class="eyebrow">Why it's different</div><h2 class="serif" style="margin-top:14px">Not a chatbot bolted onto a spreadsheet.</h2></div>
+  <div class="card-grid" style="margin-top:40px">
+    <div class="card"><h3>Computed, never guessed</h3><p>A real engine calculates the EBITDA, valuation, DSCR and funding stack. The AI explains the numbers; it never invents them.</p></div>
+    <div class="card"><h3>The bank-statement test, automatic</h3><p>Every figure the seller claims is checked against the documents, and contradictions are flagged before you waste a week.</p></div>
+    <div class="card"><h3>Your methodology, not generic AI</h3><p>It works the way a disciplined acquirer works: RED filter, the 4-Multiple Method, the 7-Number Test, deal architecture.</p></div>
+    <div class="card"><h3>It sounds like you</h3><p>Every email and memo reads like you wrote it. No AI tells, no filler, nothing you'd be embarrassed to send.</p></div>
+  </div>
+</section>
+
+<section class="wrap center" id="pricing">
+  <div class="eyebrow">Pricing</div>
+  <h2 class="serif" style="margin-top:14px">Less than a day of an analyst's time. Every month.</h2>
+  <div class="toggle" role="tablist">
+    <button id="m" class="on" onclick="setBill('m')">Monthly</button>
+    <button id="y" onclick="setBill('y')">Annual · 2 months free</button>
+  </div>
+  <div class="pricing">
+    <div class="tier">
+      <h3>Individual</h3>
+      <div class="price" data-m="£99" data-y="£82">£99</div><div style="color:var(--mut);font-size:14px" data-ms=" / month" data-ys=" / month, billed annually"> / month</div>
+      <ul>
+        <li><span class="tick">✓</span><span>One user, <b>unlimited deals</b></span></li>
+        <li><span class="tick">✓</span><span>The full <b>Deal Agent</b>: analysis, valuation, committee, memo</span></li>
+        <li><span class="tick">✓</span><span>Document reading with verified figures</span></li>
+        <li><span class="tick">✓</span><span>CRM, follow-ups and Companies House monitoring</span></li>
+        <li><span class="tick">✓</span><span>Your thesis and buy box</span></li>
+      </ul>
+      <a class="btn btn-ghost" href="mailto:deals@officiallyinvested.com?subject=Officially%20Invested%20AI%20-%20Individual">Start free</a>
+    </div>
+    <div class="tier feat">
+      <div class="badge">Most popular</div>
+      <h3>Team</h3>
+      <div class="price" data-m="£349" data-y="£291">£349</div><div style="color:var(--mut);font-size:14px" data-ms=" / month" data-ys=" / month, billed annually"> / month</div>
+      <ul>
+        <li><span class="tick">✓</span><span>Up to <b>5 users</b>, then £59 / user</span></li>
+        <li><span class="tick">✓</span><span>Everything in Individual</span></li>
+        <li><span class="tick">✓</span><span><b>Multiple mandates</b> and shared pipeline</span></li>
+        <li><span class="tick">✓</span><span>Shared CRM with roles and permissions</span></li>
+        <li><span class="tick">✓</span><span>Priority support</span></li>
+      </ul>
+      <a class="btn btn-gold" href="mailto:deals@officiallyinvested.com?subject=Officially%20Invested%20AI%20-%20Team">Start free</a>
+    </div>
+    <div class="tier">
+      <h3>Enterprise</h3>
+      <div class="price">Let's talk</div><div style="color:var(--mut);font-size:14px">&nbsp;</div>
+      <ul>
+        <li><span class="tick">✓</span><span>Unlimited users and mandates</span></li>
+        <li><span class="tick">✓</span><span><b>White-label</b> and custom domain</span></li>
+        <li><span class="tick">✓</span><span>SSO and bespoke integrations</span></li>
+        <li><span class="tick">✓</span><span>A lender / broker panel for funding</span></li>
+        <li><span class="tick">✓</span><span>Onboarding and a dedicated contact</span></li>
+      </ul>
+      <a class="btn btn-ghost" href="mailto:deals@officiallyinvested.com?subject=Officially%20Invested%20AI%20-%20Enterprise">Talk to us</a>
+    </div>
+  </div>
+  <p class="micro">Prices in GBP, exclude VAT. Cancel anytime.</p>
+</section>
+
+<section class="wrap">
+  <div class="center"><div class="eyebrow">Questions</div><h2 class="serif" style="margin-top:14px">The honest answers.</h2></div>
+  <div class="faq">
+    <details><summary>Is this just ChatGPT for deals?</summary><p>No. The valuation, EBITDA, DSCR and funding maths are computed by a deterministic engine, not generated by a language model. The AI reads documents and writes the words around the numbers, but it can't invent a figure.</p></details>
+    <details><summary>Will the emails read like AI wrote them?</summary><p>No, and we're strict about it. Every draft is written to read like you wrote it, with no AI tells, no filler and nothing you'd be embarrassed to send. You review and send.</p></details>
+    <details><summary>Do I have to learn prompts?</summary><p>No. You move a deal across your board and the right specialist does the work for that stage. There's nothing to prompt.</p></details>
+    <details><summary>Whose methodology does it use?</summary><p>Yours. It starts from a proven acquisition framework and you tune the buy box, sectors, return targets and exclusions to how you actually invest.</p></details>
+    <details><summary>Can my whole team use it?</summary><p>Yes. The Team plan gives shared pipeline and CRM, multiple mandates and roles, so everyone works the same deals with the same brain behind them.</p></details>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="cta-band">
+    <h2 class="serif">Stop doing the work of five people.</h2>
+    <p class="lead" style="margin:16px auto 0">Put a deal through it and see the analysis, the verdict and the first email in minutes.</p>
+    <div class="hero-cta"><a class="btn btn-gold" href="#pricing">Start free</a><a class="btn btn-ghost" href="mailto:deals@officiallyinvested.com?subject=Officially%20Invested%20AI%20demo">Book a demo</a></div>
+  </div>
+</section>
+
+<footer><div class="wrap" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
+  <div>Officially Invested AI — the operating system for buying, financing and managing assets.</div>
+  <div>© 2026 Officially Invested</div>
+</div></footer>
+
+<script>
+  function setBill(b){
+    document.getElementById('m').classList.toggle('on', b==='m');
+    document.getElementById('y').classList.toggle('on', b==='y');
+    document.querySelectorAll('.price[data-m]').forEach(function(el){ el.textContent = b==='m'?el.dataset.m:el.dataset.y; });
+    document.querySelectorAll('[data-ms]').forEach(function(el){ el.textContent = b==='m'?el.dataset.ms:el.dataset.ys; });
+  }
+</script>
+</body>
+</html>
