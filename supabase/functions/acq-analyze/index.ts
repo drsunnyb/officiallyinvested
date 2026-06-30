@@ -27,7 +27,7 @@ const SYSTEM_BASE =
   'STRICT RULES: (1) Use the engine numbers VERBATIM - never recompute, round differently, or invent any figure. ' +
   '(2) If a fact contradicts the seller (contradicts_self_reported=true), lead with it and treat self-reported numbers ' +
   'with scepticism. (3) Cite the framework\'s named tools where relevant. (4) Be concrete and decision-useful for an ' +
-  'acquisition entrepreneur. Output STRICT JSON only.\n\n=== METHODOLOGY ===\n';
+  'acquisition entrepreneur. (5) Score FIT against the firm thesis/buy box (firm_thesis) when provided; if the deal is outside the box, state how far outside and treat it as opportunistic — do NOT auto-fail solely for being outside the box.\n\n=== METHODOLOGY ===\n';
 
 const ANALYSIS_TOOL = {
   name: 'submit_analysis',
@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
       userId = data.user.id;
     }
 
-    const deals = await sql`select d.*, o.name as org_name from acq.deals d join acq.organizations o on o.id=d.org_id where d.id=${body.deal_id}`;
+    const deals = await sql`select d.*, o.name as org_name, o.settings as org_settings from acq.deals d join acq.organizations o on o.id=d.org_id where d.id=${body.deal_id}`;
     if (!deals.length) { await sql.end({ timeout: 5 }); return json({ error: 'deal not found' }, 404); }
     const deal = deals[0];
     if (!trusted) {
@@ -128,7 +128,7 @@ Deno.serve(async (req: Request) => {
         const verified = facts.filter((f) => !f.is_self_reported).map((f) => ({ metric: f.metric, period: f.period, value: f.value, contradicts_self_reported: f.contradicts_self_reported, source: f.source_quote }));
         const contradictions = verified.filter((f) => f.contradicts_self_reported);
         const system = SYSTEM_BASE.replace('{ORG}', deal.org_name) + methodology;
-        const user = JSON.stringify({ deal: { name: deal.name, asset_type: deal.asset_type, sector, asking_price: deal.asking_price }, verified_facts: verified, contradictions, engine }) + '\n\nCall submit_analysis with your full analysis.';
+        const user = JSON.stringify({ deal: { name: deal.name, asset_type: deal.asset_type, sector, asking_price: deal.asking_price }, firm_thesis: deal.org_settings ?? null, verified_facts: verified, contradictions, engine }) + '\n\nCall submit_analysis with your full analysis.';
         const ar = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4096, system, tools: [ANALYSIS_TOOL], tool_choice: { type: 'tool', name: 'submit_analysis' }, messages: [{ role: 'user', content: user }] }) });
         if (!ar.ok) { console.error('analyze anthropic', ar.status, (await ar.text()).slice(0, 300)); return; }
         const aj = await ar.json();
