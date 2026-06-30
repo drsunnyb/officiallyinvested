@@ -279,6 +279,11 @@
   .cb{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#fff;background:var(--navy2);border:1px solid var(--line);border-radius:999px;padding:8px 15px;transition:.2s}
   .cb:hover{border-color:rgba(255,215,0,.4);transform:translateY(-2px)}
   @media(max-width:420px){.fwgrid{grid-template-columns:1fr}}
+  /* credibility logo wall */
+  .logos{display:flex;align-items:center;justify-content:center;gap:13px;flex-wrap:wrap}
+  .logo{height:48px;min-width:96px;padding:9px 17px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px -12px rgba(0,0,0,.6)}
+  .logo img{max-height:26px;max-width:112px;width:auto;object-fit:contain;display:block}
+  .lw{font-family:'Inter',sans-serif;font-weight:700;font-size:16px;color:#0A2540;letter-spacing:.01em}
   @media(prefers-reduced-motion:reduce){.float{animation:none}*{transition:none!important}}
 </style>
 </head>
@@ -300,8 +305,8 @@
   <div class="wrap hero-grid">
     <div>
       <span class="badge-row"><span class="pip"></span> The AI deal team for acquisition entrepreneurs</span>
-      <h1 class="serif">Buy businesses like you've got an <span class="hl">analyst, a lawyer and a broker</span> on call.</h1>
-      <p class="lead">Drop in a deal. Officially Invested AI reads the accounts, values it on your own methodology, challenges it like an investment committee, drafts every email in your voice, and never lets a follow-up slip.</p>
+      <h1 class="serif">Buy businesses, property and land like you've got an <span class="hl">analyst, a lawyer and a broker</span> on call.</h1>
+      <p class="lead">Drop in any deal, a trading business, a property or a land site. Officially Invested AI reads the numbers, values it on your own methodology, challenges it like an investment committee, drafts every email in your voice, and never lets a follow-up slip.</p>
       <div class="hero-cta">
         <a class="btn btn-gold" href="#pricing">Start free</a>
         <a class="btn btn-ghost" href="#flow">See it work →</a>
@@ -320,17 +325,17 @@
           <div class="col-h"><span>New</span><span class="ct">3</span></div>
           <div class="dcard featured"><div class="nm">Meadowbrook Care</div><div class="sb">Healthcare · Cheshire</div><div class="ft"><span class="pill watch">WATCH</span><span class="mv">£1.05M</span></div></div>
           <div class="dcard"><div class="nm">Pennine Logistics</div><div class="sb">Transport · Leeds</div><div class="ft"><span class="pill buy">BUY</span><span class="mv">£2.4M</span></div></div>
-          <div class="dcard"><div class="nm">Harbour Dental</div><div class="sb">Dental · Bristol</div><div class="ft"><span class="pill pass">PASS</span><span class="mv">£780k</span></div></div>
+          <div class="dcard"><div class="nm">Kingsway Retail Parade</div><div class="sb">Property · Manchester</div><div class="ft"><span class="pill buy">BUY</span><span class="mv">£3.2M</span></div></div>
         </div>
         <div class="col">
           <div class="col-h"><span>Initial review</span><span class="ct">2</span></div>
           <div class="dcard"><div class="nm">Ashgrove Plant Hire</div><div class="sb">Equipment · Derby</div><div class="ft"><span class="pill buy">BUY</span><span class="mv">£1.9M</span></div></div>
-          <div class="dcard"><div class="nm">Calder Fasteners</div><div class="sb">Manufacturing · Halifax</div><div class="ft"><span class="pill watch">WATCH</span><span class="mv">£3.1M</span></div></div>
+          <div class="dcard"><div class="nm">Wharf Road site</div><div class="sb">Land · GDV £6M · Leeds</div><div class="ft"><span class="pill watch">WATCH</span><span class="mv">£1.4M</span></div></div>
         </div>
         <div class="col">
           <div class="col-h"><span>Discovery call</span><span class="ct">2</span></div>
           <div class="dcard"><div class="nm">Northgate HVAC</div><div class="sb">Services · Manchester</div><div class="ft"><span class="pill buy">BUY</span><span class="mv">£1.4M</span></div></div>
-          <div class="dcard"><div class="nm">Riverside Care</div><div class="sb">Healthcare · York</div><div class="ft"><span class="pill watch">WATCH</span><span class="mv">£2.2M</span></div></div>
+          <div class="dcard"><div class="nm">Riverside Care</div><div class="sb">Healthcare · York</div><div class="ft"><span class="pill pass">PASS</span><span class="mv">£2.2M</span></div></div>
         </div>
         <div class="col">
           <div class="col-h"><span>Structuring</span><span class="ct">1</span></div>
@@ -348,13 +353,14 @@
 <!-- ===================== CREDIBILITY BADGES ===================== -->
 <section class="wrap" style="padding:20px 0 0">
   <div class="cred" data-animate>
-    <div class="cred-l">Built and used by operators from</div>
-    <div class="cred-badges">
-      <span class="cb">🏥 The NHS</span>
-      <span class="cb">📈 Private equity</span>
-      <span class="cb">🩺 Medicine</span>
-      <span class="cb">⚖️ Law</span>
-      <span class="cb">💻 Engineering &amp; tech</span>
+    <div class="cred-l">Built and used by operators who've worked at</div>
+    <div class="logos">
+      <span class="logo"><img src="https://logo.clearbit.com/nhs.uk" alt="NHS" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'NHS'}))"></span>
+      <span class="logo"><img src="https://logo.clearbit.com/bt.com" alt="BT" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'BT'}))"></span>
+      <span class="logo"><img src="https://logo.clearbit.com/deloitte.com" alt="Deloitte" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'Deloitte'}))"></span>
+      <span class="logo"><img src="https://logo.clearbit.com/pwc.com" alt="PwC" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'PwC'}))"></span>
+      <span class="logo"><img src="https://logo.clearbit.com/kpmg.com" alt="KPMG" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'KPMG'}))"></span>
+      <span class="logo"><img src="https://logo.clearbit.com/ey.com" alt="EY" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lw',textContent:'EY'}))"></span>
     </div>
   </div>
 </section>
@@ -384,8 +390,10 @@
       <div class="node" data-i="3" onclick="setStage(3)"><div class="dot">🧩</div><div class="lbl">Structure</div></div>
       <div class="node" data-i="4" onclick="setStage(4)"><div class="dot">📝</div><div class="lbl">Heads of Terms</div></div>
       <div class="node" data-i="5" onclick="setStage(5)"><div class="dot">📊</div><div class="lbl">Financial DD</div></div>
-      <div class="node" data-i="6" onclick="setStage(6)"><div class="dot">💷</div><div class="lbl">Funding</div></div>
-      <div class="node" data-i="7" onclick="setStage(7)"><div class="dot">✅</div><div class="lbl">Completion</div></div>
+      <div class="node" data-i="6" onclick="setStage(6)"><div class="dot">🏭</div><div class="lbl">Commercial DD</div></div>
+      <div class="node" data-i="7" onclick="setStage(7)"><div class="dot">📜</div><div class="lbl">Legal DD</div></div>
+      <div class="node" data-i="8" onclick="setStage(8)"><div class="dot">💷</div><div class="lbl">Funding</div></div>
+      <div class="node" data-i="9" onclick="setStage(9)"><div class="dot">✅</div><div class="lbl">Completion</div></div>
     </div>
     <div class="frame" style="margin-top:30px">
       <div class="frame-bar"><span class="d"></span><span class="d"></span><span class="d"></span><span class="frame-url" id="tUrl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> officiallyinvested.com/admin/pipeline · Meadowbrook Care</span></div>
@@ -484,7 +492,7 @@
     <div data-animate>
       <div class="eyebrow">The methodology</div>
       <h2 class="serif" style="margin-top:14px">It values deals on trademarked IP. Then it learns yours.</h2>
-      <p class="lead" style="margin-top:16px">Officially Invested AI values every deal on Officially Invested's own trademarked intellectual property and methods, the frameworks behind billions of pounds of deal analysis over 25 years. This isn't generic AI judgement; it's proven, proprietary method, encoded into the engine.</p>
+      <p class="lead" style="margin-top:16px">Officially Invested AI values every deal on Officially Invested's own trademarked intellectual property and methods, the frameworks behind billions of pounds of deal analysis over 25 years, across businesses, property and land. This isn't generic AI judgement; it's proven, proprietary method, encoded into the engine.</p>
       <p class="lead" style="margin-top:14px">Then it goes further. It trains on your deals and your structures, so the more you put through it, the more it values and structures every new deal the way you do.</p>
       <div class="sig">Trademarked method on day one. Tuned to how you buy over time.</div>
     </div>
@@ -500,6 +508,7 @@
         <div class="fw"><span class="t">Deal Architecture</span><span class="s">HoldCo, SPVs, the right structure</span></div>
         <div class="fw"><span class="t">Deal Review Scorecard</span><span class="s">Green flags vs red flags</span></div>
         <div class="fw"><span class="t">Deal Finder + DD checklists</span><span class="s">Never miss a step</span></div>
+        <div class="fw"><span class="t">Property &amp; GDV appraisal</span><span class="s">For property and land deals</span></div>
         <div class="fw" style="border-color:rgba(255,215,0,.25)"><span class="t" style="color:var(--gold)">+ more, always growing</span><span class="s">The full Officially Invested toolkit</span></div>
       </div>
       <div class="tact" style="margin-top:11px;border-color:rgba(255,215,0,.45);background:rgba(255,215,0,.07)"><span class="ic">✦</span><span><span class="t" style="color:var(--gold)">Then trained on your deals &amp; structures</span><span class="s">It adapts to how you buy and structure, deal after deal</span></span></div>
@@ -608,7 +617,7 @@
     </div>
     <div class="ag" data-animate>
       <div class="agshot" style="gap:8px">
-        <div style="display:flex;flex-wrap:wrap;gap:4px"><span class="chipx">£1M–5M</span><span class="chipx">Care · Services</span><span class="chipx">North</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px"><span class="chipx">£1M–5M</span><span class="chipx">Business · Property · Land</span><span class="chipx">North</span></div>
         <div class="mini-ck"><span class="b">✓</span>Fit score 82 / 100</div>
       </div>
       <div class="r">Your thesis, encoded</div><p>It scores every deal against the box you actually buy in.</p>
@@ -739,9 +748,9 @@
 
   /* ===== pipeline theatre ===== */
   var ST=[
-   {url:"New", stage:"Screened in seconds", desc:"The moment it lands it's checked against your thesis: sector, size, geography, returns. A fit score and a read before you've finished your coffee.",
+   {url:"New", stage:"Screened, or filtered out, in seconds", desc:"The moment it lands it's checked against your thesis. If it fits, you get a score and a read. If it doesn't, it's filtered out in seconds, so you only ever spend time on the deals that deserve it.",
     acts:[["✦","Screening brief","Fit vs your buy box"],["↗","Find comparables","Indicative market"]],
-    out:'<div class="tr-card"><div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span class="bigpill" style="background:rgba(245,158,11,.2);color:var(--amber);border-color:rgba(253,230,138,.5)">WATCH · 68</span><span style="color:var(--mut);font-size:12px">RED · Park</span></div><div style="color:rgba(255,255,255,.82);font-size:13.5px;line-height:1.6">Care sector, Cheshire, about £1M turnover. Inside your size band and target geography. Margins worth a closer look.</div></div>'},
+    out:'<div class="tr-card"><div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span class="bigpill" style="background:rgba(245,158,11,.2);color:var(--amber);border-color:rgba(253,230,138,.5)">WATCH · 68</span><span style="color:var(--mut);font-size:12px">RED · Park</span></div><div style="color:rgba(255,255,255,.82);font-size:13.5px;line-height:1.6">Care sector, Cheshire, about £1M turnover. Inside your size band and target geography. Margins worth a closer look.</div><div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;color:var(--mut2)">+ 4 other deals auto-passed today, no time wasted.</div></div>'},
    {url:"Discovery call", stage:"Ready for the call", desc:"Before you dial, it hands you the agenda and the questions that actually move a deal forward.",
     acts:[["✦","Discovery-call pack","Agenda + questions"],["✉","Request documents","From the vendor"]],
     out:'<div class="tr-card"><div class="sub-l">Discovery call · agenda</div><div class="ck"><span class="b">✓</span>Why are you selling, and why now?</div><div class="ck" style="animation-delay:.1s"><span class="b">✓</span>Owner dependence and the team</div><div class="ck" style="animation-delay:.2s"><span class="b">✓</span>Customer concentration and recurring revenue</div><div class="ck" style="animation-delay:.3s"><span class="b">✓</span>The real, normalised profit</div></div>'},
@@ -757,6 +766,12 @@
    {url:"DD · Financial", stage:"Diligence, briefed", desc:"It briefs your accountant with exactly what to verify, addressed to the right person on the deal.",
     acts:[["✉","Brief the accountant","Financial DD"],["✉","Chase the vendor","Outstanding docs"]],
     out:'<div class="tr-card"><div class="draft" style="margin:0;border:none;padding:0;background:none"><div class="dh"><span class="subj">Financial DD, what to verify <span class="tag">accountant</span></span></div><div class="email-mini">Hi David,\n\nWe\'re proceeding on Meadowbrook Care. Before we commit, could you verify the FY24 turnover and the adjusted profit against the bank statements, and confirm the add-backs are reasonable?\n\nHappy to talk it through.</div></div></div>'},
+   {url:"DD · Commercial", stage:"Commercial diligence", desc:"It scopes the commercial risks and the upside: customers, concentration, contracts, competition and the people.",
+    acts:[["▤","Commercial DD plan","Risks + upside"],["↗","Market check","Comparables"]],
+    out:'<div class="tr-card"><div class="sub-l">Commercial DD · scope</div><div class="ck"><span class="b">✓</span>Customer concentration and churn</div><div class="ck" style="animation-delay:.1s"><span class="b">✓</span>Recurring vs one-off revenue</div><div class="ck" style="animation-delay:.2s"><span class="b">✓</span>Key-person and team risk</div><div class="ck" style="animation-delay:.3s"><span class="b">✓</span>Market position and competition</div></div>'},
+   {url:"DD · Legal", stage:"Legal diligence", desc:"It scopes legal due diligence and briefs your solicitor: contracts, property and leases, employment, litigation and compliance.",
+    acts:[["⚖","Brief the solicitor","Legal DD"],["▤","Legal DD scope","What to check"]],
+    out:'<div class="tr-card"><div class="sub-l">Legal DD · scope</div><div class="ck"><span class="b">✓</span>Material contracts and change-of-control</div><div class="ck" style="animation-delay:.1s"><span class="b">✓</span>Property title and leases</div><div class="ck" style="animation-delay:.2s"><span class="b">✓</span>Employment and TUPE</div><div class="ck" style="animation-delay:.3s"><span class="b">✓</span>Litigation and compliance</div></div>'},
    {url:"Funding", stage:"Funding, packaged", desc:"It packages the funding case for lenders: the ask, the cover and the security, ready to send.",
     acts:[["▤","Lender pack","Funding summary"],["✉","Approach a funder","Lender / broker"]],
     out:'<div class="tr-card"><div class="sub-l">Lender pack · summary</div><div class="kpis" style="grid-template-columns:repeat(3,1fr);margin:0"><div class="kpi"><div class="l">Senior debt</div><div class="v gold" data-count="651" data-prefix="£" data-suffix="k">£0</div></div><div class="kpi"><div class="l">DSCR</div><div class="v green" data-count="1.65" data-dec="2" data-suffix="×">0</div></div><div class="kpi"><div class="l">Term</div><div class="v">7 yrs</div></div></div></div>'},
@@ -772,7 +787,7 @@
     sfill.style.left=c0+'px'; sfill.style.right='auto'; sfill.style.width=Math.max(0,cc-c0)+'px';
     try{ srail.scrollTo({left:snodes[si].offsetLeft-srail.clientWidth/2+snodes[si].offsetWidth/2, behavior:'smooth'}); }catch(e){}
     document.getElementById('tUrl').innerHTML='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> officiallyinvested.com/admin/pipeline · '+s.url;
-    document.getElementById('tNum').textContent='Stage '+('0'+(si+1)).slice(-2)+' of 08';
+    document.getElementById('tNum').textContent='Stage '+('0'+(si+1)).slice(-2)+' of '+('0'+ST.length).slice(-2);
     document.getElementById('tStage').textContent=s.stage;
     document.getElementById('tDesc').textContent=s.desc;
     document.getElementById('tActs').innerHTML=s.acts.map(function(a){return '<div class="tact"><span class="ic">'+a[0]+'</span><span><span class="t">'+a[1]+'</span><span class="s">'+a[2]+'</span></span></div>';}).join('');
