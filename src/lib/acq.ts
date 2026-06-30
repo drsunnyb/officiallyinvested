@@ -14,6 +14,8 @@ export interface AcqBundle {
   memo: any | null;
   drafts: any[];
   deal_contacts: any[];
+  communications: any[];
+  email_alias: string | null;
 }
 
 async function invoke<T = any>(fn: string, body: Record<string, unknown>): Promise<T> {
@@ -33,6 +35,8 @@ export const runMemo = (deal_id: string) => invoke('acq-memo', { deal_id });
 export const draftAction = (deal_id: string, action_key: string) => invoke<{ ok: boolean; draft: any; recipient_email: string | null }>('acq-draft', { deal_id, action_key });
 export const createDeal = (payload: Record<string, unknown>) => invoke<{ ok: boolean; submission_id: string; reference: string }>('acq-create-deal', payload);
 export const addDealContact = (deal_id: string, c: Record<string, unknown>) => invoke('acq-crm', { action: 'add_deal_contact', deal_id, ...c });
+export const commsList = (deal_id: string) => invoke<{ ok: boolean; communications: any[] }>('acq-comms', { action: 'list', deal_id });
+export const commsAdd = (deal_id: string, c: Record<string, unknown>) => invoke<{ ok: boolean; communication: any }>('acq-comms', { action: 'add', deal_id, ...c });
 export const crmList = () => invoke<{ ok: boolean; contacts: any[]; tasks: any[] }>('acq-crm', { action: 'list' });
 export const crmAddContact = (c: Record<string, unknown>) => invoke('acq-crm', { action: 'add_contact', ...c });
 export const crmAddTask = (t: Record<string, unknown>) => invoke('acq-crm', { action: 'add_task', ...t });

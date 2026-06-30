@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video } from 'lucide-react';
+import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video, Inbox, Send, StickyNote, Phone, Folder } from 'lucide-react';
 import ScheduleCallModal from './ScheduleCallModal';
-import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, pollBundle, type AcqBundle } from '../lib/acq';
+import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, commsAdd, pollBundle, type AcqBundle } from '../lib/acq';
 import { STAGES } from '../lib/stages';
 
 function gbp(v: unknown): string {
@@ -14,6 +14,7 @@ function gbp(v: unknown): string {
 
 // strip em/en dashes so nothing the agent wrote reads as AI
 const human = (t: string) => (t || '').replace(/\s*[—–]\s*/g, ', ');
+const since = (ts: string) => { const s = (Date.now() - new Date(ts).getTime()) / 1000; if (s < 3600) return Math.max(1, Math.round(s / 60)) + 'm'; if (s < 86400) return Math.round(s / 3600) + 'h'; return Math.round(s / 86400) + 'd'; };
 
 const VERDICT_STYLE: Record<string, string> = {
   BUY: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50',
@@ -68,6 +69,9 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
   const [pf, setPf] = useState<Record<string, string>>({});
   const [pBusy, setPBusy] = useState(false);
   const [showCall, setShowCall] = useState(false);
+  const [cf, setCf] = useState<Record<string, string>>({});
+  const [cBusy, setCBusy] = useState(false);
+  const [copiedAlias, setCopiedAlias] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -109,6 +113,12 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
     setPBusy(true); setErr('');
     try { await addDealContact(dealId, { name: pf.name, role: pf.role || 'vendor', email: pf.email }); setPf({}); await load(); }
     catch (e: any) { setErr(e.message || String(e)); } finally { setPBusy(false); }
+  };
+  const addComm = async () => {
+    if (!cf.body?.trim() || !dealId) return;
+    setCBusy(true); setErr('');
+    try { await commsAdd(dealId, { kind: cf.kind || 'note', subject: cf.subject || null, body: cf.body, direction: cf.kind === 'email' ? 'out' : 'internal' }); setCf({}); await load(); }
+    catch (e: any) { setErr(e.message || String(e)); } finally { setCBusy(false); }
   };
 
   if (loading) return <Wrap><div className="flex items-center gap-2 text-white/60 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading the agent…</div></Wrap>;
@@ -232,32 +242,92 @@ export default function DealAnalysisPanel({ submissionId, status }: { submission
         </div>
       </Block>
 
-      {/* data room */}
-      <Block title="Data room">
-        <div className="flex gap-1.5 flex-wrap mb-2 text-[11px]">
-          {['accounts', 'financials', 'legal', 'property'].map((g) => (
-            <span key={g} className="px-2.5 py-1 rounded-full bg-white/8 text-white/60 capitalize">{g}</span>
-          ))}
-        </div>
-        {(b?.documents ?? []).length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5 mb-2">
-            {b!.documents.map((doc: any) => (
-              <div key={doc.id} className="bg-white/5 rounded-lg p-2 flex items-center gap-2">
-                <FileText className="h-4 w-4 text-white/45 shrink-0" />
-                <span className="flex-1 truncate text-[11px] text-white/75">{doc.file_name}</span>
-                <span className={'text-[9px] ' + (doc.extraction_status === 'done' ? 'text-emerald-300' : 'text-white/40')}>{doc.extraction_status === 'done' ? '✓' : doc.extraction_status}</span>
-              </div>
-            ))}
+      {/* correspondence — every email, note and call on this deal, captured automatically */}
+      <Block title={`Correspondence (${(b?.communications ?? []).length})`}>
+        {b?.email_alias && (
+          <div className="flex items-center gap-2 bg-[#FFD700]/8 border border-[#FFD700]/25 rounded-lg p-2 mb-2.5">
+            <Inbox className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
+            <span className="text-[11px] text-white/70 flex-1 truncate">BCC or forward deal emails to <span className="text-white">{b.email_alias}</span></span>
+            <button onClick={() => { navigator.clipboard?.writeText(b.email_alias!); setCopiedAlias(true); setTimeout(() => setCopiedAlias(false), 1500); }} className="text-[10px] text-[#FFD700] inline-flex items-center gap-1 shrink-0">{copiedAlias ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}{copiedAlias ? 'Copied' : 'Copy'}</button>
           </div>
-        ) : <p className="text-white/40 text-[12px] mb-2">No documents yet — upload accounts above to populate verified figures.</p>}
+        )}
+        <div className="flex gap-1.5 mb-2.5">
+          <select value={cf.kind ?? 'note'} onChange={(e) => setCf((p) => ({ ...p, kind: e.target.value }))} className="bg-white/5 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
+            {['note', 'email', 'call', 'meeting'].map((k) => <option key={k} value={k} className="bg-[#0E3257]">{k}</option>)}
+          </select>
+          <input value={cf.body ?? ''} onChange={(e) => setCf((p) => ({ ...p, body: e.target.value }))} placeholder="Log a note, call or email…" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
+          <button onClick={addComm} disabled={cBusy} className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-white/20 disabled:opacity-50">{cBusy ? '…' : 'Log'}</button>
+        </div>
+        {(b?.communications ?? []).length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            {b!.communications.map((cm: any) => {
+              const Icon = cm.direction === 'in' ? Inbox : cm.kind === 'call' ? Phone : cm.kind === 'note' ? StickyNote : Send;
+              return (
+                <div key={cm.id} className="bg-white/5 rounded-lg p-2.5">
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
+                    <span className="text-[12px] text-white flex-1 truncate">{human(cm.subject || (cm.kind === 'note' ? 'Note' : cm.kind))}</span>
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-white/55 shrink-0">{cm.direction === 'in' ? 'received' : cm.direction === 'out' ? 'sent' : cm.kind}</span>
+                    <span className="text-[9px] text-white/35 shrink-0">{since(cm.happened_at)}</span>
+                  </div>
+                  {(cm.from_addr || cm.to_addr || cm.contact_name) && <div className="text-[10.5px] text-white/45 mt-0.5">{cm.from_addr ? 'from ' + cm.from_addr : cm.to_addr ? 'to ' + cm.to_addr : cm.contact_name}</div>}
+                  {cm.body && <div className="text-[11.5px] text-white/70 mt-1">{human(cm.body).slice(0, 180)}{human(cm.body).length > 180 ? '…' : ''}</div>}
+                </div>
+              );
+            })}
+          </div>
+        ) : <p className="text-white/40 text-[12px]">No correspondence yet. BCC or forward the deal's address above, or log a note. Emails the agent drafts are saved here automatically.</p>}
+      </Block>
+
+      {/* data room — structured by category */}
+      <Block title="Data room">
+        {(() => {
+          const docs = b?.documents ?? [];
+          const cats: [string, RegExp][] = [
+            ['Accounts', /account|statutory|annual|companies house/i],
+            ['Financials', /financ|management|vat|bank|p&l|\bpl\b|tax|payroll|debtor|creditor/i],
+            ['Legal', /legal|contract|lease|hots|heads|title|spa|nda/i],
+            ['Property', /propert|valuation|survey|rent|epc|planning/i],
+          ];
+          const bucket = (d: any) => { const s = `${d.doc_kind ?? ''} ${d.file_name ?? ''}`; for (const [name, re] of cats) if (re.test(s)) return name; return 'Other'; };
+          const groups: Record<string, any[]> = { Accounts: [], Financials: [], Legal: [], Property: [], Other: [] };
+          docs.forEach((d: any) => groups[bucket(d)].push(d));
+          return (
+            <div className="flex flex-col gap-2">
+              {Object.entries(groups).map(([name, items]) => (
+                <div key={name} className="bg-white/5 rounded-lg p-2.5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Folder className="h-3.5 w-3.5 text-[#FFD700]" />
+                    <span className="text-[12px] font-semibold text-white">{name}</span>
+                    <span className="text-[10px] text-white/40">{items.length}</span>
+                  </div>
+                  {items.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                      {items.map((doc: any) => (
+                        <div key={doc.id} className="bg-white/5 rounded-md p-2 flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-white/45 shrink-0" />
+                          <span className="flex-1 truncate text-[11px] text-white/75">{doc.file_name}</span>
+                          <span className={'text-[9px] shrink-0 ' + (doc.extraction_status === 'done' ? 'text-emerald-300' : 'text-white/40')}>{doc.extraction_status === 'done' ? '✓' : doc.extraction_status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <p className="text-white/30 text-[11px]">No files yet</p>}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
         {verified.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
-            {verified.slice(0, 9).map((f) => (
-              <div key={f.id} className={'rounded-lg p-2 ' + (f.contradicts_self_reported ? 'bg-red-500/10 border border-red-400/40' : 'bg-white/5')}>
-                <div className="text-white/45 text-[10px] capitalize">{f.metric.replace(/_/g, ' ')}{f.period ? ' · ' + f.period : ''}</div>
-                <div className={'text-[13px] font-semibold ' + (f.contradicts_self_reported ? 'text-red-200' : 'text-white')}>{f.metric.endsWith('_pct') ? f.value + '%' : gbp(f.value)}</div>
-              </div>
-            ))}
+          <div className="mt-3">
+            <div className="text-white/45 text-[10px] uppercase tracking-wide mb-1.5">Verified figures</div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+              {verified.slice(0, 9).map((f) => (
+                <div key={f.id} className={'rounded-lg p-2 ' + (f.contradicts_self_reported ? 'bg-red-500/10 border border-red-400/40' : 'bg-white/5')}>
+                  <div className="text-white/45 text-[10px] capitalize">{f.metric.replace(/_/g, ' ')}{f.period ? ' · ' + f.period : ''}</div>
+                  <div className={'text-[13px] font-semibold ' + (f.contradicts_self_reported ? 'text-red-200' : 'text-white')}>{f.metric.endsWith('_pct') ? f.value + '%' : gbp(f.value)}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </Block>
