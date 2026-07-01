@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, ArrowLeft, Check, Upload, PenLine, ShieldCheck, Inbox, Sparkles, Palette, FolderTree } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { legalGetProfile, legalSetProfile, legalSetBrand, brandExtract, gmailStatus, gmailStart, gmailDisconnect, gmailSync, driveStatus, driveStart, driveDisconnect, driveSetRoot, driveSync } from '../../lib/acq';
+import { legalGetProfile, legalSetProfile, legalSetBrand, brandExtract, gmailStatus, gmailStart, gmailDisconnect, gmailSync, driveStatus, driveStart, driveDisconnect, driveSetRoot, driveSync, driveSetKb, kbSearch } from '../../lib/acq';
 
 type Profile = Record<string, any>;
 
@@ -44,6 +44,9 @@ export default function Settings() {
   const saveDriveRoot = async (v: string) => { setDriveBusy('root'); setErr(''); try { await driveSetRoot(v.trim()); await loadDrive(); } catch (e: any) { setErr(e.message || String(e)); } finally { setDriveBusy(''); } };
   const syncDrive = async () => { setDriveBusy('sync'); setErr(''); try { await driveSync(); await loadDrive(); } catch (e: any) { setErr(e.message || String(e)); } finally { setDriveBusy(''); } };
   const disconnectDrive = async () => { setDriveBusy('disc'); setErr(''); try { await driveDisconnect(); await loadDrive(); } catch (e: any) { setErr(e.message || String(e)); } finally { setDriveBusy(''); } };
+  const saveKbRoot = async (v: string) => { setDriveBusy('kb'); setErr(''); try { await driveSetKb(v.trim()); await loadDrive(); } catch (e: any) { setErr(e.message || String(e)); } finally { setDriveBusy(''); } };
+  const [kbQ, setKbQ] = useState(''); const [kbHits, setKbHits] = useState<any[] | null>(null);
+  const runKbSearch = async () => { setDriveBusy('kbsearch'); setErr(''); try { const r: any = await kbSearch(kbQ); setKbHits(r.matches || []); } catch (e: any) { setErr(e.message || String(e)); } finally { setDriveBusy(''); } };
 
   const set = (k: string, v: any) => { setP((x) => ({ ...x, [k]: v })); setSaved(false); };
   const onSig = (f: File | null) => {
@@ -192,6 +195,29 @@ export default function Settings() {
                       <button onClick={syncDrive} disabled={driveBusy === 'sync' || !drive.account.root_folder_id} className="inline-flex items-center gap-2 bg-[#FFD700] text-[#0A2540] px-4 py-2 rounded-lg text-sm font-bold hover:bg-opacity-90 disabled:opacity-40">{driveBusy === 'sync' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Sync now</button>
                     </div>
                     <p className="text-white/35 text-[11px] mt-1.5">Find the ID in the folder's URL after /folders/. Sync runs automatically too.</p>
+                  </div>
+                  <div className="border-t border-white/8 pt-3">
+                    <label className="text-[11px] text-white/50">Knowledge base folder ID <span className="text-white/35">(optional, firm reference material the agent always uses)</span></label>
+                    <input defaultValue={drive.account.kb_folder_id || ''} onBlur={(e) => e.target.value.trim() !== (drive.account.kb_folder_id || '') && saveKbRoot(e.target.value)} placeholder="Paste a folder of frameworks, templates, market data…" className="mt-1 w-full bg-white/5 border border-white/15 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-[#FFD700]/60" />
+                    <p className="text-white/35 text-[11px] mt-1">{drive.kb_docs ? drive.kb_docs + ' reference documents in the knowledge base. ' : ''}Its contents are always available to the agent across every deal, and searchable below.</p>
+                    {drive.account.kb_folder_id && (
+                      <div className="mt-2">
+                        <div className="flex gap-2">
+                          <input value={kbQ} onChange={(e) => setKbQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') runKbSearch(); }} placeholder="Search the knowledge base…" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-[#FFD700]/60" />
+                          <button onClick={runKbSearch} disabled={driveBusy === 'kbsearch'} className="inline-flex items-center gap-2 bg-white/10 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-white/20 disabled:opacity-50">{driveBusy === 'kbsearch' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Search</button>
+                        </div>
+                        {kbHits && (kbHits.length > 0 ? (
+                          <div className="flex flex-col gap-1.5 mt-2">
+                            {kbHits.map((h: any, i: number) => (
+                              <div key={i} className="bg-white/5 rounded-lg p-2.5">
+                                <div className="text-[12px] text-white font-semibold truncate">{h.file_name}</div>
+                                <div className="text-[11px] text-white/55 mt-0.5">{h.snippet}</div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : <p className="text-white/40 text-[12px] mt-2">No matches.</p>)}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
