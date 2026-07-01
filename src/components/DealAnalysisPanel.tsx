@@ -22,14 +22,16 @@ const clean = (t: string) => human(t)
   .replace(/(^|[^*])\*(?!\*)([^*\n]+?)\*(?!\*)/g, '$1$2')
   .replace(/`+/g, '').replace(/^\s*[-*]\s+/gm, '• ');
 const since = (ts: string) => { const s = (Date.now() - new Date(ts).getTime()) / 1000; if (s < 3600) return Math.max(1, Math.round(s / 60)) + 'm'; if (s < 86400) return Math.round(s / 3600) + 'h'; return Math.round(s / 86400) + 'd'; };
-const tierCls = (t: string) => t === 'A' ? 'bg-emerald-600 text-white' : t === 'B' ? 'bg-[#FFD700] text-[#0A2540]' : t === 'C' ? 'bg-amber-500 text-amber-950' : 'bg-white/20 text-white';
+const cap = (s?: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 
-const VERDICT_STYLE: Record<string, string> = {
-  BUY: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50',
-  WATCH: 'bg-amber-500/20 text-amber-200 border-amber-400/50',
-  PASS: 'bg-white/15 text-white/70 border-white/30',
-};
-const CHIP: Record<string, string> = { pass: 'bg-emerald-500/15 text-emerald-300', monitor: 'bg-amber-500/15 text-amber-200', fail: 'bg-red-500/20 text-red-300' };
+// verdict / tier -> colour language (handles word verdicts and A/B/C tiers)
+function verdictLook(tier?: string): { label: string; ring: string; num: string; chip: string } {
+  const s = String(tier || '').trim().toLowerCase();
+  if (/reject|pass|fail|decline/.test(s)) return { label: cap(tier) || 'Pass', ring: '#e24b4a', num: 'text-red-300', chip: 'bg-red-500/18 text-red-300' };
+  if (/watch|monitor|hold|maybe|\bb\b|\bc\b/.test(s)) return { label: cap(tier) || 'Watch', ring: '#f0b429', num: 'text-amber-200', chip: 'bg-amber-500/18 text-amber-200' };
+  if (/buy|proceed|approve|strong|\ba\b/.test(s)) return { label: cap(tier) || 'Buy', ring: '#34d399', num: 'text-emerald-300', chip: 'bg-emerald-500/18 text-emerald-300' };
+  return { label: cap(tier) || 'Assessed', ring: '#FFD700', num: 'text-white', chip: 'bg-white/15 text-white/80' };
+}
 
 // stage (submission status) -> the agent's suggested action keys
 const STAGE_ACTIONS: Record<string, string[]> = {
@@ -66,12 +68,15 @@ const ACTION_META: Record<string, { label: string; sub: string; icon: any }> = {
   comparables: { label: 'Find comparables', sub: 'Indicative market', icon: TrendingUp },
 };
 
+type Tab = 'overview' | 'documents' | 'correspondence' | 'drafts' | 'people';
+
 export default function DealAnalysisPanel({ submissionId, status, score, scoresCount, onRescore }: { submissionId: string; status?: string; score?: any; scoresCount?: number; onRescore?: () => void }) {
   const [b, setB] = useState<AcqBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
-  const [showFull, setShowFull] = useState(false);
+  const [tab, setTab] = useState<Tab>('overview');
+  const [showReason, setShowReason] = useState(false);
   const [openDraft, setOpenDraft] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [editBody, setEditBody] = useState<Record<string, string>>({});
@@ -122,7 +127,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
   const onAction = async (key: string) => {
     if (!dealId) return;
     setBusy(key); setErr('');
-    try { const r = await draftAction(dealId, key); await load(); if (r?.draft?.id) setOpenDraft(r.draft.id); }
+    try { const r = await draftAction(dealId, key); await load(); if (r?.draft?.id) { setOpenDraft(r.draft.id); setTab('drafts'); } }
     catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
   const copy = async (id: string, text: string) => { try { await navigator.clipboard.writeText(text); setCopied(id); setTimeout(() => setCopied(null), 1500); } catch { /**/ } };
@@ -188,12 +193,15 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
   const res = b?.valuation?.result;
   const rep = b?.analysis?.report;
   const det = b?.verdict?.detail;
-  const verdict = b?.verdict?.verdict as string | undefined;
   const seven = res?.sevenNumber;
   const verified = (b?.facts ?? []).filter((f) => !f.is_self_reported);
   const contradiction = verified.find((f) => f.contradicts_self_reported);
-  const headline = det?.headline || b?.analysis?.summary || '';
+  const headline = score?.summary || det?.headline || b?.analysis?.summary || '';
   const risks: string[] = Array.from(new Set([...(det?.key_risks ?? []), ...(rep?.key_risks ?? [])])).slice(0, 4) as string[];
+  const look = verdictLook(score?.tier);
+  const fit = Number(score?.fit_score);
+  const need = (b?.documents ?? []).filter((d: any) => Array.isArray(d.required_inputs) && d.required_inputs.length > 0);
+  const counts = { documents: (b?.documents ?? []).length, correspondence: (b?.communications ?? []).length, drafts: (b?.drafts ?? []).length, people: (b?.deal_contacts ?? []).length };
 
   return (
     <Wrap>
@@ -203,122 +211,277 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
       </div>
       {err && <p className="text-red-300 text-xs mb-2">{err}</p>}
 
-      {/* the single Officially Invested framework assessment */}
-      {score && (
-        <div className="mb-4 bg-white/5 border border-white/10 rounded-xl p-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[#FFD700] text-[11px] uppercase tracking-wide font-semibold">Officially Invested assessment</span>
-            {onRescore && <button onClick={onRescore} className="text-[10px] text-[#FFD700] inline-flex items-center gap-1"><RefreshCw className="h-3 w-3" /> Re-run</button>}
+      {/* verdict hero — score, verdict, one-line headline */}
+      <div className="bg-[#0E2A47] border border-white/10 rounded-2xl p-4 mb-3">
+        <div className="flex items-center gap-4">
+          {isFinite(fit) ? <ScoreRing value={fit} color={look.ring} numClass={look.num} /> : (
+            <div className="shrink-0 w-[76px] h-[76px] rounded-full border border-dashed border-white/20 flex items-center justify-center text-white/40 text-[10px] text-center leading-tight">Not<br />scored</div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              {score?.tier && <span className={'text-[11px] font-bold px-2.5 py-0.5 rounded-full ' + look.chip}>{look.label}</span>}
+              {b?.deal?.asset_type && <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/8 text-white/70">{cap(b.deal.asset_type)}</span>}
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/8 text-white/70">{stageLabel}</span>
+            </div>
+            {headline ? <p className="text-white/85 text-[13px] leading-snug">{human(headline)}</p>
+              : <p className="text-white/50 text-[13px]">Not analysed yet. Upload documents or run analysis to get a verdict.</p>}
           </div>
-          {score.tier && <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + tierCls(score.tier)}>{score.tier} · {score.fit_score}</span>}
-          {score.summary && <p className="text-white/85 text-[13px] mt-1.5">{human(score.summary)}</p>}
-          {score.rationale && <p className="text-white/65 text-[12px] leading-relaxed whitespace-pre-wrap mt-1.5">{human(score.rationale)}</p>}
-          {score.suggested_action && <p className="text-[#FFD700] text-[12px] mt-2"><b>Suggested action:</b> {human(score.suggested_action)}</p>}
-          {scoresCount && scoresCount > 1 ? <p className="text-white/40 text-[10px] mt-2">{scoresCount} assessments on record.</p> : null}
+        </div>
+        {onRescore && (
+          <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-white/8">
+            <span className="text-white/35 text-[10px]">{scoresCount && scoresCount > 1 ? `${scoresCount} assessments on record` : 'Officially Invested assessment'}</span>
+            <button onClick={onRescore} className="text-[10px] text-[#FFD700] inline-flex items-center gap-1"><RefreshCw className="h-3 w-3" /> Re-run</button>
+          </div>
+        )}
+      </div>
+
+      {/* tabs */}
+      <div className="flex gap-4 border-b border-white/10 mb-3 overflow-x-auto">
+        <TabBtn label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
+        <TabBtn label="Documents" count={counts.documents} dot={need.length > 0} active={tab === 'documents'} onClick={() => setTab('documents')} />
+        <TabBtn label="Correspondence" count={counts.correspondence} active={tab === 'correspondence'} onClick={() => setTab('correspondence')} />
+        <TabBtn label="Drafts" count={counts.drafts} active={tab === 'drafts'} onClick={() => setTab('drafts')} />
+        <TabBtn label="People" count={counts.people} active={tab === 'people'} onClick={() => setTab('people')} />
+      </div>
+
+      {/* ===================== OVERVIEW ===================== */}
+      {tab === 'overview' && (
+        <div>
+          {/* at-a-glance KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+            {b?.valuation ? (
+              <>
+                <Kpi label="Adj EBITDA" value={gbp(b.valuation.adjusted_ebitda)} gold />
+                <Kpi label="Opening offer" value={gbp(res?.valuation?.openingOffer)} />
+                <Kpi label="DSCR" value={seven?.results?.[0]?.value != null ? seven.results[0].value + '×' : '—'} good />
+                <Kpi label="7-Number" value={seven ? `${seven.passes}/7` : '—'} good />
+              </>
+            ) : (
+              <>
+                <Kpi label="Asset" value={cap(b?.deal?.asset_type) || '—'} />
+                <Kpi label="Stage" value={stageLabel} />
+                <Kpi label="Asking" value={gbp(b?.deal?.asking_price)} gold />
+                <Kpi label="Fit score" value={isFinite(fit) ? String(fit) : '—'} />
+              </>
+            )}
+          </div>
+
+          {contradiction && (
+            <div className="flex items-start gap-2 bg-red-500/10 border border-red-400/40 rounded-lg p-2.5 mb-3 text-xs text-red-200">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /><span>Seller figure contradicted by documents, {contradiction.metric.replace(/_/g, ' ')} {gbp(contradiction.value)} filed. Run the bank-statement test.</span>
+            </div>
+          )}
+
+          {score?.suggested_action && (
+            <div className="bg-[#FFD700]/6 border border-[#FFD700]/25 rounded-xl p-3 mb-3">
+              <div className="text-[#FFD700] text-[11px] uppercase tracking-wide mb-1">Suggested action</div>
+              <p className="text-white/85 text-[13px] leading-relaxed">{human(score.suggested_action)}</p>
+            </div>
+          )}
+
+          {/* needs your input — the structured checklist of gaps */}
+          {need.length > 0 && (
+            <div className="mb-3 bg-amber-500/10 border border-amber-400/40 rounded-xl p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <ClipboardList className="h-4 w-4 text-amber-300" />
+                <span className="text-amber-200 text-[11px] uppercase tracking-wide font-semibold">Needs your input · {need.length} {need.length === 1 ? 'document' : 'documents'}</span>
+              </div>
+              <p className="text-white/55 text-[11px] mb-2.5">The agent read these and needs a few specifics to progress them. What you add is logged to the deal and re-runs the assessment.</p>
+              <div className="flex flex-col gap-2.5">
+                {need.map((doc: any) => (
+                  <div key={doc.id} className="bg-white/5 rounded-lg p-2.5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileText className="h-3.5 w-3.5 text-amber-300 shrink-0" />
+                      <span className="text-[12px] font-semibold text-white flex-1 truncate">{doc.file_name}</span>
+                    </div>
+                    {doc.doc_summary && <p className="text-white/50 text-[11px] mb-1.5">{human(doc.doc_summary)}</p>}
+                    <ul className="mb-2 space-y-1">
+                      {(doc.required_inputs || []).map((r: any, i: number) => (
+                        <li key={i} className="text-[11.5px] text-white/80 flex gap-1.5"><span className="text-amber-300 mt-0.5">•</span><span><b className="text-white">{human(r.field)}</b>{r.why ? <span className="text-white/50"> — {human(r.why)}</span> : null}</span></li>
+                      ))}
+                    </ul>
+                    <div className="flex gap-1.5">
+                      <input value={ans[doc.id] ?? ''} onChange={(e) => setAns((p) => ({ ...p, [doc.id]: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter') answerInputs(doc); }} placeholder="Provide the details the agent needs…" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-amber-400/60" />
+                      <button onClick={() => answerInputs(doc)} disabled={ansBusy === doc.id || !(ans[doc.id] || '').trim()} className="bg-amber-400 text-[#0A2540] px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 disabled:opacity-40">{ansBusy === doc.id ? '…' : 'Submit'}</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* upload — drag & drop or click to select */}
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            role="button"
+            className={'mb-3 cursor-pointer rounded-xl border border-dashed p-4 flex items-center justify-center gap-2.5 text-center transition-colors ' + (dragOver ? 'border-[#FFD700] bg-[#FFD700]/10' : 'border-white/20 bg-white/[0.03] hover:border-[#FFD700]/40')}
+          >
+            {busy === 'extract'
+              ? <><Loader2 className="h-4 w-4 animate-spin text-[#FFD700] shrink-0" /><span className="text-[12px] text-white/70">Reading and categorising…</span></>
+              : <><Upload className="h-4 w-4 text-[#FFD700] shrink-0" /><span className="text-[12px] text-white/70"><b className="text-white">Drag &amp; drop documents</b>, or click to select. The agent categorises and reads them.</span></>}
+          </div>
+          <input ref={fileRef} type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain" multiple className="hidden" onChange={(e) => { onUpload(e.target.files); e.target.value = ''; }} />
+
+          {/* analysis controls */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            <Btn onClick={() => runStep('analyze')} busy={busy === 'analyze'} icon={Sparkles} label={b?.analysis ? 'Re-run analysis' : 'Run analysis'} primary />
+            <Btn onClick={() => runStep('committee')} busy={busy === 'committee'} icon={Gavel} label="Committee" disabled={!b?.analysis} />
+            <Btn onClick={() => runStep('memo')} busy={busy === 'memo'} icon={FileText} label="Memo" disabled={!b?.analysis} />
+            <Btn onClick={() => setShowCall(true)} icon={Video} label="Schedule call" />
+          </div>
+          {busy === 'analyze' && <p className="text-white/45 text-xs mb-3">Running the engine and analyst… about a minute.</p>}
+
+          {/* suggested next steps for this stage */}
+          <div className="text-white/50 text-[11px] uppercase tracking-wide mb-2">Suggested next steps · {stageLabel}</div>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {actionKeys.map((k) => {
+              const m = ACTION_META[k]; if (!m) return null; const Icon = m.icon;
+              return (
+                <button key={k} onClick={() => onAction(k)} disabled={!!busy} className="text-left bg-white/[0.03] border border-white/10 hover:border-[#FFD700]/40 rounded-xl p-2.5 flex gap-2.5 disabled:opacity-50">
+                  {busy === k ? <Loader2 className="h-4 w-4 mt-0.5 animate-spin text-[#FFD700]" /> : <Icon className="h-4 w-4 mt-0.5 text-[#FFD700]" />}
+                  <span><span className="block text-[12px] font-semibold text-white">{m.label}</span><span className="block text-[11px] text-white/50">{m.sub}</span></span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* reasoning + full analysis, collapsed by default */}
+          {(score?.rationale || rep || det || b?.memo) && (
+            <div className="border-t border-white/8 pt-3">
+              <button onClick={() => setShowReason((s) => !s)} className="inline-flex items-center gap-1 text-[#FFD700] text-xs font-semibold">
+                {showReason ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />} {showReason ? 'Hide' : 'View'} full reasoning
+              </button>
+              {showReason && (
+                <div className="mt-3 flex flex-col gap-3 text-[12px] text-white/75 leading-relaxed">
+                  {score?.rationale && <p className="whitespace-pre-wrap">{human(score.rationale)}</p>}
+                  {rep?.financial_analysis && <Detail t="Financial analysis" v={rep.financial_analysis} />}
+                  {rep?.valuation_view && <Detail t="Valuation view" v={rep.valuation_view} />}
+                  {rep?.recommended_structure && <Detail t="Recommended structure" v={rep.recommended_structure} />}
+                  {Array.isArray(rep?.opportunities) && rep.opportunities.length > 0 && <DetailList t="Opportunities" items={rep.opportunities} />}
+                  {Array.isArray(risks) && risks.length > 0 && <DetailList t="Key risks" items={risks} />}
+                  {Array.isArray(det?.conditions) && det.conditions.length > 0 && <DetailList t="Committee conditions" items={det.conditions} />}
+                  {rep?.suggested_offer && <p className="text-[#FFD700]">Suggested: open {gbp(rep.suggested_offer.opening)} · walk {gbp(rep.suggested_offer.walk_away)}</p>}
+                  {b?.memo && <Detail t={human(b.memo.title) || 'Investment memo'} v={human(b.memo.content)} mono />}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* one decision, no duplication */}
-      {b?.valuation ? (
-        <>
-          <div className="flex items-center gap-2 mb-2">
-            <span className={'text-sm font-semibold px-3 py-1 rounded-full border ' + (verdict ? (VERDICT_STYLE[verdict] ?? VERDICT_STYLE.PASS) : 'bg-white/10 text-white/70 border-white/25')}>{verdict ?? 'Analysed'}</span>
-            {b?.analysis?.score != null && <span className="text-white/55 text-xs">score {b.analysis.score}</span>}
-            {res?.red?.overall && <span className="text-white/45 text-xs">· RED {res.red.overall}</span>}
+      {/* ===================== DOCUMENTS ===================== */}
+      {tab === 'documents' && (
+        <div>
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            role="button"
+            className={'mb-3 cursor-pointer rounded-xl border border-dashed p-3 flex items-center justify-center gap-2.5 text-center transition-colors ' + (dragOver ? 'border-[#FFD700] bg-[#FFD700]/10' : 'border-white/20 bg-white/[0.03] hover:border-[#FFD700]/40')}
+          >
+            {busy === 'extract'
+              ? <><Loader2 className="h-4 w-4 animate-spin text-[#FFD700] shrink-0" /><span className="text-[12px] text-white/70">Reading and categorising…</span></>
+              : <><Upload className="h-4 w-4 text-[#FFD700] shrink-0" /><span className="text-[12px] text-white/70"><b className="text-white">Drag &amp; drop documents</b>, or click to select</span></>}
           </div>
-          {headline && <p className="text-white/80 text-[13px] leading-relaxed mb-2">{human(headline)}</p>}
-          {contradiction && (
-            <div className="flex items-start gap-2 bg-red-500/10 border border-red-400/40 rounded-lg p-2.5 mb-3 text-xs text-red-200">
-              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /><span>Seller figure contradicted by documents — {contradiction.metric.replace(/_/g, ' ')} {gbp(contradiction.value)} filed. Run the bank-statement test.</span>
+          {(() => {
+            const docs = b?.documents ?? [];
+            const cats: [string, RegExp][] = [
+              ['Accounts', /account|statutory|annual|companies house/i],
+              ['Financials', /financ|management|vat|bank|p&l|\bpl\b|tax|payroll|debtor|creditor/i],
+              ['Legal', /legal|contract|lease|hots|heads|title|spa|nda/i],
+              ['Property', /propert|valuation|survey|rent|epc|planning/i],
+            ];
+            const bucket = (d: any) => { const s = `${d.doc_kind ?? ''} ${d.file_name ?? ''}`; for (const [name, re] of cats) if (re.test(s)) return name; return 'Other'; };
+            const groups: Record<string, any[]> = { Accounts: [], Financials: [], Legal: [], Property: [], Other: [] };
+            docs.forEach((d: any) => groups[bucket(d)].push(d));
+            return (
+              <div className="flex flex-col gap-2">
+                {Object.entries(groups).map(([name, items]) => (
+                  <div key={name} className="bg-white/5 rounded-lg p-2.5">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Folder className="h-3.5 w-3.5 text-[#FFD700]" />
+                      <span className="text-[12px] font-semibold text-white">{name}</span>
+                      <span className="text-[10px] text-white/40">{items.length}</span>
+                    </div>
+                    {items.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                        {items.map((doc: any) => (
+                          <div key={doc.id} className="bg-white/5 rounded-md p-2 flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-white/45 shrink-0" />
+                            <span className="flex-1 truncate text-[11px] text-white/75">{doc.file_name}</span>
+                            {Array.isArray(doc.required_inputs) && doc.required_inputs.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 shrink-0">needs input</span>}
+                            <span className={'text-[9px] shrink-0 ' + (doc.extraction_status === 'done' ? 'text-emerald-300' : doc.extraction_status === 'failed' ? 'text-red-300' : 'text-white/40')}>{doc.extraction_status === 'done' ? '✓' : doc.extraction_status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-white/30 text-[11px]">No files yet</p>}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+          {verified.length > 0 && (
+            <div className="mt-3">
+              <div className="text-white/45 text-[10px] uppercase tracking-wide mb-1.5">Verified figures</div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+                {verified.slice(0, 9).map((f) => (
+                  <div key={f.id} className={'rounded-lg p-2 ' + (f.contradicts_self_reported ? 'bg-red-500/10 border border-red-400/40' : 'bg-white/5')}>
+                    <div className="text-white/45 text-[10px] capitalize">{f.metric.replace(/_/g, ' ')}{f.period ? ' · ' + f.period : ''}</div>
+                    <div className={'text-[13px] font-semibold ' + (f.contradicts_self_reported ? 'text-red-200' : 'text-white')}>{f.metric.endsWith('_pct') ? f.value + '%' : gbp(f.value)}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-            <Kpi label="Adj EBITDA" value={gbp(b.valuation.adjusted_ebitda)} gold />
-            <Kpi label="Opening offer" value={gbp(res?.valuation?.openingOffer)} />
-            <Kpi label="DSCR" value={seven?.results?.[0]?.value != null ? seven.results[0].value + '×' : '—'} good />
-            <Kpi label="7-Number" value={seven ? `${seven.passes}/7` : '—'} good />
-          </div>
-        </>
-      ) : (
-        <p className="text-white/60 text-sm mb-3">Not analysed yet. Upload documents for verified figures, or run analysis on the submitted numbers.</p>
+        </div>
       )}
 
-      {/* upload — drag & drop or click to select */}
-      <div
-        onClick={() => fileRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
-        role="button"
-        className={'mb-3 cursor-pointer rounded-xl border border-dashed p-4 flex items-center justify-center gap-2.5 text-center transition-colors ' + (dragOver ? 'border-[#FFD700] bg-[#FFD700]/10' : 'border-white/20 bg-[#0E2A47] hover:border-[#FFD700]/40')}
-      >
-        {busy === 'extract'
-          ? <><Loader2 className="h-4 w-4 animate-spin text-[#FFD700] shrink-0" /><span className="text-[12px] text-white/70">Reading and categorising…</span></>
-          : <><Upload className="h-4 w-4 text-[#FFD700] shrink-0" /><span className="text-[12px] text-white/70"><b className="text-white">Drag &amp; drop documents here</b>, or click to select. Accounts, funding, land, legal, anything relevant, the agent categorises and reads them.</span></>}
-      </div>
-      <input ref={fileRef} type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain" multiple className="hidden" onChange={(e) => { onUpload(e.target.files); e.target.value = ''; }} />
-
-      {/* analysis controls */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <Btn onClick={() => runStep('analyze')} busy={busy === 'analyze'} icon={Sparkles} label={b?.analysis ? 'Re-run analysis' : 'Run analysis'} primary />
-        <Btn onClick={() => runStep('committee')} busy={busy === 'committee'} icon={Gavel} label="Committee" disabled={!b?.analysis} />
-        <Btn onClick={() => runStep('memo')} busy={busy === 'memo'} icon={FileText} label="Memo" disabled={!b?.analysis} />
-        <Btn onClick={() => setShowCall(true)} icon={Video} label="Schedule call" />
-      </div>
-      {busy === 'analyze' && <p className="text-white/45 text-xs mb-3">Running the engine and analyst… about a minute.</p>}
-
-      {/* documents that need input from you before the agent can act on them */}
-      {(() => {
-        const need = (b?.documents ?? []).filter((d: any) => Array.isArray(d.required_inputs) && d.required_inputs.length > 0);
-        if (!need.length) return null;
-        return (
-          <div className="mb-4 bg-amber-500/10 border border-amber-400/40 rounded-xl p-3">
-            <div className="flex items-center gap-2 mb-1.5">
-              <ClipboardList className="h-4 w-4 text-amber-300" />
-              <span className="text-amber-200 text-[11px] uppercase tracking-wide font-semibold">Needs your input · {need.length} {need.length === 1 ? 'document' : 'documents'}</span>
+      {/* ===================== CORRESPONDENCE ===================== */}
+      {tab === 'correspondence' && (
+        <div>
+          {b?.email_alias && (
+            <div className="flex items-center gap-2 bg-[#FFD700]/8 border border-[#FFD700]/25 rounded-lg p-2 mb-2.5">
+              <Inbox className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
+              <span className="text-[11px] text-white/70 flex-1 truncate">CC or forward deal emails to <span className="text-white">{b.email_alias}</span></span>
+              <button onClick={() => { navigator.clipboard?.writeText(b.email_alias!); setCopiedAlias(true); setTimeout(() => setCopiedAlias(false), 1500); }} className="text-[10px] text-[#FFD700] inline-flex items-center gap-1 shrink-0">{copiedAlias ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}{copiedAlias ? 'Copied' : 'Copy'}</button>
             </div>
-            <p className="text-white/55 text-[11px] mb-2.5">The agent read these and needs a few specifics from you to progress them. What you add is logged to the deal and re-runs the assessment.</p>
-            <div className="flex flex-col gap-2.5">
-              {need.map((doc: any) => (
-                <div key={doc.id} className="bg-white/5 rounded-lg p-2.5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <FileText className="h-3.5 w-3.5 text-amber-300 shrink-0" />
-                    <span className="text-[12px] font-semibold text-white flex-1 truncate">{doc.file_name}</span>
-                  </div>
-                  {doc.doc_summary && <p className="text-white/50 text-[11px] mb-1.5">{human(doc.doc_summary)}</p>}
-                  <ul className="mb-2 space-y-1">
-                    {(doc.required_inputs || []).map((r: any, i: number) => (
-                      <li key={i} className="text-[11.5px] text-white/80 flex gap-1.5"><span className="text-amber-300 mt-0.5">•</span><span><b className="text-white">{human(r.field)}</b>{r.why ? <span className="text-white/50"> — {human(r.why)}</span> : null}</span></li>
-                    ))}
-                  </ul>
-                  <div className="flex gap-1.5">
-                    <input value={ans[doc.id] ?? ''} onChange={(e) => setAns((p) => ({ ...p, [doc.id]: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter') answerInputs(doc); }} placeholder="Provide the details the agent needs…" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-amber-400/60" />
-                    <button onClick={() => answerInputs(doc)} disabled={ansBusy === doc.id || !(ans[doc.id] || '').trim()} className="bg-amber-400 text-[#0A2540] px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 disabled:opacity-40">{ansBusy === doc.id ? '…' : 'Submit'}</button>
-                  </div>
-                </div>
-              ))}
-            </div>
+          )}
+          <div className="flex gap-1.5 mb-2.5">
+            <select value={cf.kind ?? 'note'} onChange={(e) => setCf((p) => ({ ...p, kind: e.target.value }))} className="bg-white/5 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
+              {['note', 'email', 'call', 'meeting'].map((k) => <option key={k} value={k} className="bg-[#0E3257]">{k}</option>)}
+            </select>
+            <input value={cf.body ?? ''} onChange={(e) => setCf((p) => ({ ...p, body: e.target.value }))} placeholder="Add a note, call or email… (notes re-run the assessment)" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
+            <button onClick={addComm} disabled={cBusy} className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-white/20 disabled:opacity-50">{cBusy ? '…' : 'Log'}</button>
           </div>
-        );
-      })()}
+          {(b?.communications ?? []).length > 0 ? (
+            <div className="flex flex-col gap-1.5">
+              {b!.communications.map((cm: any) => {
+                const Icon = cm.direction === 'in' ? Inbox : cm.kind === 'call' ? Phone : cm.kind === 'note' ? StickyNote : Send;
+                return (
+                  <div key={cm.id} className="bg-white/5 rounded-lg p-2.5">
+                    <div className="flex items-center gap-2">
+                      <Icon className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
+                      <span className="text-[12px] text-white flex-1 truncate">{human(cm.subject || (cm.kind === 'note' ? 'Note' : cm.kind))}</span>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-white/55 shrink-0">{cm.direction === 'in' ? 'received' : cm.direction === 'out' ? 'sent' : cm.kind}</span>
+                      <span className="text-[9px] text-white/35 shrink-0">{since(cm.happened_at)}</span>
+                    </div>
+                    {(cm.from_addr || cm.to_addr || cm.contact_name) && <div className="text-[10.5px] text-white/45 mt-0.5">{cm.from_addr ? 'from ' + cm.from_addr : cm.to_addr ? 'to ' + cm.to_addr : cm.contact_name}</div>}
+                    {cm.body && <div className="text-[11.5px] text-white/70 mt-1">{human(cm.body).slice(0, 180)}{human(cm.body).length > 180 ? '…' : ''}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          ) : <p className="text-white/40 text-[12px]">No correspondence yet. CC or forward the deal's address above, or log a note. Emails the agent drafts are saved here automatically.</p>}
+        </div>
+      )}
 
-      {/* stage-aware agent actions */}
-      <div className="text-white/50 text-[11px] uppercase tracking-wide mb-2">Suggested next steps · {stageLabel}</div>
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        {actionKeys.map((k) => {
-          const m = ACTION_META[k]; if (!m) return null; const Icon = m.icon;
-          return (
-            <button key={k} onClick={() => onAction(k)} disabled={!!busy} className="text-left bg-[#0E2A47] border border-white/10 hover:border-[#FFD700]/40 rounded-xl p-2.5 flex gap-2.5 disabled:opacity-50">
-              {busy === k ? <Loader2 className="h-4 w-4 mt-0.5 animate-spin text-[#FFD700]" /> : <Icon className="h-4 w-4 mt-0.5 text-[#FFD700]" />}
-              <span><span className="block text-[12px] font-semibold text-white">{m.label}</span><span className="block text-[11px] text-white/50">{m.sub}</span></span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* drafts the agent has produced (draft-only) */}
-      {(b?.drafts ?? []).length > 0 && (
-        <Block title={`Drafts (${b!.drafts.length})`}>
+      {/* ===================== DRAFTS ===================== */}
+      {tab === 'drafts' && (
+        (b?.drafts ?? []).length > 0 ? (
           <div className="flex flex-col gap-2">
             {b!.drafts.map((d: any) => (
               <div key={d.id} className="bg-white/5 rounded-lg p-2.5">
@@ -342,183 +505,103 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
               </div>
             ))}
           </div>
-        </Block>
+        ) : <p className="text-white/40 text-[12px]">No drafts yet. Use a suggested next step on the Overview tab and the agent writes the email or document here.</p>
       )}
 
-      {/* people on this deal */}
-      <Block title="People on this deal">
-        {(b?.deal_contacts ?? []).length > 0 ? (
-          <div className="flex flex-col gap-1.5 mb-2">
-            {b!.deal_contacts.map((p: any) => (
-              <div key={p.id} className="flex items-center gap-2 bg-white/5 rounded-lg p-2">
-                <span className="text-[12px] text-white flex-1 truncate">{p.name}{p.company ? ' · ' + p.company : ''}</span>
-                {p.role && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#FFD700]/15 text-[#FFD700]">{p.role}</span>}
-                {p.email && <span className="text-[10px] text-white/45 truncate max-w-[38%]">{p.email}</span>}
-              </div>
-            ))}
-          </div>
-        ) : <p className="text-white/40 text-[12px] mb-2">No people yet — add the vendor, agent, accountant or solicitor so the agent emails the right person.</p>}
-        <div className="flex gap-1.5">
-          <input value={pf.name ?? ''} onChange={(e) => setPf((p) => ({ ...p, name: e.target.value }))} placeholder="Name" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
-          <select value={pf.role ?? 'vendor'} onChange={(e) => setPf((p) => ({ ...p, role: e.target.value }))} className="bg-white/5 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
-            {['vendor', 'agent', 'accountant', 'solicitor', 'lender', 'investor', 'other'].map((r) => <option key={r} value={r} className="bg-[#0E3257]">{r}</option>)}
-          </select>
-          <input value={pf.email ?? ''} onChange={(e) => setPf((p) => ({ ...p, email: e.target.value }))} placeholder="Email" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
-          <button onClick={addPerson} disabled={pBusy} className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-white/20 disabled:opacity-50">{pBusy ? '…' : 'Add'}</button>
-        </div>
-      </Block>
-
-      {/* broker onboarding & NDA — generated, filled and e-signed for you */}
-      <Block title="Broker onboarding & NDA">
-        <p className="text-white/45 text-[12px] mb-2">Brokers gate the data room behind an NDA and a buyer background. The agent fills and signs these for you from your <a href="/admin/settings" className="text-[#FFD700]">Settings</a> profile.</p>
-        <div className="grid grid-cols-2 gap-2 mb-2">
-          <LegalBtn onClick={() => genLegal('nda_mutual')} busy={legalBusy === 'nda_mutual'} label="Mutual NDA" sub="Both parties" />
-          <LegalBtn onClick={() => genLegal('nda_oneway')} busy={legalBusy === 'nda_oneway'} label="One-way NDA" sub="You as recipient" />
-          <LegalBtn onClick={() => genLegal('buyer_background')} busy={legalBusy === 'buyer_background'} label="Buyer background" sub="Intro one-pager" />
-          <LegalBtn onClick={() => genLegal('proof_of_funds')} busy={legalBusy === 'proof_of_funds'} label="Proof of funds" sub="Funding statement" />
-        </div>
-        <button onClick={() => ndaRef.current?.click()} disabled={!!legalBusy} className="w-full text-left bg-[#0E2A47] border border-dashed border-white/20 hover:border-[#FFD700]/40 rounded-xl p-2.5 flex gap-2.5 items-center disabled:opacity-50 mb-2">
-          {legalBusy === 'broker' ? <Loader2 className="h-4 w-4 animate-spin text-[#FFD700]" /> : <Upload className="h-4 w-4 text-[#FFD700]" />}
-          <span><span className="block text-[12px] font-semibold text-white">Upload the broker's NDA to fill &amp; sign</span><span className="block text-[11px] text-white/50">PDF, completed and executed for you</span></span>
-        </button>
-        <input ref={ndaRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { fillBroker(e.target.files?.[0] ?? null); e.target.value = ''; }} />
-        {legalDocs.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            {legalDocs.map((d: any) => (
-              <div key={d.id} className="flex items-center gap-2 bg-white/5 rounded-lg p-2">
-                <FileSignature className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
-                <span className="flex-1 truncate text-[12px] text-white">{d.title}</span>
-                <span className={'text-[9px] px-2 py-0.5 rounded-full shrink-0 ' + (d.status === 'signed' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/10 text-white/55')}>{d.status}</span>
-                <span className="text-[9px] text-white/35 shrink-0">{since(d.created_at)}</span>
-              </div>
-            ))}
-          </div>
-        ) : <p className="text-white/40 text-[12px]">Nothing yet. Generate an NDA or upload the broker's, and it's signed with your e-signature from Settings.</p>}
-        <p className="text-white/30 text-[10px] mt-2">Generated documents are standard templates, not legal advice. Review before sending.</p>
-      </Block>
-
-      {/* correspondence — every email, note and call on this deal, captured automatically */}
-      <Block title={`Correspondence (${(b?.communications ?? []).length})`}>
-        {b?.email_alias && (
-          <div className="flex items-center gap-2 bg-[#FFD700]/8 border border-[#FFD700]/25 rounded-lg p-2 mb-2.5">
-            <Inbox className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
-            <span className="text-[11px] text-white/70 flex-1 truncate">BCC or forward deal emails to <span className="text-white">{b.email_alias}</span></span>
-            <button onClick={() => { navigator.clipboard?.writeText(b.email_alias!); setCopiedAlias(true); setTimeout(() => setCopiedAlias(false), 1500); }} className="text-[10px] text-[#FFD700] inline-flex items-center gap-1 shrink-0">{copiedAlias ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}{copiedAlias ? 'Copied' : 'Copy'}</button>
-          </div>
-        )}
-        <div className="flex gap-1.5 mb-2.5">
-          <select value={cf.kind ?? 'note'} onChange={(e) => setCf((p) => ({ ...p, kind: e.target.value }))} className="bg-white/5 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
-            {['note', 'email', 'call', 'meeting'].map((k) => <option key={k} value={k} className="bg-[#0E3257]">{k}</option>)}
-          </select>
-          <input value={cf.body ?? ''} onChange={(e) => setCf((p) => ({ ...p, body: e.target.value }))} placeholder="Add a note, call or email… (notes re-run the assessment)" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
-          <button onClick={addComm} disabled={cBusy} className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-white/20 disabled:opacity-50">{cBusy ? '…' : 'Log'}</button>
-        </div>
-        {(b?.communications ?? []).length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            {b!.communications.map((cm: any) => {
-              const Icon = cm.direction === 'in' ? Inbox : cm.kind === 'call' ? Phone : cm.kind === 'note' ? StickyNote : Send;
-              return (
-                <div key={cm.id} className="bg-white/5 rounded-lg p-2.5">
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
-                    <span className="text-[12px] text-white flex-1 truncate">{human(cm.subject || (cm.kind === 'note' ? 'Note' : cm.kind))}</span>
-                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-white/55 shrink-0">{cm.direction === 'in' ? 'received' : cm.direction === 'out' ? 'sent' : cm.kind}</span>
-                    <span className="text-[9px] text-white/35 shrink-0">{since(cm.happened_at)}</span>
-                  </div>
-                  {(cm.from_addr || cm.to_addr || cm.contact_name) && <div className="text-[10.5px] text-white/45 mt-0.5">{cm.from_addr ? 'from ' + cm.from_addr : cm.to_addr ? 'to ' + cm.to_addr : cm.contact_name}</div>}
-                  {cm.body && <div className="text-[11.5px] text-white/70 mt-1">{human(cm.body).slice(0, 180)}{human(cm.body).length > 180 ? '…' : ''}</div>}
-                </div>
-              );
-            })}
-          </div>
-        ) : <p className="text-white/40 text-[12px]">No correspondence yet. BCC or forward the deal's address above, or log a note. Emails the agent drafts are saved here automatically.</p>}
-      </Block>
-
-      {/* data room — structured by category */}
-      <Block title="Data room">
-        {(() => {
-          const docs = b?.documents ?? [];
-          const cats: [string, RegExp][] = [
-            ['Accounts', /account|statutory|annual|companies house/i],
-            ['Financials', /financ|management|vat|bank|p&l|\bpl\b|tax|payroll|debtor|creditor/i],
-            ['Legal', /legal|contract|lease|hots|heads|title|spa|nda/i],
-            ['Property', /propert|valuation|survey|rent|epc|planning/i],
-          ];
-          const bucket = (d: any) => { const s = `${d.doc_kind ?? ''} ${d.file_name ?? ''}`; for (const [name, re] of cats) if (re.test(s)) return name; return 'Other'; };
-          const groups: Record<string, any[]> = { Accounts: [], Financials: [], Legal: [], Property: [], Other: [] };
-          docs.forEach((d: any) => groups[bucket(d)].push(d));
-          return (
-            <div className="flex flex-col gap-2">
-              {Object.entries(groups).map(([name, items]) => (
-                <div key={name} className="bg-white/5 rounded-lg p-2.5">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Folder className="h-3.5 w-3.5 text-[#FFD700]" />
-                    <span className="text-[12px] font-semibold text-white">{name}</span>
-                    <span className="text-[10px] text-white/40">{items.length}</span>
-                  </div>
-                  {items.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                      {items.map((doc: any) => (
-                        <div key={doc.id} className="bg-white/5 rounded-md p-2 flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-white/45 shrink-0" />
-                          <span className="flex-1 truncate text-[11px] text-white/75">{doc.file_name}</span>
-                          {Array.isArray(doc.required_inputs) && doc.required_inputs.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 shrink-0">needs input</span>}
-                          <span className={'text-[9px] shrink-0 ' + (doc.extraction_status === 'done' ? 'text-emerald-300' : 'text-white/40')}>{doc.extraction_status === 'done' ? '✓' : doc.extraction_status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : <p className="text-white/30 text-[11px]">No files yet</p>}
+      {/* ===================== PEOPLE ===================== */}
+      {tab === 'people' && (
+        <div>
+          <div className="text-white/50 text-[11px] uppercase tracking-wide mb-2">People on this deal</div>
+          {(b?.deal_contacts ?? []).length > 0 ? (
+            <div className="flex flex-col gap-1.5 mb-2">
+              {b!.deal_contacts.map((p: any) => (
+                <div key={p.id} className="flex items-center gap-2 bg-white/5 rounded-lg p-2">
+                  <span className="text-[12px] text-white flex-1 truncate">{p.name}{p.company ? ' · ' + p.company : ''}</span>
+                  {p.role && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#FFD700]/15 text-[#FFD700]">{p.role}</span>}
+                  {p.email && <span className="text-[10px] text-white/45 truncate max-w-[38%]">{p.email}</span>}
                 </div>
               ))}
             </div>
-          );
-        })()}
-        {verified.length > 0 && (
-          <div className="mt-3">
-            <div className="text-white/45 text-[10px] uppercase tracking-wide mb-1.5">Verified figures</div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
-              {verified.slice(0, 9).map((f) => (
-                <div key={f.id} className={'rounded-lg p-2 ' + (f.contradicts_self_reported ? 'bg-red-500/10 border border-red-400/40' : 'bg-white/5')}>
-                  <div className="text-white/45 text-[10px] capitalize">{f.metric.replace(/_/g, ' ')}{f.period ? ' · ' + f.period : ''}</div>
-                  <div className={'text-[13px] font-semibold ' + (f.contradicts_self_reported ? 'text-red-200' : 'text-white')}>{f.metric.endsWith('_pct') ? f.value + '%' : gbp(f.value)}</div>
-                </div>
-              ))}
-            </div>
+          ) : <p className="text-white/40 text-[12px] mb-2">No people yet, add the vendor, agent, accountant or solicitor so the agent emails the right person.</p>}
+          <div className="flex gap-1.5 mb-4">
+            <input value={pf.name ?? ''} onChange={(e) => setPf((p) => ({ ...p, name: e.target.value }))} placeholder="Name" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
+            <select value={pf.role ?? 'vendor'} onChange={(e) => setPf((p) => ({ ...p, role: e.target.value }))} className="bg-white/5 border border-white/15 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
+              {['vendor', 'agent', 'accountant', 'solicitor', 'lender', 'investor', 'other'].map((r) => <option key={r} value={r} className="bg-[#0E3257]">{r}</option>)}
+            </select>
+            <input value={pf.email ?? ''} onChange={(e) => setPf((p) => ({ ...p, email: e.target.value }))} placeholder="Email" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-[#FFD700]/60" />
+            <button onClick={addPerson} disabled={pBusy} className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-white/20 disabled:opacity-50">{pBusy ? '…' : 'Add'}</button>
           </div>
-        )}
-      </Block>
 
-      {/* full analysis — verbose detail lives here once, not duplicated above */}
-      {(rep || det || b?.memo) && (
-        <div className="border-t border-white/8 pt-3 mt-3">
-          <button onClick={() => setShowFull((s) => !s)} className="inline-flex items-center gap-1 text-[#FFD700] text-xs font-semibold">
-            {showFull ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />} {showFull ? 'Hide' : 'View'} full analysis
-          </button>
-          {showFull && (
-            <div className="mt-3 flex flex-col gap-3 text-[12px] text-white/75 leading-relaxed">
-              {rep?.financial_analysis && <Detail t="Financial analysis" v={rep.financial_analysis} />}
-              {rep?.valuation_view && <Detail t="Valuation view" v={rep.valuation_view} />}
-              {rep?.recommended_structure && <Detail t="Recommended structure" v={rep.recommended_structure} />}
-              {Array.isArray(rep?.opportunities) && rep.opportunities.length > 0 && <DetailList t="Opportunities" items={rep.opportunities} />}
-              {Array.isArray(risks) && risks.length > 0 && <DetailList t="Key risks" items={risks} />}
-              {Array.isArray(det?.conditions) && det.conditions.length > 0 && <DetailList t="Committee conditions" items={det.conditions} />}
-              {rep?.suggested_offer && <p className="text-[#FFD700]">Suggested: open {gbp(rep.suggested_offer.opening)} · walk {gbp(rep.suggested_offer.walk_away)}</p>}
-              {b?.memo && <Detail t={human(b.memo.title) || 'Investment memo'} v={human(b.memo.content)} mono />}
+          <div className="border-t border-white/8 pt-3">
+            <div className="text-white/50 text-[11px] uppercase tracking-wide mb-2">Broker onboarding &amp; NDA</div>
+            <p className="text-white/45 text-[12px] mb-2">Brokers gate the data room behind an NDA and a buyer background. The agent fills and signs these for you from your <a href="/admin/settings" className="text-[#FFD700]">Settings</a> profile.</p>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <LegalBtn onClick={() => genLegal('nda_mutual')} busy={legalBusy === 'nda_mutual'} label="Mutual NDA" sub="Both parties" />
+              <LegalBtn onClick={() => genLegal('nda_oneway')} busy={legalBusy === 'nda_oneway'} label="One-way NDA" sub="You as recipient" />
+              <LegalBtn onClick={() => genLegal('buyer_background')} busy={legalBusy === 'buyer_background'} label="Buyer background" sub="Intro one-pager" />
+              <LegalBtn onClick={() => genLegal('proof_of_funds')} busy={legalBusy === 'proof_of_funds'} label="Proof of funds" sub="Funding statement" />
             </div>
-          )}
+            <button onClick={() => ndaRef.current?.click()} disabled={!!legalBusy} className="w-full text-left bg-white/[0.03] border border-dashed border-white/20 hover:border-[#FFD700]/40 rounded-xl p-2.5 flex gap-2.5 items-center disabled:opacity-50 mb-2">
+              {legalBusy === 'broker' ? <Loader2 className="h-4 w-4 animate-spin text-[#FFD700]" /> : <Upload className="h-4 w-4 text-[#FFD700]" />}
+              <span><span className="block text-[12px] font-semibold text-white">Upload the broker's NDA to fill &amp; sign</span><span className="block text-[11px] text-white/50">PDF, completed and executed for you</span></span>
+            </button>
+            <input ref={ndaRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { fillBroker(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+            {legalDocs.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                {legalDocs.map((d: any) => (
+                  <div key={d.id} className="flex items-center gap-2 bg-white/5 rounded-lg p-2">
+                    <FileSignature className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
+                    <span className="flex-1 truncate text-[12px] text-white">{d.title}</span>
+                    <span className={'text-[9px] px-2 py-0.5 rounded-full shrink-0 ' + (d.status === 'signed' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/10 text-white/55')}>{d.status}</span>
+                    <span className="text-[9px] text-white/35 shrink-0">{since(d.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-white/40 text-[12px]">Nothing yet. Generate an NDA or upload the broker's, and it's signed with your e-signature from Settings.</p>}
+            <p className="text-white/30 text-[10px] mt-2">Generated documents are standard templates, not legal advice. Review before sending.</p>
+          </div>
         </div>
       )}
+
       {showCall && <ScheduleCallModal dealId={dealId!} dealName={b?.deal?.name || 'Deal'} status={status} dealContacts={b?.deal_contacts ?? []} onClose={() => setShowCall(false)} onChanged={load} />}
     </Wrap>
+  );
+}
+
+function ScoreRing({ value, color, numClass }: { value: number; color: string; numClass: string }) {
+  const [disp, setDisp] = useState(0);
+  useEffect(() => {
+    let raf = 0; const start = performance.now(); const dur = 800; const from = 0;
+    const tick = (t: number) => { const p = Math.min((t - start) / dur, 1); setDisp(Math.round(from + (value - from) * p)); if (p < 1) raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick); return () => cancelAnimationFrame(raf);
+  }, [value]);
+  const r = 30, c = 2 * Math.PI * r, off = c * (1 - Math.max(0, Math.min(100, disp)) / 100);
+  return (
+    <div className="relative shrink-0" style={{ width: 76, height: 76 }}>
+      <svg width="76" height="76" viewBox="0 0 76 76">
+        <circle cx="38" cy="38" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="7" />
+        <circle cx="38" cy="38" r={r} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} transform="rotate(-90 38 38)" style={{ transition: 'stroke-dashoffset 0.1s linear' }} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className={'text-xl font-bold leading-none ' + numClass}>{disp}</div>
+        <div className="text-white/40 text-[9px]">/100</div>
+      </div>
+    </div>
+  );
+}
+
+function TabBtn({ label, count, active, dot, onClick }: { label: string; count?: number; active: boolean; dot?: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className={'relative pb-2 text-[12.5px] whitespace-nowrap border-b-2 -mb-px transition-colors ' + (active ? 'text-[#FFD700] border-[#FFD700] font-semibold' : 'text-white/50 border-transparent hover:text-white/80')}>
+      {label}{count != null && count > 0 ? <span className="text-white/35"> {count}</span> : null}
+      {dot && <span className="absolute -right-2 top-0 h-1.5 w-1.5 rounded-full bg-amber-400" />}
+    </button>
   );
 }
 
 function Wrap({ children }: { children: React.ReactNode }) { return <div className="mb-6 bg-white/5 rounded-2xl p-4 border border-white/10">{children}</div>; }
 function Kpi({ label, value, gold, good }: { label: string; value: string; gold?: boolean; good?: boolean }) {
   return <div className="bg-white/5 rounded-lg p-2.5"><div className="text-white/45 text-[10px]">{label}</div><div className={'text-base font-semibold ' + (gold ? 'text-[#FFD700]' : good ? 'text-emerald-300' : 'text-white')}>{value}</div></div>;
-}
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div className="border-t border-white/8 pt-3 mt-3"><div className="text-white/50 text-[11px] uppercase tracking-wide mb-2">{title}</div>{children}</div>;
 }
 function Btn({ onClick, busy, icon: Icon, label, primary, disabled }: { onClick: () => void; busy?: boolean; icon: any; label: string; primary?: boolean; disabled?: boolean }) {
   return (
@@ -529,7 +612,7 @@ function Btn({ onClick, busy, icon: Icon, label, primary, disabled }: { onClick:
 }
 function LegalBtn({ onClick, busy, label, sub }: { onClick: () => void; busy?: boolean; label: string; sub: string }) {
   return (
-    <button onClick={onClick} disabled={busy} className="text-left bg-[#0E2A47] border border-white/10 hover:border-[#FFD700]/40 rounded-xl p-2.5 flex gap-2.5 disabled:opacity-50">
+    <button onClick={onClick} disabled={busy} className="text-left bg-white/[0.03] border border-white/10 hover:border-[#FFD700]/40 rounded-xl p-2.5 flex gap-2.5 disabled:opacity-50">
       {busy ? <Loader2 className="h-4 w-4 mt-0.5 animate-spin text-[#FFD700]" /> : <FileSignature className="h-4 w-4 mt-0.5 text-[#FFD700]" />}
       <span><span className="block text-[12px] font-semibold text-white">{label}</span><span className="block text-[11px] text-white/50">{sub}</span></span>
     </button>
