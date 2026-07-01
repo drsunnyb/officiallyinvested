@@ -101,6 +101,8 @@ Deno.serve(async (req: Request) => {
     const docRows = await sql`select file_name, doc_kind, doc_summary, required_inputs, extraction_status from acq.documents where deal_id=${deal.id} order by uploaded_at desc limit 40`;
     const correspondence = commsRows.map((c: any) => ({ when: c.happened_at, type: c.kind, direction: c.direction, subject: c.subject, note: String(c.body || '').slice(0, 700) }));
     const documents_on_file = docRows.map((d: any) => ({ file: d.file_name, kind: d.doc_kind, summary: d.doc_summary, still_needs: d.required_inputs, status: d.extraction_status }));
+    // the firm's own knowledge base (frameworks, templates, methodology) — org-wide reference, always available
+    const firm_knowledge_base = (await sql`select file_name, summary, extracted_text from acq.knowledge_docs where org_id=${deal.org_id} and status='done' order by updated_at desc limit 25`).map((k: any) => ({ name: k.file_name, summary: k.summary, excerpt: String(k.extracted_text || '').slice(0, 3000) }));
 
     let recipientEmail: string | null = null; let recipientName: string | null = null;
     if (def.recipient) {
@@ -114,6 +116,7 @@ Deno.serve(async (req: Request) => {
       (cfg.acq_analyst_brief ? `\n\nMETHODOLOGY (for grounding, not to quote verbatim):\n${cfg.acq_analyst_brief}\n` : '') +
       `\n\nASSET GUIDANCE (this deal):\n${assetGuidance(deal.asset_type)}\n` +
       `\n\nGROUND EVERY DRAFT IN THE CURRENT STATE OF THIS DEAL. You are given the verified figures, the engine result, the analyst view, the full correspondence so far (notes, emails, calls, meeting notes) and the documents already on file. Use the LATEST information: reflect what has been discussed or agreed, never contradict it, never ask for something the deal already has, and tailor the substance to this asset type. If the correspondence or documents change the picture, the draft must change with it. A request that does not fit the asset (for example asking a bare land or development site for years of trading accounts) is a mistake, do not make it.\n` +
+      `\n\nFIRM KNOWLEDGE BASE: you are also given the firm's own reference material (its frameworks, templates, standard terms, methodology and market knowledge). Apply it, follow the firm's templates and standard wording where relevant, and prefer its house style and structures over generic ones.\n` +
       `\n\nWRITE AS A HUMAN — this must read as if the principal wrote it, never as AI. Hard rules: never use the em-dash character; use commas, full stops, or "to". No clichéd openers ("I hope this finds you well", "I trust you are well", "I am reaching out", "I wanted to"), no corporate filler ("leverage", "seamless", "synergies", "delighted", "please find attached", "as per"), no hedging, no over-bulleting an email. Use contractions, vary sentence length, get to the point like a busy operator who knows the deal. NEVER include meta-commentary, "internal notes", "do not issue", caveats-to-self, or any text the recipient should not see — output ONLY what the principal would actually send or use. Use the VERIFIED figures and engine numbers; never invent figures. Address the named recipient by first name if provided. It is a draft for the principal to send; do not say it has been sent. Output clean plain text only: never use markdown, no asterisks for emphasis, no hash headings, no backticks, no bullet stars. For documents use plain Title Case headings on their own line. Never include working-document or internal-note framing; the content must be client-ready.`;
 
     const tools = def.kind === 'email'
@@ -129,7 +132,7 @@ Deno.serve(async (req: Request) => {
       deal: { name: deal.name, asset_type: deal.asset_type, sector: deal.sector, asking_price: deal.asking_price, status: deal.status },
       asset_guidance: assetGuidance(deal.asset_type),
       verified_facts: facts, engine: val?.result ?? null, analyst_summary: ana?.summary ?? null,
-      correspondence, documents_on_file,
+      correspondence, documents_on_file, firm_knowledge_base,
     }) + `\n\nDraft it now, grounded in the current state above, and call ${toolName}.`;
 
     const ar = await fetch('https://api.anthropic.com/v1/messages', {

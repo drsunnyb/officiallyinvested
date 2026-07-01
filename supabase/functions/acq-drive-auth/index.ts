@@ -72,13 +72,18 @@ Deno.serve(async (req: Request) => {
       await sql`update acq.drive_accounts set root_folder_id=${body.root_folder_id ?? null}, root_folder_name=${body.root_folder_name ?? null}, updated_at=now() where org_id=${orgId}`;
       return json({ ok: true });
     }
+    if (action === 'set_kb') {
+      await sql`update acq.drive_accounts set kb_folder_id=${body.kb_folder_id ?? null}, kb_folder_name=${body.kb_folder_name ?? null}, updated_at=now() where org_id=${orgId}`;
+      return json({ ok: true });
+    }
     if (action === 'disconnect') {
       await sql`delete from acq.drive_accounts where org_id=${orgId}`;
       return json({ ok: true });
     }
     // status
-    const acc = (await sql`select google_email, status, root_folder_id, root_folder_name, last_synced_at, last_error, created_at from acq.drive_accounts where org_id=${orgId}`)[0] ?? null;
-    return json({ ok: true, configured, account: acc });
+    const acc = (await sql`select google_email, status, root_folder_id, root_folder_name, kb_folder_id, kb_folder_name, last_synced_at, last_error, created_at from acq.drive_accounts where org_id=${orgId}`)[0] ?? null;
+    const kb_docs = acc ? Number((await sql`select count(*)::int as n from acq.knowledge_docs where org_id=${orgId} and status='done'`)[0]?.n ?? 0) : 0;
+    return json({ ok: true, configured, account: acc, kb_docs });
   } catch (e) {
     return json({ error: String(e) }, 500);
   } finally {

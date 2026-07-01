@@ -55,7 +55,9 @@ export const driveStatus = () => invoke<{ ok: boolean; configured: boolean; acco
 export const driveStart = () => invoke<{ ok: boolean; configured: boolean; url?: string; error?: string }>('acq-drive-auth', { action: 'start' });
 export const driveDisconnect = () => invoke('acq-drive-auth', { action: 'disconnect' });
 export const driveSetRoot = (root_folder_id: string, root_folder_name?: string) => invoke('acq-drive-auth', { action: 'set_root', root_folder_id, ...(root_folder_name ? { root_folder_name } : {}) });
-export const driveSync = () => invoke<{ ok: boolean; created_folders: number; ingested_docs: number; new_deals: number; results?: any[] }>('acq-drive-sync', {});
+export const driveSync = () => invoke<{ ok: boolean; created_folders: number; ingested_docs: number; new_deals: number; kb_ingested?: number; results?: any[] }>('acq-drive-sync', {});
+export const driveSetKb = (kb_folder_id: string, kb_folder_name?: string) => invoke('acq-drive-auth', { action: 'set_kb', kb_folder_id, ...(kb_folder_name ? { kb_folder_name } : {}) });
+export const kbSearch = (q: string) => invoke<{ ok: boolean; matches: any[] }>('acq-kb-search', { q });
 export async function legalFillBroker(deal_id: string, file: File, counterparty?: string) {
   const base64 = await fileToBase64(file);
   return invoke<{ ok: boolean; document: any; pdf_base64: string; signed: boolean }>('acq-legal', { action: 'fill_broker', deal_id, counterparty, title: file.name.replace(/\.[^.]+$/, ''), inline: { base64, media_type: file.type || 'application/pdf', file_name: file.name } });
