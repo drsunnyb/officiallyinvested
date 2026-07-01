@@ -58,6 +58,14 @@ function xlsxToText(bytes: Uint8Array): string {
   return out.join('\n\n').trim();
 }
 
+// human labels so the model recognises a stored figure even under a different name
+const METRIC_LABELS: Record<string, string> = {
+  portfolio_value: 'portfolio value / GDV (gross development value)',
+  gross_rent: 'gross rent', net_income: 'net income', outstanding_debt: 'outstanding debt',
+  revenue: 'revenue', gross_profit: 'gross profit', operating_profit: 'operating profit',
+  ebitda: 'EBITDA', cash: 'cash', net_debt: 'net debt', employees: 'employees',
+};
+
 // Controlled metric vocabulary — aligned with the financial engine's inputs.
 const METRICS = new Set([
   'revenue', 'gross_profit', 'operating_profit', 'ebitda', 'depreciation', 'amortisation',
@@ -84,7 +92,8 @@ const PROMPT =
   'ALSO classify the document: doc_type (a short human label, e.g. "Statutory accounts", "Funding application", "Land or development appraisal", "Lease", "Heads of Terms", "Information memorandum") and summary (one plain sentence). ' +
   'ALSO identify required_inputs: the things this document still needs FROM THE USER to be acted on or completed, given this is an acquisition of a business, property or land. ' +
   'Examples: a funding application missing the requested amount, purpose of funds, security offered, or repayment/exit plan; a land or development appraisal missing GDV, build cost, planning status, programme/timeline, or exit route; a lease missing term or rent review; accounts missing recent management figures or bank statements to verify. ' +
-  'You are ALSO given KNOWN DEAL CONTEXT (figures, prior documents and notes already on this deal). Use it: do NOT list a gap that the known context already answers, and for each remaining gap add a "suggested" value taken from the known context when one is implied (otherwise set "suggested" to ""). ' +
+  'You are ALSO given KNOWN DEAL CONTEXT: the original deal submission, the current assessment, the figures already on file, other documents and notes. CROSS-REFERENCE it by MEANING, not by exact wording, a figure answers a required field even under a different name: portfolio value equals GDV for a development; asking price equals purchase price; day-one cash equals equity or deposit; working capital required equals the funding need. ' +
+  'If the known context answers a gap, DROP that gap completely. If it partially answers a gap, keep it but set "suggested" to the known value. Only ask for what is genuinely absent from ALL of the known context. Always prefer pre-filling over asking. ' +
   'Only list genuine gaps a person must supply, each as {"field": short label, "why": one line, "suggested": best value from the known context or ""}. Maximum 6. If nothing is needed, return an empty array. ' +
   'Return ONLY: {"facts":[{"metric":...,"period":...,"value":...,"source_quote":...,"source_page":...,"confidence":...}], "doc_type":"...", "summary":"...", "required_inputs":[{"field":"...","why":"...","suggested":"..."}]}';
 
@@ -176,12 +185,18 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'could not read file', detail: String(conv?.message || conv) }, 422);
     }
 
-    // what the deal already knows, so we skip gaps already answered and pre-fill the rest
-    const kFacts = await sql`select metric, period, value, is_self_reported from acq.financial_facts where deal_id=${dealId} order by is_self_reported, period desc nulls last limit 40`;
+    // everything the deal already knows, so we pre-fill and skip gaps already answered
+    const kDeal = (await sql`select name, asset_type, sector, asking_price, submission_id from acq.deals where id=${dealId}`)[0] ?? null;
+    const kFacts = (await sql`select metric, period, value, is_self_reported from acq.financial_facts where deal_id=${dealId} order by is_self_reported, period desc nulls last limit 60`)
+      .map((f: any) => ({ figure: METRIC_LABELS[f.metric] || f.metric.replace(/_/g, ' '), value: Number(f.value), period: f.period, verified: !f.is_self_reported }));
     const kDocs = await sql`select file_name, doc_kind, doc_summary from acq.documents where deal_id=${dealId} and id <> ${documentId} order by uploaded_at desc limit 20`;
     const kComms = (await sql`select kind, subject, body from acq.communications where deal_id=${dealId} order by happened_at desc limit 25`).map((c: any) => ({ kind: c.kind, subject: c.subject, note: String(c.body || '').slice(0, 600) }));
-    const kDeal = (await sql`select name, asset_type, sector, asking_price from acq.deals where id=${dealId}`)[0] ?? null;
-    const knownContext = JSON.stringify({ deal: kDeal, verified_and_reported_figures: kFacts, other_documents: kDocs, notes_and_correspondence: kComms });
+    let submission: any = null, assessment: any = null;
+    if (kDeal?.submission_id) {
+      submission = (await sql`select type, deal_kind, description, notes, region, locations, property_type, num_units, portfolio_value, asking_price, day_one_cash_need, working_capital_required, gross_rent, net_income, outstanding_debt, revenue, net_profit, reason_for_sale from public.submissions where id=${kDeal.submission_id}`)[0] ?? null;
+      assessment = (await sql`select tier, fit_score, summary, rationale, suggested_action, missing_documents from public.scores where submission_id=${kDeal.submission_id} order by scored_at desc limit 1`)[0] ?? null;
+    }
+    const knownContext = JSON.stringify({ deal: kDeal ? { name: kDeal.name, asset_type: kDeal.asset_type, sector: kDeal.sector, asking_price: kDeal.asking_price } : null, original_submission: submission, current_assessment: assessment, figures_on_file: kFacts, other_documents: kDocs, notes_and_correspondence: kComms });
 
     const ar = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
