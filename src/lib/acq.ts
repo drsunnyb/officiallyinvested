@@ -38,6 +38,8 @@ export const addDealContact = (deal_id: string, c: Record<string, unknown>) => i
 export const commsList = (deal_id: string) => invoke<{ ok: boolean; communications: any[] }>('acq-comms', { action: 'list', deal_id });
 export const commsAdd = (deal_id: string, c: Record<string, unknown>) => invoke<{ ok: boolean; communication: any }>('acq-comms', { action: 'add', deal_id, ...c });
 export const commsClearDocInputs = (document_id: string) => invoke<{ ok: boolean }>('acq-comms', { action: 'clear_doc_inputs', document_id });
+export const docUrl = (document_id: string) => invoke<{ ok: boolean; url: string; file_name: string }>('acq-doc', { document_id });
+export const completeDoc = (document_id: string, answers: string) => invoke<{ ok: boolean; draft: any; docx_base64: string }>('acq-complete-doc', { document_id, answers });
 export const legalGetProfile = () => invoke<{ ok: boolean; profile: any }>('acq-legal', { action: 'get_profile' });
 export const legalSetProfile = (profile: Record<string, unknown>) => invoke<{ ok: boolean; profile: any }>('acq-legal', { action: 'set_profile', profile });
 export const legalList = (deal_id?: string) => invoke<{ ok: boolean; documents: any[] }>('acq-legal', { action: 'list', ...(deal_id ? { deal_id } : {}) });
