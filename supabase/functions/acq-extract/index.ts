@@ -93,7 +93,7 @@ const PROMPT =
   'ALSO identify required_inputs: the things this document still needs FROM THE USER to be acted on or completed, given this is an acquisition of a business, property or land. ' +
   'Examples: a funding application missing the requested amount, purpose of funds, security offered, or repayment/exit plan; a land or development appraisal missing GDV, build cost, planning status, programme/timeline, or exit route; a lease missing term or rent review; accounts missing recent management figures or bank statements to verify. ' +
   'You are ALSO given KNOWN DEAL CONTEXT: the original deal submission, the current assessment, the figures already on file, other documents and notes. CROSS-REFERENCE it by MEANING, not by exact wording, a figure answers a required field even under a different name: portfolio value equals GDV for a development; asking price equals purchase price; day-one cash equals equity or deposit; working capital required equals the funding need. ' +
-  'If the known context answers a gap, DROP that gap completely. If it partially answers a gap, keep it but set "suggested" to the known value. Only ask for what is genuinely absent from ALL of the known context. Always prefer pre-filling over asking. ' +
+  'If the known context answers a gap, DROP that gap completely. If it partially answers a gap, keep it but set "suggested" to the known value. Where a value is not stated but can be reasonably DERIVED by simple arithmetic from figures in the known context (for example total development cost approx GDV minus target profit; funding requirement approx total cost minus the equity or land already committed), put that derived figure in "suggested" and note it is indicative. Only ask for what is genuinely absent and cannot be derived. Always prefer pre-filling over asking. ' +
   'Only list genuine gaps a person must supply, each as {"field": short label, "why": one line, "suggested": best value from the known context or ""}. Maximum 6. If nothing is needed, return an empty array. ' +
   'Return ONLY: {"facts":[{"metric":...,"period":...,"value":...,"source_quote":...,"source_page":...,"confidence":...}], "doc_type":"...", "summary":"...", "required_inputs":[{"field":"...","why":"...","suggested":"..."}]}';
 
@@ -184,16 +184,18 @@ Deno.serve(async (req: Request) => {
       if (documentId) await sql`update acq.documents set extraction_status='failed', extraction_error=${('could not read file: ' + String(conv?.message || conv)).slice(0, 500)} where id=${documentId}`;
       return json({ error: 'could not read file', detail: String(conv?.message || conv) }, 422);
     }
+    // keep the full converted text so the whole document (not just a one-line summary) is available to later drafting
+    const docText = contentBlock?.type === 'text' ? String(contentBlock.text || '').slice(0, 200000) : '';
 
     // everything the deal already knows, so we pre-fill and skip gaps already answered
     const kDeal = (await sql`select name, asset_type, sector, asking_price, submission_id from acq.deals where id=${dealId}`)[0] ?? null;
     const kFacts = (await sql`select metric, period, value, is_self_reported from acq.financial_facts where deal_id=${dealId} order by is_self_reported, period desc nulls last limit 60`)
       .map((f: any) => ({ figure: METRIC_LABELS[f.metric] || f.metric.replace(/_/g, ' '), value: Number(f.value), period: f.period, verified: !f.is_self_reported }));
-    const kDocs = await sql`select file_name, doc_kind, doc_summary from acq.documents where deal_id=${dealId} and id <> ${documentId} order by uploaded_at desc limit 20`;
+    const kDocs = (await sql`select file_name, doc_kind, doc_summary, extracted_text from acq.documents where deal_id=${dealId} and id <> ${documentId} order by uploaded_at desc limit 20`).map((d: any) => ({ file_name: d.file_name, doc_kind: d.doc_kind, summary: d.doc_summary, content: String(d.extracted_text || '').slice(0, 6000) }));
     const kComms = (await sql`select kind, subject, body from acq.communications where deal_id=${dealId} order by happened_at desc limit 25`).map((c: any) => ({ kind: c.kind, subject: c.subject, note: String(c.body || '').slice(0, 600) }));
     let submission: any = null, assessment: any = null;
     if (kDeal?.submission_id) {
-      submission = (await sql`select type, deal_kind, description, notes, region, locations, property_type, num_units, portfolio_value, asking_price, day_one_cash_need, working_capital_required, gross_rent, net_income, outstanding_debt, revenue, net_profit, reason_for_sale from public.submissions where id=${kDeal.submission_id}`)[0] ?? null;
+      submission = (await sql`select type, deal_kind, description, notes, admin_notes, region, locations, property_type, num_units, portfolio_value, asking_price, day_one_cash_need, working_capital_required, gross_rent, net_income, outstanding_debt, revenue, net_profit, reason_for_sale from public.submissions where id=${kDeal.submission_id}`)[0] ?? null;
       assessment = (await sql`select tier, fit_score, summary, rationale, suggested_action, missing_documents from public.scores where submission_id=${kDeal.submission_id} order by scored_at desc limit 1`)[0] ?? null;
     }
     const knownContext = JSON.stringify({ deal: kDeal ? { name: kDeal.name, asset_type: kDeal.asset_type, sector: kDeal.sector, asking_price: kDeal.asking_price } : null, original_submission: submission, current_assessment: assessment, figures_on_file: kFacts, other_documents: kDocs, notes_and_correspondence: kComms });
@@ -225,7 +227,7 @@ Deno.serve(async (req: Request) => {
     }
     const requiredInputs = Array.isArray(parsed.required_inputs) ? parsed.required_inputs.filter((x: any) => x && x.field).slice(0, 6) : [];
     const summary = typeof parsed.summary === 'string' ? parsed.summary.slice(0, 500) : null;
-    if (documentId) await sql`update acq.documents set extraction_status='done', doc_summary=${summary}, required_inputs=${sql.json(requiredInputs)} where id=${documentId}`;
+    if (documentId) await sql`update acq.documents set extraction_status='done', doc_summary=${summary}, extracted_text=${docText || null}, required_inputs=${sql.json(requiredInputs)} where id=${documentId}`;
 
     return json({ ok: true, deal_id: dealId, document_id: documentId, facts_extracted: inserted, contradictions, doc_type: parsed.doc_type ?? null, required_inputs: requiredInputs, model: aj.model });
   } catch (e) {
