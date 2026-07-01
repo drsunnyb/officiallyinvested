@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, ArrowLeft, Check, Upload, PenLine, ShieldCheck, Inbox, Sparkles, Palette } from 'lucide-react';
+import { Loader2, ArrowLeft, Check, Upload, PenLine, ShieldCheck, Inbox, Sparkles, Palette, FolderTree } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { legalGetProfile, legalSetProfile, legalSetBrand, brandExtract, gmailStatus, gmailStart, gmailDisconnect, gmailSync } from '../../lib/acq';
+import { legalGetProfile, legalSetProfile, legalSetBrand, brandExtract, gmailStatus, gmailStart, gmailDisconnect, gmailSync, driveStatus, driveStart, driveDisconnect, driveSetRoot, driveSync } from '../../lib/acq';
 
 type Profile = Record<string, any>;
 
@@ -23,7 +23,7 @@ export default function Settings() {
     supabase?.auth.getSession().then(({ data }) => {
       const ok = !!data.session;
       setAuthed(ok);
-      if (ok) { legalGetProfile().then((r: any) => { setP(r.profile || {}); setBrand(r.brand || {}); }).catch((e) => setErr(String(e))).finally(() => setLoading(false)); gmailStatus().then((g: any) => setGmail(g || { accounts: [] })).catch(() => {}); }
+      if (ok) { legalGetProfile().then((r: any) => { setP(r.profile || {}); setBrand(r.brand || {}); }).catch((e) => setErr(String(e))).finally(() => setLoading(false)); gmailStatus().then((g: any) => setGmail(g || { accounts: [] })).catch(() => {}); driveStatus().then((d: any) => setDrive(d || { account: null })).catch(() => {}); }
       else setLoading(false);
     });
   }, []);
@@ -37,6 +37,13 @@ export default function Settings() {
   const connectGmail = async () => { setGmailBusy('connect'); setErr(''); try { const r: any = await gmailStart(); if (r.url) window.open(r.url, '_blank', 'width=520,height=700'); else setErr(r.error || 'Gmail is not configured yet.'); } catch (e: any) { setErr(e.message || String(e)); } finally { setGmailBusy(''); } };
   const syncGmail = async () => { setGmailBusy('sync'); setErr(''); try { await gmailSync(); await loadGmail(); } catch (e: any) { setErr(e.message || String(e)); } finally { setGmailBusy(''); } };
   const disconnectGmail = async (email: string) => { setGmailBusy('disc'); setErr(''); try { await gmailDisconnect(email); await loadGmail(); } catch (e: any) { setErr(e.message || String(e)); } finally { setGmailBusy(''); } };
+  const [drive, setDrive] = useState<any>({ account: null, configured: false });
+  const [driveBusy, setDriveBusy] = useState('');
+  const loadDrive = () => driveStatus().then((r: any) => setDrive(r || { account: null })).catch(() => {});
+  const connectDrive = async () => { setDriveBusy('connect'); setErr(''); try { const r: any = await driveStart(); if (r.url) window.open(r.url, '_blank', 'width=520,height=700'); else setErr(r.error || 'Google is not configured yet.'); } catch (e: any) { setErr(e.message || String(e)); } finally { setDriveBusy(''); } };
+  const saveDriveRoot = async (v: string) => { setDriveBusy('root'); setErr(''); try { await driveSetRoot(v.trim()); await loadDrive(); } catch (e: any) { setErr(e.message || String(e)); } finally { setDriveBusy(''); } };
+  const syncDrive = async () => { setDriveBusy('sync'); setErr(''); try { await driveSync(); await loadDrive(); } catch (e: any) { setErr(e.message || String(e)); } finally { setDriveBusy(''); } };
+  const disconnectDrive = async () => { setDriveBusy('disc'); setErr(''); try { await driveDisconnect(); await loadDrive(); } catch (e: any) { setErr(e.message || String(e)); } finally { setDriveBusy(''); } };
 
   const set = (k: string, v: any) => { setP((x) => ({ ...x, [k]: v })); setSaved(false); };
   const onSig = (f: File | null) => {
@@ -160,6 +167,38 @@ export default function Settings() {
                   <button onClick={connectGmail} disabled={gmailBusy === 'connect'} className="inline-flex items-center gap-2 bg-[#FFD700] text-[#0A2540] px-4 py-2.5 rounded-full text-sm font-bold hover:bg-opacity-90 disabled:opacity-50">{gmailBusy === 'connect' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Connect Gmail</button>
                   {gmail.configured === false && <p className="text-white/35 text-[11px] mt-2">Not configured yet, an admin needs to add the Google credentials.</p>}
                   <p className="text-white/35 text-[11px] mt-2">After connecting, return here and hit Sync now. Read-only access, we never send from your inbox.</p>
+                </div>
+              )}
+            </Section>
+
+            {/* Google Drive */}
+            <Section icon={<FolderTree className="h-4 w-4" />} title="Google Drive" sub="Give each deal a Drive folder, and turn a folder of documents into a deal.">
+              <div className="text-[13px] text-white/70 space-y-2 mb-3">
+                <p>Connect your Drive and every deal gets its own folder (named by reference and deal) with subfolders for Accounts, Financials, Legal, Property, Correspondence and Outputs. Drop documents into a deal's folder and the agent reads them into the data room automatically.</p>
+                <p>Drop a new folder of documents into your Deals folder and the agent creates the deal from it.</p>
+              </div>
+              {drive.account ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 bg-white/5 rounded-lg p-2.5">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ background: drive.account.status === 'connected' ? '#6EE7B7' : '#FCA5A5' }} />
+                    <span className="text-[13px] text-white flex-1 truncate">{drive.account.google_email || 'Google Drive'}</span>
+                    <span className="text-[11px] text-white/45 shrink-0">{drive.account.last_synced_at ? 'synced ' + new Date(drive.account.last_synced_at).toLocaleString('en-GB') : 'not synced yet'}</span>
+                    <button onClick={disconnectDrive} className="text-[11px] text-white/50 hover:text-white shrink-0">Disconnect</button>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-white/50">Deals folder ID (paste the Google Drive folder ID your deals live in)</label>
+                    <div className="flex gap-2 mt-1">
+                      <input defaultValue={drive.account.root_folder_id || ''} onBlur={(e) => e.target.value.trim() !== (drive.account.root_folder_id || '') && saveDriveRoot(e.target.value)} placeholder="e.g. 1AbC2dEfGhIjKlMnOpQrStUv" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-[#FFD700]/60" />
+                      <button onClick={syncDrive} disabled={driveBusy === 'sync' || !drive.account.root_folder_id} className="inline-flex items-center gap-2 bg-[#FFD700] text-[#0A2540] px-4 py-2 rounded-lg text-sm font-bold hover:bg-opacity-90 disabled:opacity-40">{driveBusy === 'sync' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Sync now</button>
+                    </div>
+                    <p className="text-white/35 text-[11px] mt-1.5">Find the ID in the folder's URL after /folders/. Sync runs automatically too.</p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <button onClick={connectDrive} disabled={driveBusy === 'connect'} className="inline-flex items-center gap-2 bg-[#FFD700] text-[#0A2540] px-4 py-2.5 rounded-full text-sm font-bold hover:bg-opacity-90 disabled:opacity-50">{driveBusy === 'connect' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Connect Google Drive</button>
+                  {drive.configured === false && <p className="text-white/35 text-[11px] mt-2">Not configured yet, an admin needs to add the Google credentials.</p>}
+                  <p className="text-white/35 text-[11px] mt-2">After connecting, paste your Deals folder ID and hit Sync now.</p>
                 </div>
               )}
             </Section>
