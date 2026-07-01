@@ -9,6 +9,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const DB_URL = Deno.env.get('SUPABASE_DB_URL')!;
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acq-secret', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
@@ -83,6 +84,33 @@ Deno.serve(async (req: Request) => {
       }
     } else { await sql.end({ timeout: 5 }); return json({ error: 'submission_id or deal_id required' }, 400); }
     if (!deal) { await sql.end({ timeout: 5 }); return json({ error: 'deal not found' }, 404); }
+
+    // adopt any source files attached to the submission (Drive/inbox intake or the old upload path)
+    // into the deal's data room, once each, then extract their full text in the background
+    if (deal.submission_id) {
+      try {
+        const pub = await sql`select id, file_path, file_name, file_type from public.documents where submission_id=${deal.submission_id}`;
+        if (pub.length) {
+          const existing = (await sql`select storage_path from acq.documents where deal_id=${deal.id}`).map((r: any) => String(r.storage_path || ''));
+          for (const p of pub) {
+            if (!p.file_path) continue;
+            const marker = `adopted/${p.id}-`;
+            if (existing.some((s) => s.startsWith(marker))) continue;
+            const dl = await fetch(`${SUPABASE_URL}/storage/v1/object/submission-documents/${p.file_path}`, { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` } });
+            if (!dl.ok) continue;
+            const bytes = new Uint8Array(await dl.arrayBuffer());
+            const safe = String(p.file_name || 'document').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 180);
+            const path = `${marker}${safe}`;
+            const up = await fetch(`${SUPABASE_URL}/storage/v1/object/acq-documents/${path}`, { method: 'POST', headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}`, 'content-type': p.file_type || 'application/octet-stream', 'x-upsert': 'true' }, body: bytes });
+            if (!up.ok) continue;
+            const drow = (await sql`insert into acq.documents (org_id, deal_id, storage_path, file_name, file_type, doc_kind, extraction_status, uploaded_by)
+              values (${deal.org_id}, ${deal.id}, ${path}, ${p.file_name}, ${p.file_type || null}, 'other', 'processing', ${userId}) returning id`)[0];
+            const kick = fetch(`${SUPABASE_URL}/functions/v1/acq-extract`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-acq-secret': cfg.acq_internal_secret }, body: JSON.stringify({ document_id: drow.id }) }).catch(() => {});
+            try { (globalThis as any).EdgeRuntime?.waitUntil?.(kick); } catch (_) { /**/ }
+          }
+        }
+      } catch (_) { /* adoption is best-effort, never block the bundle */ }
+    }
 
     // bundle
     const facts = await sql`select id, document_id, metric, period, value, unit, confidence, source_quote, source_page, is_self_reported, contradicts_self_reported from acq.financial_facts where deal_id=${deal.id} order by is_self_reported, period desc nulls last, metric`;
