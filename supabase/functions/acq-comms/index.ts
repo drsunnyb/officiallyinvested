@@ -101,6 +101,11 @@ Deno.serve(async (req: Request) => {
 
     const action = body.action ?? 'list';
 
+    if (action === 'clear_doc_inputs') {
+      if (!body.document_id) { await sql.end({ timeout: 5 }); return json({ error: 'document_id required' }, 400); }
+      await sql`update acq.documents set required_inputs='[]'::jsonb where id=${body.document_id} and org_id=${orgId}`;
+      return json({ ok: true });
+    }
     if (action === 'add') {
       if (!body.deal_id) { await sql.end({ timeout: 5 }); return json({ error: 'deal_id required' }, 400); }
       let contactId: string | null = body.contact_id ?? null;

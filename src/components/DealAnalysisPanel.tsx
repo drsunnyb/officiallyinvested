@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video, Inbox, Send, StickyNote, Phone, Folder, FileSignature, Download } from 'lucide-react';
+import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video, Inbox, Send, StickyNote, Phone, Folder, FileSignature, Download, ClipboardList } from 'lucide-react';
 import ScheduleCallModal from './ScheduleCallModal';
 import { supabase } from '../lib/supabase';
-import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, commsAdd, legalList, legalGenerate, legalFillBroker, legalRenderDoc, pollBundle, type AcqBundle } from '../lib/acq';
+import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, commsAdd, commsClearDocInputs, legalList, legalGenerate, legalFillBroker, legalRenderDoc, pollBundle, type AcqBundle } from '../lib/acq';
 import { STAGES } from '../lib/stages';
 
 function gbp(v: unknown): string {
@@ -81,6 +81,8 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
   const [showCall, setShowCall] = useState(false);
   const [cf, setCf] = useState<Record<string, string>>({});
   const [cBusy, setCBusy] = useState(false);
+  const [ans, setAns] = useState<Record<string, string>>({});
+  const [ansBusy, setAnsBusy] = useState('');
   const [copiedAlias, setCopiedAlias] = useState(false);
   const [legalDocs, setLegalDocs] = useState<any[]>([]);
   const [legalBusy, setLegalBusy] = useState('');
@@ -140,6 +142,21 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
       }
       setCf({}); await load();
     } catch (e: any) { setErr(e.message || String(e)); } finally { setCBusy(false); }
+  };
+  // the user supplies the details a document needs; log it, clear the gaps, re-run the assessment
+  const answerInputs = async (doc: any) => {
+    const text = (ans[doc.id] || '').trim();
+    if (!text || !dealId) return;
+    setAnsBusy(doc.id); setErr('');
+    try {
+      const fields = (doc.required_inputs || []).map((r: any) => r.field).filter(Boolean).join(', ');
+      const note = `Details supplied for ${doc.file_name}${fields ? ' (' + fields + ')' : ''}: ${text}`;
+      await commsAdd(dealId, { kind: 'note', subject: 'Details: ' + doc.file_name, body: note, direction: 'internal' });
+      if (submissionId && supabase) { try { await supabase.from('deal_items').insert({ submission_id: submissionId, kind: 'note', content: note }); } catch { /**/ } }
+      await commsClearDocInputs(doc.id);
+      setAns((p) => { const n = { ...p }; delete n[doc.id]; return n; });
+      await load(); onRescore?.();
+    } catch (e: any) { setErr(e.message || String(e)); } finally { setAnsBusy(''); }
   };
   const loadLegal = async (id: string) => { try { const r = await legalList(id); setLegalDocs(r.documents || []); } catch { /**/ } };
   const downloadPdf = (b64: string, name: string) => { const bin = atob(b64); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' })); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
@@ -215,12 +232,12 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
           </div>
         </>
       ) : (
-        <p className="text-white/60 text-sm mb-3">Not analysed yet. Upload the accounts for verified figures, or run analysis on the submitted numbers.</p>
+        <p className="text-white/60 text-sm mb-3">Not analysed yet. Upload documents for verified figures, or run analysis on the submitted numbers.</p>
       )}
 
       {/* analysis controls */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <Btn onClick={() => fileRef.current?.click()} busy={busy === 'extract'} icon={Upload} label="Upload accounts" />
+        <Btn onClick={() => fileRef.current?.click()} busy={busy === 'extract'} icon={Upload} label="Upload documents" />
         <input ref={fileRef} type="file" accept="application/pdf,text/csv,text/plain" multiple className="hidden" onChange={(e) => { onUpload(e.target.files); e.target.value = ''; }} />
         <Btn onClick={() => runStep('analyze')} busy={busy === 'analyze'} icon={Sparkles} label={b?.analysis ? 'Re-run analysis' : 'Run analysis'} primary />
         <Btn onClick={() => runStep('committee')} busy={busy === 'committee'} icon={Gavel} label="Committee" disabled={!b?.analysis} />
@@ -228,6 +245,41 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
         <Btn onClick={() => setShowCall(true)} icon={Video} label="Schedule call" />
       </div>
       {busy === 'analyze' && <p className="text-white/45 text-xs mb-3">Running the engine and analyst… about a minute.</p>}
+
+      {/* documents that need input from you before the agent can act on them */}
+      {(() => {
+        const need = (b?.documents ?? []).filter((d: any) => Array.isArray(d.required_inputs) && d.required_inputs.length > 0);
+        if (!need.length) return null;
+        return (
+          <div className="mb-4 bg-amber-500/10 border border-amber-400/40 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <ClipboardList className="h-4 w-4 text-amber-300" />
+              <span className="text-amber-200 text-[11px] uppercase tracking-wide font-semibold">Needs your input · {need.length} {need.length === 1 ? 'document' : 'documents'}</span>
+            </div>
+            <p className="text-white/55 text-[11px] mb-2.5">The agent read these and needs a few specifics from you to progress them. What you add is logged to the deal and re-runs the assessment.</p>
+            <div className="flex flex-col gap-2.5">
+              {need.map((doc: any) => (
+                <div key={doc.id} className="bg-white/5 rounded-lg p-2.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileText className="h-3.5 w-3.5 text-amber-300 shrink-0" />
+                    <span className="text-[12px] font-semibold text-white flex-1 truncate">{doc.file_name}</span>
+                  </div>
+                  {doc.doc_summary && <p className="text-white/50 text-[11px] mb-1.5">{human(doc.doc_summary)}</p>}
+                  <ul className="mb-2 space-y-1">
+                    {(doc.required_inputs || []).map((r: any, i: number) => (
+                      <li key={i} className="text-[11.5px] text-white/80 flex gap-1.5"><span className="text-amber-300 mt-0.5">•</span><span><b className="text-white">{human(r.field)}</b>{r.why ? <span className="text-white/50"> — {human(r.why)}</span> : null}</span></li>
+                    ))}
+                  </ul>
+                  <div className="flex gap-1.5">
+                    <input value={ans[doc.id] ?? ''} onChange={(e) => setAns((p) => ({ ...p, [doc.id]: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter') answerInputs(doc); }} placeholder="Provide the details the agent needs…" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-amber-400/60" />
+                    <button onClick={() => answerInputs(doc)} disabled={ansBusy === doc.id || !(ans[doc.id] || '').trim()} className="bg-amber-400 text-[#0A2540] px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 disabled:opacity-40">{ansBusy === doc.id ? '…' : 'Submit'}</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* stage-aware agent actions */}
       <div className="text-white/50 text-[11px] uppercase tracking-wide mb-2">Suggested next steps · {stageLabel}</div>
@@ -389,6 +441,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
                         <div key={doc.id} className="bg-white/5 rounded-md p-2 flex items-center gap-2">
                           <FileText className="h-4 w-4 text-white/45 shrink-0" />
                           <span className="flex-1 truncate text-[11px] text-white/75">{doc.file_name}</span>
+                          {Array.isArray(doc.required_inputs) && doc.required_inputs.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 shrink-0">needs input</span>}
                           <span className={'text-[9px] shrink-0 ' + (doc.extraction_status === 'done' ? 'text-emerald-300' : 'text-white/40')}>{doc.extraction_status === 'done' ? '✓' : doc.extraction_status}</span>
                         </div>
                       ))}

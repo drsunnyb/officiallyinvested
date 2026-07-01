@@ -86,7 +86,7 @@ Deno.serve(async (req: Request) => {
 
     // bundle
     const facts = await sql`select id, document_id, metric, period, value, unit, confidence, source_quote, source_page, is_self_reported, contradicts_self_reported from acq.financial_facts where deal_id=${deal.id} order by is_self_reported, period desc nulls last, metric`;
-    const documents = await sql`select id, file_name, doc_kind, extraction_status, uploaded_at from acq.documents where deal_id=${deal.id} order by uploaded_at desc`;
+    const documents = await sql`select id, file_name, doc_kind, doc_summary, required_inputs, extraction_status, uploaded_at from acq.documents where deal_id=${deal.id} order by uploaded_at desc`;
     const valuation = (await sql`select id, adjusted_ebitda, result, created_at from acq.valuations where deal_id=${deal.id} order by created_at desc limit 1`)[0] ?? null;
     const analysis = (await sql`select id, summary, report, score, created_at from acq.analyses where deal_id=${deal.id} order by created_at desc limit 1`)[0] ?? null;
     const verdict = (await sql`select id, verdict, detail, created_at from acq.committee_verdicts where deal_id=${deal.id} order by created_at desc limit 1`)[0] ?? null;
