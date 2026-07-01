@@ -84,8 +84,9 @@ const PROMPT =
   'ALSO classify the document: doc_type (a short human label, e.g. "Statutory accounts", "Funding application", "Land or development appraisal", "Lease", "Heads of Terms", "Information memorandum") and summary (one plain sentence). ' +
   'ALSO identify required_inputs: the things this document still needs FROM THE USER to be acted on or completed, given this is an acquisition of a business, property or land. ' +
   'Examples: a funding application missing the requested amount, purpose of funds, security offered, or repayment/exit plan; a land or development appraisal missing GDV, build cost, planning status, programme/timeline, or exit route; a lease missing term or rent review; accounts missing recent management figures or bank statements to verify. ' +
-  'Only list genuine gaps a person must supply, each as {"field": short label, "why": one line}. Maximum 6. If nothing is needed, return an empty array. ' +
-  'Return ONLY: {"facts":[{"metric":...,"period":...,"value":...,"source_quote":...,"source_page":...,"confidence":...}], "doc_type":"...", "summary":"...", "required_inputs":[{"field":"...","why":"..."}]}';
+  'You are ALSO given KNOWN DEAL CONTEXT (figures, prior documents and notes already on this deal). Use it: do NOT list a gap that the known context already answers, and for each remaining gap add a "suggested" value taken from the known context when one is implied (otherwise set "suggested" to ""). ' +
+  'Only list genuine gaps a person must supply, each as {"field": short label, "why": one line, "suggested": best value from the known context or ""}. Maximum 6. If nothing is needed, return an empty array. ' +
+  'Return ONLY: {"facts":[{"metric":...,"period":...,"value":...,"source_quote":...,"source_page":...,"confidence":...}], "doc_type":"...", "summary":"...", "required_inputs":[{"field":"...","why":"...","suggested":"..."}]}';
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -127,8 +128,15 @@ Deno.serve(async (req: Request) => {
       bytes = decodeBase64(body.inline.base64);
       const fn = String(body.inline.file_name || 'document').slice(0, 200);
       fname = fn;
+      // persist the bytes to storage so the file can be opened/downloaded later
+      const safe = fn.replace(/[^a-zA-Z0-9._-]/g, '_');
+      let storagePath = `${dealId}/${Date.now()}-${safe}`;
+      const up = await fetch(`${SUPABASE_URL}/storage/v1/object/acq-documents/${storagePath}`, {
+        method: 'POST', headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}`, 'content-type': mediaType, 'x-upsert': 'true' }, body: bytes,
+      });
+      if (!up.ok) storagePath = 'inline/' + fn;
       const drow = (await sql`insert into acq.documents (org_id, deal_id, storage_path, file_name, file_type, doc_kind, extraction_status, uploaded_by)
-        values (${orgId}, ${dealId}, ${'inline/' + fn}, ${fn}, ${mediaType}, 'other', 'processing', ${userId}) returning id`)[0];
+        values (${orgId}, ${dealId}, ${storagePath}, ${fn}, ${mediaType}, 'other', 'processing', ${userId}) returning id`)[0];
       documentId = drow.id;
     } else {
       return json({ error: 'document_id, or inline.base64 + deal_id, required' }, 400);
@@ -168,10 +176,17 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'could not read file', detail: String(conv?.message || conv) }, 422);
     }
 
+    // what the deal already knows, so we skip gaps already answered and pre-fill the rest
+    const kFacts = await sql`select metric, period, value, is_self_reported from acq.financial_facts where deal_id=${dealId} order by is_self_reported, period desc nulls last limit 40`;
+    const kDocs = await sql`select file_name, doc_kind, doc_summary from acq.documents where deal_id=${dealId} and id <> ${documentId} order by uploaded_at desc limit 20`;
+    const kComms = (await sql`select kind, subject, body from acq.communications where deal_id=${dealId} order by happened_at desc limit 25`).map((c: any) => ({ kind: c.kind, subject: c.subject, note: String(c.body || '').slice(0, 600) }));
+    const kDeal = (await sql`select name, asset_type, sector, asking_price from acq.deals where id=${dealId}`)[0] ?? null;
+    const knownContext = JSON.stringify({ deal: kDeal, verified_and_reported_figures: kFacts, other_documents: kDocs, notes_and_correspondence: kComms });
+
     const ar = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 3000, system: SYSTEM, messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: PROMPT }] }] }),
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 3000, system: SYSTEM, messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: 'KNOWN DEAL CONTEXT (already on this deal, use it to pre-fill and to skip gaps that are already answered):\n' + knownContext.slice(0, 60000) }, { type: 'text', text: PROMPT }] }] }),
     });
     if (!ar.ok) { const t = await ar.text(); if (documentId) await sql`update acq.documents set extraction_status='failed', extraction_error=${('anthropic ' + ar.status + ' ' + t).slice(0, 500)} where id=${documentId}`; return json({ error: 'anthropic ' + ar.status, detail: t.slice(0, 300) }, 502); }
     const aj = await ar.json();

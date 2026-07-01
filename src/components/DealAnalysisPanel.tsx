@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Upload, AlertTriangle, Gavel, FileText, RefreshCw, ChevronDown, ChevronRight, Sparkles, Mail, TrendingUp, Copy, Check, Video, Inbox, Send, StickyNote, Phone, Folder, FileSignature, Download, ClipboardList } from 'lucide-react';
 import ScheduleCallModal from './ScheduleCallModal';
 import { supabase } from '../lib/supabase';
-import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, commsAdd, commsClearDocInputs, legalList, legalGenerate, legalFillBroker, legalRenderDoc, pollBundle, type AcqBundle } from '../lib/acq';
+import { getDealBySubmission, getDealById, runAnalyze, runCommittee, runMemo, extractFile, draftAction, addDealContact, commsAdd, commsClearDocInputs, docUrl, completeDoc, legalList, legalGenerate, legalFillBroker, legalRenderDoc, pollBundle, type AcqBundle } from '../lib/acq';
 import { STAGES } from '../lib/stages';
 
 function gbp(v: unknown): string {
@@ -150,23 +150,44 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
       setCf({}); await load();
     } catch (e: any) { setErr(e.message || String(e)); } finally { setCBusy(false); }
   };
-  // the user supplies the details a document needs; log it, clear the gaps, re-run the assessment
+  // the user supplies the details a document needs; log it, clear the gaps, then
+  // produce the completed document (grounded in everything the deal now knows).
   const answerInputs = async (doc: any) => {
-    const text = (ans[doc.id] || '').trim();
-    if (!text || !dealId) return;
+    if (!dealId) return;
+    const items = (doc.required_inputs || []);
+    const lines = items.map((r: any, i: number) => {
+      const v = String(ans[`${doc.id}::${i}`] ?? r.suggested ?? '').trim();
+      return v ? `${r.field}: ${v}` : '';
+    }).filter(Boolean);
+    if (!lines.length) return;
     setAnsBusy(doc.id); setErr('');
     try {
-      const fields = (doc.required_inputs || []).map((r: any) => r.field).filter(Boolean).join(', ');
-      const note = `Details supplied for ${doc.file_name}${fields ? ' (' + fields + ')' : ''}: ${text}`;
+      const note = `Details supplied for ${doc.file_name}:\n${lines.join('\n')}`;
       await commsAdd(dealId, { kind: 'note', subject: 'Details: ' + doc.file_name, body: note, direction: 'internal' });
       if (submissionId && supabase) { try { await supabase.from('deal_items').insert({ submission_id: submissionId, kind: 'note', content: note }); } catch { /**/ } }
       await commsClearDocInputs(doc.id);
-      setAns((p) => { const n = { ...p }; delete n[doc.id]; return n; });
+      const r = await completeDoc(doc.id, note);
+      setAns((p) => { const n = { ...p }; items.forEach((_: any, i: number) => delete n[`${doc.id}::${i}`]); return n; });
       await load(); onRescore?.();
+      if (r?.draft?.id) { setOpenDraft(r.draft.id); setTab('drafts'); }
+      if (r?.docx_base64) downloadBlobB64(r.docx_base64, ((r.draft?.subject || doc.file_name || 'document').replace(/[^\w.-]+/g, '-')) + '.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     } catch (e: any) { setErr(e.message || String(e)); } finally { setAnsBusy(''); }
   };
+  const openDoc = async (doc: any) => {
+    setErr('');
+    try { const r = await docUrl(doc.id); if (r?.url) window.open(r.url, '_blank'); }
+    catch (e: any) { setErr(e.message === 'not_stored' ? 'That file was uploaded before storage was enabled. Re-upload it to open it.' : (e.message || String(e))); }
+  };
   const loadLegal = async (id: string) => { try { const r = await legalList(id); setLegalDocs(r.documents || []); } catch { /**/ } };
-  const downloadPdf = (b64: string, name: string) => { const bin = atob(b64); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' })); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
+  const downloadBlobB64 = (b64: string, name: string, mime: string) => { const bin = atob(b64); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); const url = URL.createObjectURL(new Blob([arr], { type: mime })); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
+  const downloadPdf = (b64: string, name: string) => downloadBlobB64(b64, name, 'application/pdf');
+  // let the user keep working in Word: an HTML .doc opens and edits natively in Word
+  const downloadWord = (title: string, text: string) => {
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const html = `<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body style="font-family:Calibri,Arial,sans-serif;font-size:11pt;">${esc(text).replace(/\n/g, '<br>')}</body></html>`;
+    const url = URL.createObjectURL(new Blob(['﻿' + html], { type: 'application/msword' }));
+    const a = document.createElement('a'); a.href = url; a.download = (title || 'document').replace(/[^\w.-]+/g, '-') + '.doc'; a.click(); URL.revokeObjectURL(url);
+  };
   const genLegal = async (type: string) => { if (!dealId) return; setLegalBusy(type); setErr(''); try { const r = await legalGenerate(dealId, type, b?.deal?.name); downloadPdf(r.pdf_base64, (r.document?.title || 'document') + '.pdf'); await loadLegal(dealId); } catch (e: any) { setErr(e.message || String(e)); } finally { setLegalBusy(''); } };
   const fillBroker = async (file: File | null) => { if (!file || !dealId) return; setLegalBusy('broker'); setErr(''); try { const r = await legalFillBroker(dealId, file, b?.deal?.name); downloadPdf(r.pdf_base64, (r.document?.title || 'signed-nda') + '.pdf'); await loadLegal(dealId); } catch (e: any) { setErr(e.message || String(e)); } finally { setLegalBusy(''); } };
   const draftText = (d: any) => editBody[d.id] ?? clean(d.body);
@@ -294,16 +315,20 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
                       <FileText className="h-3.5 w-3.5 text-amber-300 shrink-0" />
                       <span className="text-[12px] font-semibold text-white flex-1 truncate">{doc.file_name}</span>
                     </div>
-                    {doc.doc_summary && <p className="text-white/50 text-[11px] mb-1.5">{human(doc.doc_summary)}</p>}
-                    <ul className="mb-2 space-y-1">
-                      {(doc.required_inputs || []).map((r: any, i: number) => (
-                        <li key={i} className="text-[11.5px] text-white/80 flex gap-1.5"><span className="text-amber-300 mt-0.5">•</span><span><b className="text-white">{human(r.field)}</b>{r.why ? <span className="text-white/50"> — {human(r.why)}</span> : null}</span></li>
-                      ))}
-                    </ul>
-                    <div className="flex gap-1.5">
-                      <input value={ans[doc.id] ?? ''} onChange={(e) => setAns((p) => ({ ...p, [doc.id]: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter') answerInputs(doc); }} placeholder="Provide the details the agent needs…" className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-amber-400/60" />
-                      <button onClick={() => answerInputs(doc)} disabled={ansBusy === doc.id || !(ans[doc.id] || '').trim()} className="bg-amber-400 text-[#0A2540] px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 disabled:opacity-40">{ansBusy === doc.id ? '…' : 'Submit'}</button>
+                    {doc.doc_summary && <p className="text-white/50 text-[11px] mb-2">{human(doc.doc_summary)}</p>}
+                    <div className="flex flex-col gap-2 mb-2">
+                      {(doc.required_inputs || []).map((r: any, i: number) => {
+                        const key = `${doc.id}::${i}`;
+                        return (
+                          <div key={i}>
+                            <div className="text-[11.5px] text-white/85"><b className="text-white">{human(r.field)}</b>{r.why ? <span className="text-white/50"> — {human(r.why)}</span> : null}</div>
+                            <input value={ans[key] ?? r.suggested ?? ''} onChange={(e) => setAns((p) => ({ ...p, [key]: e.target.value }))} placeholder="Your answer…" className="mt-1 w-full bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-amber-400/60" />
+                            {r.suggested ? <div className="text-[10px] text-amber-200/70 mt-0.5">Pre-filled from what the deal already knows, edit if needed.</div> : null}
+                          </div>
+                        );
+                      })}
                     </div>
+                    <button onClick={() => answerInputs(doc)} disabled={ansBusy === doc.id} className="w-full bg-amber-400 text-[#0A2540] px-3 py-2 rounded-lg text-xs font-semibold hover:bg-opacity-90 disabled:opacity-50 inline-flex items-center justify-center gap-1.5">{ansBusy === doc.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Building your document…</> : 'Submit & build document'}</button>
                   </div>
                 ))}
               </div>
@@ -410,12 +435,12 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
                     {items.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                         {items.map((doc: any) => (
-                          <div key={doc.id} className="bg-white/5 rounded-md p-2 flex items-center gap-2">
+                          <button key={doc.id} onClick={() => openDoc(doc)} title="Open document" className="bg-white/5 hover:bg-white/10 rounded-md p-2 flex items-center gap-2 text-left w-full">
                             <FileText className="h-4 w-4 text-white/45 shrink-0" />
-                            <span className="flex-1 truncate text-[11px] text-white/75">{doc.file_name}</span>
+                            <span className="flex-1 truncate text-[11px] text-white/75 underline decoration-white/15 underline-offset-2">{doc.file_name}</span>
                             {Array.isArray(doc.required_inputs) && doc.required_inputs.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 shrink-0">needs input</span>}
                             <span className={'text-[9px] shrink-0 ' + (doc.extraction_status === 'done' ? 'text-emerald-300' : doc.extraction_status === 'failed' ? 'text-red-300' : 'text-white/40')}>{doc.extraction_status === 'done' ? '✓' : doc.extraction_status}</span>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     ) : <p className="text-white/30 text-[11px]">No files yet</p>}
@@ -497,7 +522,8 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <button onClick={() => copy(d.id, (d.subject ? d.subject + '\n\n' : '') + draftText(d))} className="inline-flex items-center gap-1 text-[11px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1.5 rounded-lg">{copied === d.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied === d.id ? 'Copied' : 'Copy'}</button>
                       {d.kind === 'email' && <button onClick={() => emailDraft(d)} className="inline-flex items-center gap-1 text-[11px] bg-[#FFD700] text-[#0A2540] font-semibold px-2.5 py-1.5 rounded-lg"><Mail className="h-3.5 w-3.5" /> Email</button>}
-                      <button onClick={() => createDoc(d)} disabled={docBusy === d.id} className="inline-flex items-center gap-1 text-[11px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1.5 rounded-lg disabled:opacity-50">{docBusy === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Create document</button>
+                      <button onClick={() => createDoc(d)} disabled={docBusy === d.id} className="inline-flex items-center gap-1 text-[11px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1.5 rounded-lg disabled:opacity-50">{docBusy === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} PDF</button>
+                      <button onClick={() => downloadWord(d.subject || ACTION_META[d.action_key]?.label || 'document', draftText(d))} className="inline-flex items-center gap-1 text-[11px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1.5 rounded-lg"><FileText className="h-3.5 w-3.5" /> Word</button>
                       <span className="text-[10px] text-white/35">Edit above, then send or download. The deal address is CC'd automatically. Branded from Settings.</span>
                     </div>
                   </div>
