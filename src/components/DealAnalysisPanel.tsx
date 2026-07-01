@@ -167,8 +167,14 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
   const draftText = (d: any) => editBody[d.id] ?? clean(d.body);
   const emailDraft = (d: any) => {
     const dc = (b?.deal_contacts ?? []);
+    // pre-fill "to" from the CRM contact for this draft's recipient role, else the first contact with an email
     const c = dc.find((x: any) => x.role === d.recipient_role && x.email) || dc.find((x: any) => x.email);
-    const url = `mailto:${encodeURIComponent(c?.email || '')}?subject=${encodeURIComponent(d.subject || '')}&body=${encodeURIComponent(draftText(d))}`;
+    const parts: string[] = [];
+    if (d.subject) parts.push('subject=' + encodeURIComponent(d.subject));
+    // always CC the deal's email address so every reply is captured back onto the deal
+    if (b?.email_alias) parts.push('cc=' + encodeURIComponent(b.email_alias));
+    parts.push('body=' + encodeURIComponent(draftText(d)));
+    const url = `mailto:${encodeURIComponent(c?.email || '')}?${parts.join('&')}`;
     window.location.href = url;
   };
   const createDoc = async (d: any) => {
@@ -329,7 +335,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
                       <button onClick={() => copy(d.id, (d.subject ? d.subject + '\n\n' : '') + draftText(d))} className="inline-flex items-center gap-1 text-[11px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1.5 rounded-lg">{copied === d.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied === d.id ? 'Copied' : 'Copy'}</button>
                       {d.kind === 'email' && <button onClick={() => emailDraft(d)} className="inline-flex items-center gap-1 text-[11px] bg-[#FFD700] text-[#0A2540] font-semibold px-2.5 py-1.5 rounded-lg"><Mail className="h-3.5 w-3.5" /> Email</button>}
                       <button onClick={() => createDoc(d)} disabled={docBusy === d.id} className="inline-flex items-center gap-1 text-[11px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1.5 rounded-lg disabled:opacity-50">{docBusy === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Create document</button>
-                      <span className="text-[10px] text-white/35">Edit above, then send or download. Branded from Settings.</span>
+                      <span className="text-[10px] text-white/35">Edit above, then send or download. The deal address is CC'd automatically. Branded from Settings.</span>
                     </div>
                   </div>
                 )}
