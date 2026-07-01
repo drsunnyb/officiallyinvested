@@ -47,7 +47,11 @@ const PROMPT =
   'For each figure return: metric (one of the keys), period (e.g. "FY2024" or null), value (number, GBP; percentages as the number e.g. 18 for 18%), ' +
   'source_quote (the verbatim line/label the figure came from), source_page (the page number it appears on, integer, or null), ' +
   'confidence (0-1). If the same metric appears for several years, return one row per year. ' +
-  'Return ONLY: {"facts":[{"metric":...,"period":...,"value":...,"source_quote":...,"source_page":...,"confidence":...}]}';
+  'ALSO classify the document: doc_type (a short human label, e.g. "Statutory accounts", "Funding application", "Land or development appraisal", "Lease", "Heads of Terms", "Information memorandum") and summary (one plain sentence). ' +
+  'ALSO identify required_inputs: the things this document still needs FROM THE USER to be acted on or completed, given this is an acquisition of a business, property or land. ' +
+  'Examples: a funding application missing the requested amount, purpose of funds, security offered, or repayment/exit plan; a land or development appraisal missing GDV, build cost, planning status, programme/timeline, or exit route; a lease missing term or rent review; accounts missing recent management figures or bank statements to verify. ' +
+  'Only list genuine gaps a person must supply, each as {"field": short label, "why": one line}. Maximum 6. If nothing is needed, return an empty array. ' +
+  'Return ONLY: {"facts":[{"metric":...,"period":...,"value":...,"source_quote":...,"source_page":...,"confidence":...}], "doc_type":"...", "summary":"...", "required_inputs":[{"field":"...","why":"..."}]}';
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -87,6 +91,10 @@ Deno.serve(async (req: Request) => {
       if (!d.length) return json({ error: 'deal not found' }, 404);
       orgId = d[0].org_id;
       bytes = decodeBase64(body.inline.base64);
+      const fn = String(body.inline.file_name || 'document').slice(0, 200);
+      const drow = (await sql`insert into acq.documents (org_id, deal_id, storage_path, file_name, file_type, doc_kind, extraction_status, uploaded_by)
+        values (${orgId}, ${dealId}, ${'inline/' + fn}, ${fn}, ${mediaType}, 'other', 'processing', ${userId}) returning id`)[0];
+      documentId = drow.id;
     } else {
       return json({ error: 'document_id, or inline.base64 + deal_id, required' }, 400);
     }
@@ -130,9 +138,11 @@ Deno.serve(async (req: Request) => {
         values (${orgId}, ${dealId}, ${documentId}, ${f.metric}, ${f.period ?? null}, ${val}, 'GBP', ${f.confidence ?? null}, ${String(f.source_quote ?? '').slice(0, 500)}, ${f.source_page ?? null}, false, ${contradicts}, ${aj.model ?? 'claude-sonnet-4-6'})`;
       inserted++;
     }
-    if (documentId) await sql`update acq.documents set extraction_status='done' where id=${documentId}`;
+    const requiredInputs = Array.isArray(parsed.required_inputs) ? parsed.required_inputs.filter((x: any) => x && x.field).slice(0, 6) : [];
+    const summary = typeof parsed.summary === 'string' ? parsed.summary.slice(0, 500) : null;
+    if (documentId) await sql`update acq.documents set extraction_status='done', doc_summary=${summary}, required_inputs=${sql.json(requiredInputs)} where id=${documentId}`;
 
-    return json({ ok: true, deal_id: dealId, facts_extracted: inserted, contradictions, model: aj.model });
+    return json({ ok: true, deal_id: dealId, document_id: documentId, facts_extracted: inserted, contradictions, doc_type: parsed.doc_type ?? null, required_inputs: requiredInputs, model: aj.model });
   } catch (e) {
     if (documentId) { try { await sql`update acq.documents set extraction_status='failed', extraction_error=${String(e).slice(0, 500)} where id=${documentId}`; } catch (_) { /**/ } }
     return json({ error: String(e) }, 500);

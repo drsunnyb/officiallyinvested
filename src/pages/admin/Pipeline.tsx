@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
-  Loader2, LogOut, Mail, X, Upload, RefreshCw, Star, AlertTriangle, LayoutGrid, Table as TableIcon,
+  Loader2, LogOut, Mail, X, RefreshCw, Star, AlertTriangle, LayoutGrid, Table as TableIcon,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { STAGES, CHECKLISTS, ITEM_KINDS, TERMINAL_STAGES, PARALLEL_STAGES, STAGE_ASSISTS, gbp } from '../../lib/stages';
@@ -185,7 +185,6 @@ export default function Pipeline() {
       setVerdictMap(m);
     }).catch(() => {});
   }, [session, deals.length]);
-  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!supabase) { setAuthReady(true); return; }
@@ -363,24 +362,6 @@ export default function Pipeline() {
     const { error } = await supabase.rpc('trigger_rescore', { p_submission_id: dealId });
     if (error) { setMsg('Could not trigger: ' + error.message); return; }
     setTimeout(() => { load(); setMsg('Re-scored — fresh assessment saved.'); }, 18000);
-  };
-  const uploadDocs = async (deal: Deal, files: FileList | null) => {
-    if (!supabase || !files?.length) return;
-    setMsg('Uploading…');
-    for (const f of Array.from(files)) {
-      const path = `${deal.id}/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      const { error } = await supabase.storage.from('submission-documents').upload(path, f);
-      if (error) { setMsg(`${f.name}: ${error.message}`); continue; }
-      await supabase.from('documents').insert({ submission_id: deal.id, file_path: path, file_name: f.name, file_type: f.type, source: 'manual' });
-    }
-    setMsg('Uploaded — the deal will re-score automatically.');
-    load();
-  };
-  const download = async (doc: any) => {
-    if (!supabase) return;
-    const { data, error } = await supabase.storage.from('submission-documents').createSignedUrl(doc.file_path, 300);
-    if (error || !data) { setMsg('No file in storage for this entry (logged manually).'); return; }
-    window.open(data.signedUrl, '_blank');
   };
 
   // ---------- render ----------
@@ -625,19 +606,7 @@ export default function Pipeline() {
             <ChecklistSection deal={open} onToggle={toggleItem} onDelete={deleteItem} onNote={saveItemNote} />
             <ItemsSection deal={open} onAdd={addItem} onToggle={toggleItem} onDelete={deleteItem} onNote={saveItemNote} />
 
-            <Section title={`Documents (${(open.documents || []).length})`}>
-              {(open.documents || []).map((doc: any) => (
-                <div key={doc.id} className="flex justify-between items-center py-1.5 border-b border-white/5 text-sm">
-                  <button onClick={() => download(doc)} className="text-white/85 hover:text-[#FFD700] text-left truncate mr-3">{doc.file_name}</button>
-                  <span className="text-white/40 text-[10px] whitespace-nowrap">{doc.source} · {new Date(doc.uploaded_at).toLocaleDateString('en-GB')}</span>
-                </div>
-              ))}
-              <button onClick={() => fileInput.current?.click()} className="mt-3 inline-flex items-center gap-2 bg-white/10 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-white/20">
-                <Upload className="h-3.5 w-3.5" /> Upload documents
-              </button>
-              <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => { uploadDocs(open, e.target.files); e.target.value = ''; }} />
-            </Section>
-
+            {/* Documents live in the Deal Agent's data room above (upload + auto-categorised + intelligent intake) */}
             {/* AI assessment is shown once, inside the Deal Agent panel above (Officially Invested framework) */}
 
             <Section title="Submission detail">
