@@ -83,6 +83,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
   const [cBusy, setCBusy] = useState(false);
   const [ans, setAns] = useState<Record<string, string>>({});
   const [ansBusy, setAnsBusy] = useState('');
+  const [dragOver, setDragOver] = useState(false);
   const [copiedAlias, setCopiedAlias] = useState(false);
   const [legalDocs, setLegalDocs] = useState<any[]>([]);
   const [legalBusy, setLegalBusy] = useState('');
@@ -108,6 +109,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
     try { for (const f of Array.from(files)) await extractFile(dealId, f); setB(await getDealById(dealId)); onRescore?.(); }
     catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
+  const onDrop = (e: React.DragEvent) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer?.files?.length) onUpload(e.dataTransfer.files); };
   const runStep = async (step: 'analyze' | 'committee' | 'memo') => {
     if (!dealId) return;
     setBusy(step); setErr('');
@@ -235,10 +237,23 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
         <p className="text-white/60 text-sm mb-3">Not analysed yet. Upload documents for verified figures, or run analysis on the submitted numbers.</p>
       )}
 
+      {/* upload — drag & drop or click to select */}
+      <div
+        onClick={() => fileRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+        role="button"
+        className={'mb-3 cursor-pointer rounded-xl border border-dashed p-4 flex items-center justify-center gap-2.5 text-center transition-colors ' + (dragOver ? 'border-[#FFD700] bg-[#FFD700]/10' : 'border-white/20 bg-[#0E2A47] hover:border-[#FFD700]/40')}
+      >
+        {busy === 'extract'
+          ? <><Loader2 className="h-4 w-4 animate-spin text-[#FFD700] shrink-0" /><span className="text-[12px] text-white/70">Reading and categorising…</span></>
+          : <><Upload className="h-4 w-4 text-[#FFD700] shrink-0" /><span className="text-[12px] text-white/70"><b className="text-white">Drag &amp; drop documents here</b>, or click to select. Accounts, funding, land, legal, anything relevant, the agent categorises and reads them.</span></>}
+      </div>
+      <input ref={fileRef} type="file" accept="application/pdf,text/csv,text/plain" multiple className="hidden" onChange={(e) => { onUpload(e.target.files); e.target.value = ''; }} />
+
       {/* analysis controls */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <Btn onClick={() => fileRef.current?.click()} busy={busy === 'extract'} icon={Upload} label="Upload documents" />
-        <input ref={fileRef} type="file" accept="application/pdf,text/csv,text/plain" multiple className="hidden" onChange={(e) => { onUpload(e.target.files); e.target.value = ''; }} />
         <Btn onClick={() => runStep('analyze')} busy={busy === 'analyze'} icon={Sparkles} label={b?.analysis ? 'Re-run analysis' : 'Run analysis'} primary />
         <Btn onClick={() => runStep('committee')} busy={busy === 'committee'} icon={Gavel} label="Committee" disabled={!b?.analysis} />
         <Btn onClick={() => runStep('memo')} busy={busy === 'memo'} icon={FileText} label="Memo" disabled={!b?.analysis} />
