@@ -11,6 +11,8 @@
 import postgres from 'npm:postgres@3.4.5';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { encodeBase64, decodeBase64 } from 'jsr:@std/encoding@1/base64';
+import JSZip from 'npm:jszip@3.10.1';
+import * as XLSX from 'npm:xlsx@0.18.5';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -23,6 +25,38 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
+
+// Claude reads PDFs natively; Word/Excel we convert to text first so any common
+// document a seller or broker sends (accounts, appraisals, proposals) can be ingested.
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const XLS_MIME = 'application/vnd.ms-excel';
+function decodeEntities(s: string): string {
+  return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(+n)).replace(/&#x([0-9a-fA-F]+);/g, (_m, n) => String.fromCharCode(parseInt(n, 16)));
+}
+async function docxToText(bytes: Uint8Array): Promise<string> {
+  const zip = await JSZip.loadAsync(bytes);
+  const names = Object.keys(zip.files).filter((n) => /^word\/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$/.test(n));
+  const ordered = names.sort((a, b) => (a.includes('document') ? -1 : 1) - (b.includes('document') ? -1 : 1));
+  const chunks: string[] = [];
+  for (const n of (names.length ? ordered : ['word/document.xml'])) {
+    const f = zip.file(n); if (!f) continue;
+    let xml = await f.async('string');
+    xml = xml.replace(/<w:tab\/?>/g, '\t').replace(/<w:br\/?>/g, '\n').replace(/<\/w:p>/g, '\n');
+    chunks.push(decodeEntities(xml.replace(/<[^>]+>/g, '')));
+  }
+  return chunks.join('\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function xlsxToText(bytes: Uint8Array): string {
+  const wb = XLSX.read(bytes, { type: 'array' });
+  const out: string[] = [];
+  for (const name of wb.SheetNames) {
+    const csv = XLSX.utils.sheet_to_csv(wb.Sheets[name], { blankrows: false });
+    if (csv.trim()) out.push(`Sheet: ${name}\n${csv}`);
+  }
+  return out.join('\n\n').trim();
+}
 
 // Controlled metric vocabulary — aligned with the financial engine's inputs.
 const METRICS = new Set([
@@ -76,12 +110,12 @@ Deno.serve(async (req: Request) => {
     }
 
     // ---- resolve the document bytes (storage doc OR inline base64) ----
-    let orgId: string, dealId: string, bytes: Uint8Array, mediaType: string;
+    let orgId: string, dealId: string, bytes: Uint8Array, mediaType: string, fname = '';
     if (body.document_id) {
-      const rows = await sql`select id, org_id, deal_id, storage_path, file_type from acq.documents where id=${body.document_id}`;
+      const rows = await sql`select id, org_id, deal_id, storage_path, file_name, file_type from acq.documents where id=${body.document_id}`;
       if (!rows.length) return json({ error: 'document not found' }, 404);
       const doc = rows[0];
-      documentId = doc.id; orgId = doc.org_id; dealId = doc.deal_id; mediaType = doc.file_type || 'application/pdf';
+      documentId = doc.id; orgId = doc.org_id; dealId = doc.deal_id; mediaType = doc.file_type || 'application/pdf'; fname = String(doc.file_name || '');
       const r = await fetch(`${SUPABASE_URL}/storage/v1/object/acq-documents/${doc.storage_path}`, { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` } });
       if (!r.ok) { await sql`update acq.documents set extraction_status='failed', extraction_error=${'download ' + r.status} where id=${documentId}`; return json({ error: 'storage download failed' }, 502); }
       bytes = new Uint8Array(await r.arrayBuffer());
@@ -92,12 +126,14 @@ Deno.serve(async (req: Request) => {
       orgId = d[0].org_id;
       bytes = decodeBase64(body.inline.base64);
       const fn = String(body.inline.file_name || 'document').slice(0, 200);
+      fname = fn;
       const drow = (await sql`insert into acq.documents (org_id, deal_id, storage_path, file_name, file_type, doc_kind, extraction_status, uploaded_by)
         values (${orgId}, ${dealId}, ${'inline/' + fn}, ${fn}, ${mediaType}, 'other', 'processing', ${userId}) returning id`)[0];
       documentId = drow.id;
     } else {
       return json({ error: 'document_id, or inline.base64 + deal_id, required' }, 400);
     }
+    const ext = (fname.match(/\.([a-z0-9]+)$/i)?.[1] || '').toLowerCase();
 
     // ---- membership (user path) ----
     if (!trusted) {
@@ -108,10 +144,29 @@ Deno.serve(async (req: Request) => {
     if (documentId) await sql`update acq.documents set extraction_status='processing', extraction_error=null where id=${documentId}`;
 
     // ---- build the Claude request ----
+    // PDFs go to Claude natively; Word/Excel/CSV/text we convert to text first.
     let contentBlock: any;
-    if (mediaType === 'application/pdf') contentBlock = { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: encodeBase64(bytes) } };
-    else if (mediaType.startsWith('text/')) contentBlock = { type: 'text', text: new TextDecoder().decode(bytes) };
-    else { if (documentId) await sql`update acq.documents set extraction_status='failed', extraction_error=${'unsupported type ' + mediaType} where id=${documentId}`; return json({ error: 'unsupported media type ' + mediaType }, 415); }
+    try {
+      if (mediaType === 'application/pdf' || ext === 'pdf') {
+        contentBlock = { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: encodeBase64(bytes) } };
+      } else if (mediaType === DOCX_MIME || ext === 'docx') {
+        const txt = await docxToText(bytes);
+        if (!txt.trim()) throw new Error('no readable text in the Word document');
+        contentBlock = { type: 'text', text: txt.slice(0, 200000) };
+      } else if (mediaType === XLSX_MIME || mediaType === XLS_MIME || ext === 'xlsx' || ext === 'xls') {
+        const txt = xlsxToText(bytes);
+        if (!txt.trim()) throw new Error('no readable data in the spreadsheet');
+        contentBlock = { type: 'text', text: txt.slice(0, 200000) };
+      } else if (mediaType.startsWith('text/') || ext === 'csv' || ext === 'txt') {
+        contentBlock = { type: 'text', text: new TextDecoder().decode(bytes).slice(0, 200000) };
+      } else {
+        if (documentId) await sql`update acq.documents set extraction_status='failed', extraction_error=${'unsupported type ' + mediaType + (ext ? ' (.' + ext + ')' : '')} where id=${documentId}`;
+        return json({ error: 'unsupported media type ' + mediaType, hint: 'Supported: PDF, Word (.docx), Excel (.xlsx/.xls), CSV, text. For a .doc or scanned image, save as PDF and re-upload.' }, 415);
+      }
+    } catch (conv: any) {
+      if (documentId) await sql`update acq.documents set extraction_status='failed', extraction_error=${('could not read file: ' + String(conv?.message || conv)).slice(0, 500)} where id=${documentId}`;
+      return json({ error: 'could not read file', detail: String(conv?.message || conv) }, 422);
+    }
 
     const ar = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
