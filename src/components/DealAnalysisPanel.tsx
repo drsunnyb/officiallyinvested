@@ -256,7 +256,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
           ? <><Loader2 className="h-4 w-4 animate-spin text-[#FFD700] shrink-0" /><span className="text-[12px] text-white/70">Reading and categorising…</span></>
           : <><Upload className="h-4 w-4 text-[#FFD700] shrink-0" /><span className="text-[12px] text-white/70"><b className="text-white">Drag &amp; drop documents here</b>, or click to select. Accounts, funding, land, legal, anything relevant, the agent categorises and reads them.</span></>}
       </div>
-      <input ref={fileRef} type="file" accept="application/pdf,text/csv,text/plain" multiple className="hidden" onChange={(e) => { onUpload(e.target.files); e.target.value = ''; }} />
+      <input ref={fileRef} type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain" multiple className="hidden" onChange={(e) => { onUpload(e.target.files); e.target.value = ''; }} />
 
       {/* analysis controls */}
       <div className="flex flex-wrap gap-2 mb-4">

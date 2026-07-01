@@ -30,8 +30,23 @@ function clean(t: string) {
 type Kind = 'email' | 'doc' | 'comparables';
 interface ActionDef { kind: Kind; recipient?: string; label: string; instruction: string; }
 
+// What to actually ask for / assess depends on the asset. A bare development site
+// does not trade, so trading accounts are the wrong request unless it sits in an SPV.
+function assetGuidance(assetType: string): string {
+  const t = String(assetType || '').toLowerCase();
+  if (t === 'development' || t === 'land') return (
+    'ASSET TYPE: land / development site. Do NOT ask for trading accounts, management accounts, VAT returns or customer breakdowns, a bare site does not trade. Only request accounts if the site is held inside an SPV that has an ownership or trading history, and then ask specifically for that SPV\'s accounts. The right things to request/assess for a development are: the title plan and boundaries; tenure and any options, overage, promotion or collaboration agreements; the planning position (allocations, consents, pre-application correspondence, S106/CIL, conditions discharged or outstanding); a development appraisal or viability (GDV, build cost and contingency, finance, programme, and profit on cost/GDV); technical reports (ground / site investigation, contamination, ecology, flood risk, services and utilities, highways and access); the measured site area; and any existing income in place. If the site has standing buildings that are let, also ask for the rent roll and leases.'
+  );
+  if (t === 'property') return (
+    'ASSET TYPE: property / portfolio (investment). The right things to request/assess are: the rent roll and tenancy schedule; copies of leases and any side agreements; the current occupancy / void position; service charge accounts and budgets; a recent independent valuation; EPCs; and any planning or building consents. If the property is held in an SPV, also ask for that SPV\'s accounts. Do NOT ask for trading-company accounts, VAT returns or customer breakdowns, this is property, not a trading business.'
+  );
+  return (
+    'ASSET TYPE: trading business. The right things to request/assess are: the last 2-3 years statutory accounts; recent management accounts / P&L to the latest period; VAT returns and bank statements to verify revenue; a customer / revenue concentration breakdown; aged debtors and creditors; and payroll / owner remuneration detail.'
+  );
+}
+
 const ACTIONS: Record<string, ActionDef> = {
-  request_docs:       { kind: 'email', recipient: 'vendor', label: 'Request documents', instruction: 'Request the documents needed to assess the opportunity: last 2-3 years statutory accounts, recent management accounts/P&L, and (business) VAT returns + bank statements + a customer/revenue breakdown, or (property) the rent roll + leases + a recent valuation. Warm, professional, concise; explain it helps us move quickly and stays confidential.' },
+  request_docs:       { kind: 'email', recipient: 'vendor', label: 'Request documents', instruction: 'Request the documents needed to assess THIS specific opportunity, choosing the correct list for its asset type (follow ASSET GUIDANCE exactly, a land/development deal must NOT be asked for trading accounts unless held in an SPV). Take account of what has already been provided (see DOCUMENTS ON FILE) and do not re-request those. Warm, professional, concise; explain it helps us move quickly and stays confidential.' },
   approach_vendor:    { kind: 'email', recipient: 'vendor', label: 'Approach the owner', instruction: 'A warm initial approach expressing genuine interest and proposing a short, no-obligation introductory call. Reference what is attractive about the business. Do NOT make or imply an offer.' },
   chase_vendor:       { kind: 'email', recipient: 'vendor', label: 'Chase the vendor', instruction: 'Politely chase the outstanding documents; restate what is still needed and why it helps move the deal forward quickly.' },
   email_accountant:   { kind: 'email', recipient: 'accountant', label: 'Brief the accountant', instruction: 'Brief our accountant for financial due diligence: summarise the deal and the VERIFIED figures, set the scope (verify revenue/EBITDA via bank statements and VAT, scrutinise add-backs, debt and working capital, the bank-statement test), flag any seller contradiction, and ask them to proceed.' },
@@ -80,6 +95,13 @@ Deno.serve(async (req: Request) => {
     const val = (await sql`select result from acq.valuations where deal_id=${deal.id} order by created_at desc limit 1`)[0];
     const ana = (await sql`select summary from acq.analyses where deal_id=${deal.id} order by created_at desc limit 1`)[0];
 
+    // the running state of the deal: every note, email, call and meeting, plus what's already on file.
+    // this is what makes each draft reflect the LATEST information rather than the intake snapshot.
+    const commsRows = await sql`select kind, direction, subject, body, happened_at from acq.communications where deal_id=${deal.id} order by happened_at desc limit 30`;
+    const docRows = await sql`select file_name, doc_kind, doc_summary, required_inputs, extraction_status from acq.documents where deal_id=${deal.id} order by uploaded_at desc limit 40`;
+    const correspondence = commsRows.map((c: any) => ({ when: c.happened_at, type: c.kind, direction: c.direction, subject: c.subject, note: String(c.body || '').slice(0, 700) }));
+    const documents_on_file = docRows.map((d: any) => ({ file: d.file_name, kind: d.doc_kind, summary: d.doc_summary, still_needs: d.required_inputs, status: d.extraction_status }));
+
     let recipientEmail: string | null = null; let recipientName: string | null = null;
     if (def.recipient) {
       const dc = (await sql`select c.name, c.email from acq.deal_contacts dc join acq.contacts c on c.id=dc.contact_id where dc.deal_id=${deal.id} and (dc.role=${def.recipient} or c.role=${def.recipient}) order by dc.role limit 1`)[0];
@@ -90,6 +112,8 @@ Deno.serve(async (req: Request) => {
       `You are the Acquisition Manager for ${deal.org_name}, drafting on the principal's behalf in their professional voice. ` +
       (cfg.drafting_rules ? `\n\nVOICE & DRAFTING RULES:\n${cfg.drafting_rules}\n` : '') +
       (cfg.acq_analyst_brief ? `\n\nMETHODOLOGY (for grounding, not to quote verbatim):\n${cfg.acq_analyst_brief}\n` : '') +
+      `\n\nASSET GUIDANCE (this deal):\n${assetGuidance(deal.asset_type)}\n` +
+      `\n\nGROUND EVERY DRAFT IN THE CURRENT STATE OF THIS DEAL. You are given the verified figures, the engine result, the analyst view, the full correspondence so far (notes, emails, calls, meeting notes) and the documents already on file. Use the LATEST information: reflect what has been discussed or agreed, never contradict it, never ask for something the deal already has, and tailor the substance to this asset type. If the correspondence or documents change the picture, the draft must change with it. A request that does not fit the asset (for example asking a bare land or development site for years of trading accounts) is a mistake, do not make it.\n` +
       `\n\nWRITE AS A HUMAN — this must read as if the principal wrote it, never as AI. Hard rules: never use the em-dash character; use commas, full stops, or "to". No clichéd openers ("I hope this finds you well", "I trust you are well", "I am reaching out", "I wanted to"), no corporate filler ("leverage", "seamless", "synergies", "delighted", "please find attached", "as per"), no hedging, no over-bulleting an email. Use contractions, vary sentence length, get to the point like a busy operator who knows the deal. NEVER include meta-commentary, "internal notes", "do not issue", caveats-to-self, or any text the recipient should not see — output ONLY what the principal would actually send or use. Use the VERIFIED figures and engine numbers; never invent figures. Address the named recipient by first name if provided. It is a draft for the principal to send; do not say it has been sent. Output clean plain text only: never use markdown, no asterisks for emphasis, no hash headings, no backticks, no bullet stars. For documents use plain Title Case headings on their own line. Never include working-document or internal-note framing; the content must be client-ready.`;
 
     const tools = def.kind === 'email'
@@ -102,9 +126,11 @@ Deno.serve(async (req: Request) => {
       recipient: def.recipient ?? null,
       recipient_name: recipientName,
       recipient_email: recipientEmail,
-      deal: { name: deal.name, asset_type: deal.asset_type, sector: deal.sector, asking_price: deal.asking_price },
+      deal: { name: deal.name, asset_type: deal.asset_type, sector: deal.sector, asking_price: deal.asking_price, status: deal.status },
+      asset_guidance: assetGuidance(deal.asset_type),
       verified_facts: facts, engine: val?.result ?? null, analyst_summary: ana?.summary ?? null,
-    }) + `\n\nDraft it now and call ${toolName}.`;
+      correspondence, documents_on_file,
+    }) + `\n\nDraft it now, grounded in the current state above, and call ${toolName}.`;
 
     const ar = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST', headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
