@@ -22,6 +22,12 @@ const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const XLS_MIME = 'application/vnd.ms-excel';
+const METRIC_LABELS: Record<string, string> = {
+  portfolio_value: 'portfolio value / GDV (gross development value)',
+  gross_rent: 'gross rent', net_income: 'net income', outstanding_debt: 'outstanding debt',
+  revenue: 'revenue', gross_profit: 'gross profit', operating_profit: 'operating profit',
+  ebitda: 'EBITDA', cash: 'cash', net_debt: 'net debt', employees: 'employees',
+};
 
 function clean(t: string) {
   return String(t || '').replace(/\r/g, '')
@@ -114,18 +120,24 @@ Deno.serve(async (req: Request) => {
     }
 
     const deal = (await sql`select d.*, o.name as org_name from acq.deals d join acq.organizations o on o.id=d.org_id where d.id=${doc.deal_id}`)[0];
-    const facts = await sql`select metric, period, value, is_self_reported, contradicts_self_reported from acq.financial_facts where deal_id=${doc.deal_id}`;
+    const facts = (await sql`select metric, period, value, is_self_reported, contradicts_self_reported from acq.financial_facts where deal_id=${doc.deal_id}`)
+      .map((f: any) => ({ figure: METRIC_LABELS[f.metric] || f.metric.replace(/_/g, ' '), value: Number(f.value), period: f.period, verified: !f.is_self_reported }));
     const val = (await sql`select result from acq.valuations where deal_id=${doc.deal_id} order by created_at desc limit 1`)[0];
     const comms = (await sql`select kind, subject, body, happened_at from acq.communications where deal_id=${doc.deal_id} order by happened_at desc limit 30`).map((c: any) => ({ kind: c.kind, subject: c.subject, note: String(c.body || '').slice(0, 700) }));
+    let submission: any = null, assessment: any = null;
+    if (deal?.submission_id) {
+      submission = (await sql`select type, deal_kind, description, notes, region, locations, property_type, num_units, portfolio_value, asking_price, day_one_cash_need, working_capital_required, gross_rent, net_income, outstanding_debt, revenue, net_profit, reason_for_sale from public.submissions where id=${deal.submission_id}`)[0] ?? null;
+      assessment = (await sql`select tier, fit_score, summary, rationale, suggested_action from public.scores where submission_id=${deal.submission_id} order by scored_at desc limit 1`)[0] ?? null;
+    }
 
     const system =
       `You are the Acquisition Manager for ${deal?.org_name || 'the firm'}, completing a document on the principal's behalf in their professional voice. ` +
       (cfg.drafting_rules ? `\n\nVOICE & DRAFTING RULES:\n${cfg.drafting_rules}\n` : '') +
       (cfg.acq_analyst_brief ? `\n\nMETHODOLOGY (for grounding, not to quote verbatim):\n${cfg.acq_analyst_brief}\n` : '') +
-      `\n\nTASK: Produce a COMPLETED, filled-in version of the document below. Keep its structure and headings, fill every blank or placeholder using the KNOWN DEAL CONTEXT and the DETAILS THE USER JUST SUPPLIED. Where a value genuinely is not known, write a clear bracketed placeholder like [to be confirmed] rather than inventing it. Never invent figures. ` +
+      `\n\nTASK: Produce a COMPLETED, filled-in version of the document below. Keep its structure and headings, and fill in AS MUCH AS YOU POSSIBLY CAN from the KNOWN DEAL CONTEXT and the DETAILS THE USER JUST SUPPLIED. Cross-reference the context by MEANING, not exact wording: portfolio value equals GDV for a development; asking price equals purchase price; day-one cash equals equity or deposit; working capital required equals the funding need. Use every relevant figure and fact the context contains. Only where a value is genuinely absent from ALL the context should you write a short bracketed placeholder like [to be confirmed]. Never invent or guess figures. ` +
       `Write as a human, never as AI: no em-dash character, no clichés, no corporate filler, no meta-commentary or notes-to-self, output only the finished document the user would actually use. Plain text only: no markdown, no asterisks, no hash headings, use plain Title Case headings on their own line.`;
 
-    const contextText = 'KNOWN DEAL CONTEXT:\n' + JSON.stringify({ deal: deal ? { name: deal.name, asset_type: deal.asset_type, sector: deal.sector, asking_price: deal.asking_price } : null, verified_and_reported_figures: facts, engine: val?.result ?? null, notes_and_correspondence: comms }).slice(0, 60000);
+    const contextText = 'KNOWN DEAL CONTEXT:\n' + JSON.stringify({ deal: deal ? { name: deal.name, asset_type: deal.asset_type, sector: deal.sector, asking_price: deal.asking_price } : null, original_submission: submission, current_assessment: assessment, figures_on_file: facts, engine: val?.result ?? null, notes_and_correspondence: comms }).slice(0, 60000);
     const suppliedText = 'DETAILS THE USER JUST SUPPLIED:\n' + String(body.answers || '(none)').slice(0, 8000);
     const originalText = original ? ('ORIGINAL DOCUMENT (' + (doc.file_name || 'document') + '):\n' + original.slice(0, 120000)) : (doc.doc_summary ? ('ORIGINAL DOCUMENT SUMMARY:\n' + doc.doc_summary) : 'ORIGINAL DOCUMENT: (content not readable, base it on the file name and context)');
 
