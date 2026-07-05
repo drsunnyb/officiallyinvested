@@ -99,3 +99,25 @@ export async function pollBundle(deal_id: string, predicate: (b: AcqBundle) => b
   }
   return last;
 }
+
+// ---------------- Origination / CRM (prospects, sourcing, ingest, outreach, funnel) ----------------
+export const prospectsList = (f: Record<string, unknown> = {}) => invoke<{ ok: boolean; prospects: any[]; total: number; page: number; per: number; stage_counts: Record<string, number> }>('acq-prospects', { action: 'list', ...f });
+export const prospectGet = (prospect_id: string) => invoke<{ ok: boolean; prospect: any; touches: any[]; memberships: any[] }>('acq-prospects', { action: 'get', prospect_id });
+export const prospectUpdate = (prospect_id: string, patch: Record<string, unknown>) => invoke('acq-prospects', { action: 'update', prospect_id, ...patch });
+export const prospectSuppress = (prospect_id: string, reason?: string) => invoke('acq-prospects', { action: 'suppress', prospect_id, ...(reason ? { reason } : {}) });
+export const prospectPromote = (prospect_id: string, notes?: string) => invoke<{ ok: boolean; submission_id: string; reference: string; deal_id: string | null }>('acq-prospects', { action: 'promote', prospect_id, ...(notes ? { notes } : {}) });
+export const sourceTaxonomy = () => invoke<{ ok: boolean; taxonomy: { key: string; label: string; sic: string[] }[] }>('acq-source', { action: 'taxonomy' });
+export const sourceSearch = (p: Record<string, unknown>) => invoke<{ ok: boolean; total_hits: number; created: number; updated: number; prospects: any[] }>('acq-source', { action: 'search', ...p });
+export const ingestPropose = (csv: string, file_name: string) => invoke<{ ok: boolean; job_id: string; mapping: Record<string, string | null>; headers: string[]; rows_total: number; preview: string[][] }>('acq-ingest', { action: 'propose', csv, file_name });
+export const ingestCommit = (csv: string, mapping: Record<string, string | null>, job_id: string | null, file_name: string) => invoke<{ ok: boolean; created: number; merged: number; skipped: number; errors: string[] }>('acq-ingest', { action: 'commit', csv, mapping, job_id, file_name });
+export const outreachList = () => invoke<{ ok: boolean; campaigns: any[]; steps: any[] }>('acq-outreach', { action: 'list' });
+export const outreachCreate = (payload: Record<string, unknown>) => invoke<{ ok: boolean; campaign: any; steps: any[] }>('acq-outreach', { action: 'create', ...payload });
+export const outreachUpdate = (campaign_id: string, patch: Record<string, unknown>) => invoke('acq-outreach', { action: 'update', campaign_id, ...patch });
+export const outreachDraftTemplates = (profile?: Record<string, unknown>) => invoke<{ ok: boolean; steps: { channel: string; wait_days: number; subject: string | null; body: string }[] }>('acq-outreach', { action: 'draft_templates', ...(profile ? { profile } : {}) });
+export const outreachEnrol = (campaign_id: string, filter: Record<string, unknown>) => invoke<{ ok: boolean; enrolled: number; suppressed: number; candidates: number }>('acq-outreach', { action: 'enrol', campaign_id, filter });
+export const outreachQueue = (status?: string) => invoke<{ ok: boolean; touches: any[] }>('acq-outreach', { action: 'queue', ...(status ? { status } : {}) });
+export const outreachApprove = (touch_ids: string[]) => invoke('acq-outreach', { action: 'approve', touch_ids });
+export const outreachCancel = (touch_ids: string[]) => invoke('acq-outreach', { action: 'cancel', touch_ids });
+export const outreachApproveAll = (campaign_id?: string) => invoke<{ ok: boolean; approved: number }>('acq-outreach', { action: 'approve_all', ...(campaign_id ? { campaign_id } : {}) });
+export const outreachRun = () => invoke<{ ok: boolean; orgs: any[] }>('acq-outreach', { action: 'run' });
+export const outreachMarkReplied = (prospect_id: string) => invoke('acq-outreach', { action: 'mark_replied', prospect_id });

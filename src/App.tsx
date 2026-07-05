@@ -4,6 +4,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import SubmitOpportunity from './pages/SubmitOpportunity';
+import SellerFunnel from './pages/SellerFunnel';
 import Pipeline from './pages/admin/Pipeline';
 import Settings from './pages/admin/Settings';
 
@@ -33,6 +34,8 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/submit-opportunity" element={<SubmitOpportunity />} />
         <Route path="/sell" element={<SubmitOpportunity />} />
+        <Route path="/f/:slug" element={<SellerFunnel />} />
+        <Route path="/f" element={<SellerFunnel />} />
         <Route path="/admin" element={<Pipeline />} />
         <Route path="/admin/pipeline" element={<Pipeline />} />
         <Route path="/admin/settings" element={<Settings />} />

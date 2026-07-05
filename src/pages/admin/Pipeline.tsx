@@ -11,6 +11,7 @@ import AddDealModal from '../../components/AddDealModal';
 import ThesisSettingsModal from '../../components/ThesisSettingsModal';
 import CRMModal from '../../components/CRMModal';
 import AlertsModal from '../../components/AlertsModal';
+import OriginationModal from '../../components/OriginationModal';
 
 const ADMIN_DOMAIN = '@officiallyinvested.com';
 const STALE_DAYS = 5;
@@ -176,6 +177,7 @@ export default function Pipeline() {
   const [showThesis, setShowThesis] = useState(false);
   const [showCRM, setShowCRM] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
+  const [showOrigination, setShowOrigination] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -403,6 +405,7 @@ export default function Pipeline() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowOrigination(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Origination</button>
           <button onClick={() => setShowAlerts(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Alerts</button>
           <button onClick={() => setShowCRM(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">CRM</button>
           <button onClick={() => setShowThesis(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Thesis</button>
@@ -529,6 +532,7 @@ export default function Pipeline() {
       {showThesis && <ThesisSettingsModal onClose={() => setShowThesis(false)} />}
       {showCRM && <CRMModal onClose={() => setShowCRM(false)} />}
       {showAlerts && <AlertsModal onClose={() => setShowAlerts(false)} />}
+      {showOrigination && <OriginationModal onClose={() => setShowOrigination(false)} onPromoted={() => load()} />}
 
       {/* ============ DETAIL DRAWER ============ */}
       {open && (
