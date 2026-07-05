@@ -116,14 +116,45 @@ function Header({ title, sub, children }: { title: string; sub?: string; childre
   );
 }
 
+
+function IndustryPicker({ tax, sel, setSel, max = 10, height = 'max-h-72' }: { tax: any[]; sel: string[]; setSel: any; max?: number; height?: string }) {
+  const [q, setQ] = useState('');
+  const filtered = q ? tax.filter((t) => t.label.toLowerCase().includes(q.toLowerCase()) || t.group.toLowerCase().includes(q.toLowerCase())) : tax;
+  const groups: Record<string, any[]> = {};
+  for (const t of filtered) (groups[t.group] = groups[t.group] || []).push(t);
+  const toggle = (k: string) => setSel((s: string[]) => s.includes(k) ? s.filter((x) => x !== k) : s.length < max ? [...s, k] : s);
+  return (
+    <div>
+      <input className={input + ' w-full mb-2'} placeholder={'Search ' + tax.length + ' business types\u2026'} value={q} onChange={(e) => setQ(e.target.value)} />
+      {sel.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {sel.map((k) => { const t = tax.find((x) => x.key === k); return (
+            <button key={k} onClick={() => toggle(k)} className="text-[11px] px-2 py-1 rounded-full bg-[#0A2540] text-white flex items-center gap-1">{t?.label ?? k}<X className="h-3 w-3" /></button>
+          ); })}
+        </div>
+      )}
+      <div className={height + ' overflow-y-auto pr-1'}>
+        {Object.entries(groups).map(([g, items]) => (
+          <div key={g} className="mb-2.5">
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{g}</div>
+            <div className="flex flex-wrap gap-1.5">{(items as any[]).map((t) => <button key={t.key} onClick={() => toggle(t.key)} className={chip(sel.includes(t.key))}>{t.label}</button>)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ============================ ONBOARDING WIZARD ============================
 function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; settings: any; onDone: () => void; onSkip: () => void }) {
   const [step, setStep] = useState(0);
-  const [tax, setTax] = useState<{ key: string; label: string }[]>([]);
+  const [tax, setTax] = useState<{ key: string; label: string; group: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const bb = settings?.buy_box ?? {};
   const [industries, setIndustries] = useState<string[]>(bb.industries ?? []);
   const [location, setLocation] = useState(bb.location ?? '');
+  const [radiusMiles, setRadiusMiles] = useState(String(bb.radius_miles ?? 25));
+  const [sizeBand, setSizeBand] = useState(bb.size_band ?? 'small_plus');
   const [regions, setRegions] = useState<string[]>(bb.regions ?? []);
   const [revMin, setRevMin] = useState(bb.revenue_min ?? '1000000');
   const [profMin, setProfMin] = useState(bb.profit_min ?? '200000');
@@ -140,7 +171,7 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
     try {
       await setOrgSettings({
         ...(settings ?? {}),
-        buy_box: { industries, location, regions, revenue_min: Number(revMin) || null, profit_min: Number(profMin) || null, years_trading_min: Number(yearsMin) || 8, succession_pref: succession, completed_at: new Date().toISOString() },
+        buy_box: { industries, location, radius_miles: Number(radiusMiles) || 0, size_band: sizeBand, regions, revenue_min: Number(revMin) || null, profit_min: Number(profMin) || null, years_trading_min: Number(yearsMin) || 8, succession_pref: succession, completed_at: new Date().toISOString() },
         outreach: { ...(settings?.outreach ?? {}), sender_name: senderName || undefined },
       });
       onDone();
@@ -169,9 +200,7 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
             <>
               <h3 className="font-semibold text-gray-900 mb-1">Which boring-but-good industries do you want to own?</h3>
               <p className="text-[13px] text-gray-500 mb-4">Pick as many as you like. These map to Companies House SIC codes behind the scenes.</p>
-              <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto">
-                {tax.map((t) => <button key={t.key} onClick={() => toggle(industries, setIndustries, t.key)} className={chip(industries.includes(t.key))}>{t.label}</button>)}
-              </div>
+              <IndustryPicker tax={tax} sel={industries} setSel={setIndustries} max={30} height="max-h-60" />
             </>
           )}
           {step === 1 && (
@@ -179,7 +208,11 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
               <h3 className="font-semibold text-gray-900 mb-1">Where do you want to buy?</h3>
               <p className="text-[13px] text-gray-500 mb-4">A home town or city gives the sharpest search; regions widen the net.</p>
               <label className="block text-[12px] font-semibold text-gray-700 mb-1">Primary town / city</label>
-              <input className={input + ' w-72 mb-4'} placeholder="e.g. Manchester" value={location} onChange={(e) => setLocation(e.target.value)} />
+              <div className="flex gap-3 mb-4 items-end">
+                <input className={input + ' w-64'} placeholder="e.g. Manchester" value={location} onChange={(e) => setLocation(e.target.value)} />
+                <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Within</label>
+                  <select className={input} value={radiusMiles} onChange={(e) => setRadiusMiles(e.target.value)}><option value="0">Town only</option><option value="10">10 miles</option><option value="25">25 miles</option><option value="50">50 miles</option><option value="75">75 miles</option></select></div>
+              </div>
               <label className="block text-[12px] font-semibold text-gray-700 mb-2">Regions</label>
               <div className="flex flex-wrap gap-2">{REGIONS.map((r) => <button key={r} onClick={() => toggle(regions, setRegions, r)} className={chip(regions.includes(r))}>{r}</button>)}</div>
             </>
@@ -193,6 +226,8 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
                 <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Min profit (£)</label><input className={input + ' w-full'} value={profMin} onChange={(e) => setProfMin(e.target.value.replace(/[^0-9]/g, ''))} /></div>
                 <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Trading at least</label>
                   <select className={input + ' w-full'} value={yearsMin} onChange={(e) => setYearsMin(e.target.value)}><option value="5">5 years</option><option value="8">8 years</option><option value="15">15 years</option></select></div>
+                <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Company size (filed accounts)</label>
+                  <select className={input + ' w-full'} value={sizeBand} onChange={(e) => setSizeBand(e.target.value)}><option value="any">Any size</option><option value="small_plus">£632k+ turnover</option><option value="medium_plus">£10.2m+ turnover</option></select></div>
               </div>
               <label className="flex items-center gap-2.5 mt-5 cursor-pointer max-w-md">
                 <input type="checkbox" checked={succession} onChange={(e) => setSuccession(e.target.checked)} className="h-4 w-4 accent-[#0A2540]" />
@@ -310,19 +345,21 @@ function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => 
 
 // ============================ FIND ============================
 function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox: any; go: (v: View) => void }) {
-  const [tax, setTax] = useState<{ key: string; label: string }[]>([]);
-  const [sel, setSel] = useState<string[]>(buyBox?.industries?.slice(0, 6) ?? []);
+  const [tax, setTax] = useState<{ key: string; label: string; group: string }[]>([]);
+  const [sel, setSel] = useState<string[]>(buyBox?.industries?.slice(0, 10) ?? []);
   const [location, setLocation] = useState(buyBox?.location ?? '');
+  const [radius, setRadius] = useState(String(buyBox?.radius_miles ?? 25));
+  const [sizeBand, setSizeBand] = useState(buyBox?.size_band ?? 'any');
+  const [dirAge, setDirAge] = useState(buyBox?.succession_pref !== false ? '55' : '0');
   const [minAge, setMinAge] = useState(String(buyBox?.years_trading_min ?? 8));
   const [maxN, setMaxN] = useState('25');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any>(null);
   useEffect(() => { sourceTaxonomy().then((r) => setTax(r.taxonomy)).catch((e) => setErr(e.message || String(e))); }, []);
-  const toggle = (k: string) => setSel((s) => s.includes(k) ? s.filter((x) => x !== k) : s.length < 6 ? [...s, k] : s);
   const run = async () => {
     if (!sel.length) { setErr('Pick at least one industry'); return; }
     setBusy(true); setErr(''); setResult(null);
-    try { setResult(await sourceSearch({ categories: sel, location: location || undefined, min_age_years: Number(minAge), max_results: Number(maxN) })); }
+    try { setResult(await sourceSearch({ categories: sel, location: location || undefined, radius_miles: location ? Number(radius) : 0, size_band: sizeBand, min_director_age: Number(dirAge), min_age_years: Number(minAge), max_results: Number(maxN) })); }
     catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(false); }
   };
   return (
@@ -333,12 +370,22 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
         <div className={card + ' w-72 shrink-0 p-5 h-fit'}>
           <div className="text-[12px] font-bold text-gray-800 uppercase tracking-wide mb-3">Filters</div>
           {buyBox && <div className="text-[11px] text-gray-400 mb-3 flex items-center gap-1"><Target className="h-3 w-3" /> Pre-filled from your buy box</div>}
-          <div className="text-[12px] font-semibold text-gray-700 mb-2">Industries <span className="text-gray-400 font-normal">(up to 6)</span></div>
-          <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto mb-4">
-            {tax.map((t) => <button key={t.key} onClick={() => toggle(t.key)} className={chip(sel.includes(t.key))}>{t.label}</button>)}
-          </div>
+          <div className="text-[12px] font-semibold text-gray-700 mb-2">Industries <span className="text-gray-400 font-normal">(up to 10)</span></div>
+          <div className="mb-4"><IndustryPicker tax={tax} sel={sel} setSel={setSel} max={10} height="max-h-64" /></div>
           <div className="text-[12px] font-semibold text-gray-700 mb-1">Town / city</div>
-          <input className={input + ' w-full mb-3'} placeholder="e.g. Manchester" value={location} onChange={(e) => setLocation(e.target.value)} />
+          <input className={input + ' w-full mb-2'} placeholder="e.g. Manchester" value={location} onChange={(e) => setLocation(e.target.value)} />
+          <div className="text-[12px] font-semibold text-gray-700 mb-1">Distance</div>
+          <select className={input + ' w-full mb-3'} value={radius} onChange={(e) => setRadius(e.target.value)} disabled={!location}>
+            <option value="0">Town match only</option><option value="10">Within 10 miles</option><option value="25">Within 25 miles</option><option value="50">Within 50 miles</option><option value="75">Within 75 miles</option>
+          </select>
+          <div className="text-[12px] font-semibold text-gray-700 mb-1">Company size <span className="text-gray-400 font-normal">(from filed accounts)</span></div>
+          <select className={input + ' w-full mb-3'} value={sizeBand} onChange={(e) => setSizeBand(e.target.value)}>
+            <option value="any">Any size</option><option value="small_plus">£632k+ turnover</option><option value="medium_plus">£10.2m+ turnover</option>
+          </select>
+          <div className="text-[12px] font-semibold text-gray-700 mb-1">Succession signal</div>
+          <select className={input + ' w-full mb-3'} value={dirAge} onChange={(e) => setDirAge(e.target.value)}>
+            <option value="0">Any director age</option><option value="55">Oldest director 55+</option><option value="60">Oldest director 60+</option>
+          </select>
           <div className="grid grid-cols-2 gap-2 mb-4">
             <div><div className="text-[12px] font-semibold text-gray-700 mb-1">Trading</div>
               <select className={input + ' w-full'} value={minAge} onChange={(e) => setMinAge(e.target.value)}><option value="5">5+ yrs</option><option value="8">8+ yrs</option><option value="15">15+ yrs</option></select></div>
@@ -356,7 +403,7 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
               <div className="text-[13px]">Pick industries on the left and run the search. Every result lands in your Prospects, scored and ready for outreach.</div>
             </div>
           )}
-          {busy && <div className={card + ' p-10 text-center text-gray-400'}><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />Reading Companies House, officers and filing histories…</div>}
+          {busy && <div className={card + ' p-10 text-center text-gray-400'}><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />Searching Companies House — checking distances, filed accounts sizes and director ages. Tight filters can take up to a minute.</div>}
           {result && (
             <div className={card}>
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -368,7 +415,7 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
                   <span className={'text-[11px] font-bold px-2 py-0.5 rounded-full ' + fitTint(p.fit_score)}>{p.fit_score}</span>
                   <div className="min-w-0 flex-1">
                     <div className="text-[13px] font-semibold text-gray-800 truncate">{p.company_name}</div>
-                    <div className="text-[12px] text-gray-400 truncate">{[p.company_number, p.address].filter(Boolean).join(' · ')}</div>
+                    <div className="text-[12px] text-gray-400 truncate">{[p.company_number, p.address, p.distance_miles != null ? p.distance_miles + ' mi away' : null, p.size && !String(p.size).includes('unknown') ? p.size : null].filter(Boolean).join(' · ')}</div>
                   </div>
                   {p.oldest_director_age && <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full shrink-0">Oldest director {p.oldest_director_age}</span>}
                 </div>

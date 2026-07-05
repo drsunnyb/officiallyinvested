@@ -106,7 +106,7 @@ export const prospectGet = (prospect_id: string) => invoke<{ ok: boolean; prospe
 export const prospectUpdate = (prospect_id: string, patch: Record<string, unknown>) => invoke('acq-prospects', { action: 'update', prospect_id, ...patch });
 export const prospectSuppress = (prospect_id: string, reason?: string) => invoke('acq-prospects', { action: 'suppress', prospect_id, ...(reason ? { reason } : {}) });
 export const prospectPromote = (prospect_id: string, notes?: string) => invoke<{ ok: boolean; submission_id: string; reference: string; deal_id: string | null }>('acq-prospects', { action: 'promote', prospect_id, ...(notes ? { notes } : {}) });
-export const sourceTaxonomy = () => invoke<{ ok: boolean; taxonomy: { key: string; label: string; sic: string[] }[] }>('acq-source', { action: 'taxonomy' });
+export const sourceTaxonomy = () => invoke<{ ok: boolean; taxonomy: { key: string; label: string; group: string; sic: string[] }[] }>('acq-source', { action: 'taxonomy' });
 export const sourceSearch = (p: Record<string, unknown>) => invoke<{ ok: boolean; total_hits: number; created: number; updated: number; prospects: any[] }>('acq-source', { action: 'search', ...p });
 export const ingestPropose = (csv: string, file_name: string) => invoke<{ ok: boolean; job_id: string; mapping: Record<string, string | null>; headers: string[]; rows_total: number; preview: string[][] }>('acq-ingest', { action: 'propose', csv, file_name });
 export const ingestCommit = (csv: string, mapping: Record<string, string | null>, job_id: string | null, file_name: string) => invoke<{ ok: boolean; created: number; merged: number; skipped: number; errors: string[] }>('acq-ingest', { action: 'commit', csv, mapping, job_id, file_name });

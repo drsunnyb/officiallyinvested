@@ -1,13 +1,15 @@
 // =============================================================================
-// acq-source — buy-box prospect sourcing from Companies House.
-// Maps "boring business" categories -> UK SIC codes, runs CH advanced search,
-// enriches top results with officers (director age = succession signal),
-// scores thesis fit deterministically, and upserts acq.prospects
-// (provenance='platform', exportable=false — the licensed data moat).
+// acq-source v2 — buy-box prospect sourcing from Companies House.
+// - ~110 grouped "boring business" categories (+ property/land/CRE + tech)
+// - radius-from-town filtering (postcodes.io geocoding, haversine)
+// - size filtering via the honest CH signal: last filed accounts type
+//   (micro-entity < £632k turnover; small < £10.2m; medium/full/group above)
+// - min director age filter (succession), richer fit scoring with reasons
 // Actions: taxonomy | search
 // =============================================================================
 import postgres from 'npm:postgres@3.4.5';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { TAXONOMY } from './taxonomy.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -17,69 +19,43 @@ const CH = 'https://api.company-information.service.gov.uk';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acq-secret', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
 
-// Curated "200 boring businesses" taxonomy -> UK SIC codes.
-const TAXONOMY: Record<string, { label: string; sic: string[] }> = {
-  cleaning:            { label: 'Commercial & domestic cleaning', sic: ['81210','81220','81221','81222','81229','81299'] },
-  landscaping:         { label: 'Landscaping & grounds maintenance', sic: ['81300'] },
-  plumbing_hvac:       { label: 'Plumbing, heating & HVAC', sic: ['43220'] },
-  electrical:          { label: 'Electrical contractors', sic: ['43210'] },
-  waste:               { label: 'Waste collection & skip hire', sic: ['38110','38210','38320'] },
-  self_storage:        { label: 'Self storage & warehousing', sic: ['52103','52102'] },
-  laundry:             { label: 'Laundry & dry cleaning', sic: ['96010'] },
-  car_wash_valeting:   { label: 'Car wash & valeting', sic: ['45200'] },
-  vehicle_repair:      { label: 'MOT & vehicle repair garages', sic: ['45200'] },
-  pest_control:        { label: 'Pest control & disinfecting', sic: ['81291'] },
-  roofing:             { label: 'Roofing contractors', sic: ['43910'] },
-  scaffolding:         { label: 'Scaffolding & access', sic: ['43991'] },
-  security:            { label: 'Security services & guarding', sic: ['80100','80200'] },
-  care_home:           { label: 'Care homes & domiciliary care', sic: ['87100','87300','88100'] },
-  childcare:           { label: 'Nurseries & childcare', sic: ['85100','88910'] },
-  funeral:             { label: 'Funeral services', sic: ['96030'] },
-  haulage:             { label: 'Haulage & freight', sic: ['49410','52290'] },
-  couriers:            { label: 'Couriers & last-mile delivery', sic: ['53201','53202'] },
-  plant_hire:          { label: 'Plant & tool hire', sic: ['77320','77390'] },
-  groundworks:         { label: 'Groundworks & drainage', sic: ['43120','42990'] },
-  glazing:             { label: 'Glazing & windows', sic: ['43342'] },
-  joinery:             { label: 'Joinery & carpentry', sic: ['43320','16230'] },
-  signage_printing:    { label: 'Signage & print', sic: ['18110','18121','18129','73110'] },
-  catering:            { label: 'Contract catering & events', sic: ['56210','56290'] },
-  facilities_mgmt:     { label: 'Facilities management', sic: ['81100'] },
-  recruitment:         { label: 'Recruitment agencies', sic: ['78100','78200','78300'] },
-  driving_school:      { label: 'Driving schools & training', sic: ['85530','85590'] },
-  kennels_vets:        { label: 'Kennels, catteries & pet care', sic: ['96090','01620'] },
-  fire_protection:     { label: 'Fire protection & alarms', sic: ['43210','80200'] },
-  builders_merchant:   { label: 'Builders & trade merchants', sic: ['46730','46740'] },
-  accountancy:         { label: 'Accountancy practices', sic: ['69201','69202','69203'] },
-  property_mgmt:       { label: 'Property & block management', sic: ['68320','68209'] },
-  vending:             { label: 'Vending & micro markets', sic: ['47990'] },
-  agri_contracting:    { label: 'Agricultural contracting', sic: ['01610'] },
-  fencing:             { label: 'Fencing & gates', sic: ['43290','43999'] },
-  flooring:            { label: 'Flooring contractors', sic: ['43330'] },
-  removals:            { label: 'Removals & relocation', sic: ['49420'] },
-  water_hygiene:       { label: 'Water hygiene & legionella', sic: ['71200','81299'] },
-  lift_maintenance:    { label: 'Lift installation & maintenance', sic: ['43290'] },
-  air_conditioning:    { label: 'Air conditioning & refrigeration', sic: ['43220'] },
+const toRad = (d: number) => (d * Math.PI) / 180;
+const milesBetween = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {
+  const R = 3958.8;
+  const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(h));
 };
 
-// Rough UK revenue-per-head by category for staff-proxy estimates (GBP).
-const REV_PER_HEAD: Record<string, number> = {
-  haulage: 120000, builders_merchant: 250000, plant_hire: 150000, care_home: 45000,
-  cleaning: 35000, security: 40000, recruitment: 130000, accountancy: 90000,
-  facilities_mgmt: 60000, catering: 55000, default: 80000,
-};
+// last_accounts.type -> size class
+function sizeClass(t: string | null): 'micro' | 'small' | 'medium_plus' | 'unknown' {
+  if (!t) return 'unknown';
+  if (['micro-entity'].includes(t)) return 'micro';
+  if (['small', 'total-exemption-small', 'total-exemption-full', 'unaudited-abridged', 'abridged'].includes(t)) return 'small';
+  if (['medium', 'full', 'group', 'audited-abridged', 'audit-exemption-subsidiary'].includes(t)) return 'medium_plus';
+  if (['dormant', 'no-accounts-type-available', 'initial'].includes(t)) return 'unknown';
+  return 'unknown';
+}
+const SIZE_LABEL: Record<string, string> = { micro: 'micro-entity accounts (< £632k t/o)', small: 'small-company accounts (£632k–£10.2m t/o)', medium_plus: 'medium/full accounts (£10.2m+ t/o)', unknown: 'accounts size unknown' };
 
-function fitScore(p: { incorporated_on?: string | null; oldest_director_age?: number | null; company_status?: string | null; regionMatch: boolean }) {
-  let s = 30; const reasons: string[] = ['Matches target industry'];
+function fitScore(p: { incorporated_on?: string | null; oldest_director_age?: number | null; company_status?: string | null; distance_miles?: number | null; size_class?: string; location?: string }) {
+  let s = 25; const reasons: string[] = ['Matches target industry'];
   if (p.incorporated_on) {
     const yrs = (Date.now() - new Date(p.incorporated_on).getTime()) / 31557600000;
-    if (yrs >= 15) { s += 25; reasons.push(`Established ${Math.floor(yrs)} years`); }
-    else if (yrs >= 8) { s += 15; reasons.push(`Trading ${Math.floor(yrs)} years`); }
+    if (yrs >= 15) { s += 20; reasons.push(`Established ${Math.floor(yrs)} years`); }
+    else if (yrs >= 8) { s += 12; reasons.push(`Trading ${Math.floor(yrs)} years`); }
   }
   if (p.oldest_director_age != null) {
-    if (p.oldest_director_age >= 60) { s += 30; reasons.push(`Oldest director ${p.oldest_director_age} — strong succession signal`); }
-    else if (p.oldest_director_age >= 55) { s += 20; reasons.push(`Oldest director ${p.oldest_director_age} — likely retirement horizon`); }
+    if (p.oldest_director_age >= 60) { s += 25; reasons.push(`Oldest director ${p.oldest_director_age} — strong succession signal`); }
+    else if (p.oldest_director_age >= 55) { s += 15; reasons.push(`Oldest director ${p.oldest_director_age} — likely retirement horizon`); }
   }
-  if (p.regionMatch) { s += 10; reasons.push('In target region'); }
+  if (p.size_class === 'medium_plus') { s += 15; reasons.push('Files medium/full accounts (£10.2m+ turnover)'); }
+  else if (p.size_class === 'small') { s += 8; reasons.push('Files small-company accounts (£632k–£10.2m turnover)'); }
+  if (p.distance_miles != null) {
+    if (p.distance_miles <= 10) { s += 10; reasons.push(`${Math.round(p.distance_miles)} miles from ${p.location}`); }
+    else if (p.distance_miles <= 25) { s += 6; reasons.push(`${Math.round(p.distance_miles)} miles from ${p.location}`); }
+    else reasons.push(`${Math.round(p.distance_miles)} miles from ${p.location}`);
+  }
   if (p.company_status === 'active') s += 5;
   return { score: Math.min(100, s), reasons: reasons.join('; ') };
 }
@@ -92,7 +68,7 @@ Deno.serve(async (req: Request) => {
     const action = body.action ?? 'search';
     if (action === 'taxonomy') {
       await sql.end({ timeout: 5 });
-      return json({ ok: true, taxonomy: Object.entries(TAXONOMY).map(([key, v]) => ({ key, label: v.label, sic: v.sic })) });
+      return json({ ok: true, taxonomy: Object.entries(TAXONOMY).map(([key, v]) => ({ key, label: v.label, group: v.group, sic: v.sic })) });
     }
 
     const cfg = Object.fromEntries((await sql`select key, value from public.oi_config where key in ('acq_internal_secret','ch_api_key')`).map((r: any) => [r.key, r.value]));
@@ -111,31 +87,74 @@ Deno.serve(async (req: Request) => {
     if (!cfg.ch_api_key) { await sql.end({ timeout: 5 }); return json({ error: 'Companies House API key not configured' }, 500); }
     const auth = 'Basic ' + btoa(cfg.ch_api_key + ':');
 
-    // ---- search ----
+    // ---- params ----
     const categories: string[] = Array.isArray(body.categories) ? body.categories.filter((c: string) => TAXONOMY[c]) : [];
     const extraSic: string[] = Array.isArray(body.sic_codes) ? body.sic_codes : [];
     const sic = [...new Set([...categories.flatMap((c) => TAXONOMY[c].sic), ...extraSic])];
     if (!sic.length) { await sql.end({ timeout: 5 }); return json({ error: 'pick at least one industry' }, 400); }
     const location: string = (body.location ?? '').toString().trim();
+    const radius: number = Math.max(0, Number(body.radius_miles ?? 0)); // 0 = exact town text match
     const minAgeYears: number = Number(body.min_age_years ?? 8);
     const maxResults: number = Math.min(Number(body.max_results ?? 25), 50);
+    const sizeBand: string = ['any','small_plus','medium_plus'].includes(body.size_band) ? body.size_band : 'any';
+    const minDirectorAge: number = [0, 55, 60].includes(Number(body.min_director_age)) ? Number(body.min_director_age) : 0;
     const incorporatedTo = new Date(Date.now() - minAgeYears * 31557600000).toISOString().slice(0, 10);
 
-    const params = new URLSearchParams({ company_status: 'active', sic_codes: sic.slice(0, 40).join(','), incorporated_to: incorporatedTo, size: String(maxResults) });
-    if (location) params.set('location', location);
+    // ---- 1) candidate pull from Companies House ----
+    const useRadius = radius > 0 && !!location;
+    const pullSize = useRadius ? 500 : Math.min(200, maxResults * 4);
+    const params = new URLSearchParams({ company_status: 'active', sic_codes: sic.slice(0, 50).join(','), incorporated_to: incorporatedTo, size: String(pullSize) });
+    if (location && !useRadius) params.set('location', location);
     const sr = await fetch(`${CH}/advanced-search/companies?${params}`, { headers: { Authorization: auth } });
     if (!sr.ok) { const t = await sr.text(); await sql.end({ timeout: 5 }); return json({ error: `Companies House ${sr.status}`, detail: t.slice(0, 200) }, 502); }
     const sj = await sr.json();
-    const items: any[] = sj.items ?? [];
+    let candidates: any[] = (sj.items ?? []).filter((it: any) => it.company_number);
 
+    // ---- 2) radius filter via postcodes.io ----
+    if (useRadius && candidates.length) {
+      const pr = await fetch(`https://api.postcodes.io/places?q=${encodeURIComponent(location)}&limit=1`);
+      const pj = pr.ok ? await pr.json() : null;
+      const centre = pj?.result?.[0] ? { lat: pj.result[0].latitude, lon: pj.result[0].longitude } : null;
+      if (!centre) { await sql.end({ timeout: 5 }); return json({ error: `Couldn't locate "${location}" — try a bigger town or city name` }, 400); }
+      const withPc = candidates.filter((c) => c.registered_office_address?.postal_code);
+      const dist: Record<string, number> = {};
+      for (let i = 0; i < withPc.length; i += 100) {
+        const chunk = withPc.slice(i, i + 100);
+        const br = await fetch('https://api.postcodes.io/postcodes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ postcodes: chunk.map((c) => c.registered_office_address.postal_code) }) });
+        if (!br.ok) continue;
+        const bj = await br.json();
+        for (const r of bj.result ?? []) {
+          if (r.result?.latitude != null) dist[r.query.toUpperCase().replace(/\s/g, '')] = milesBetween({ lat: r.result.latitude, lon: r.result.longitude }, centre);
+        }
+      }
+      candidates = withPc
+        .map((c) => ({ ...c, _distance: dist[c.registered_office_address.postal_code.toUpperCase().replace(/\s/g, '')] ?? null }))
+        .filter((c) => c._distance != null && c._distance <= radius)
+        .sort((a, b) => a._distance - b._distance);
+    }
+
+    // ---- 3) enrich + filter (profile accounts type, officers) until maxResults ----
     const results: any[] = []; let created = 0, updated = 0;
-    for (const it of items.slice(0, maxResults)) {
+    let scanned = 0; const maxScan = 120;
+    for (const it of candidates) {
+      if (results.length >= maxResults || scanned >= maxScan) break;
+      scanned++;
       const number = it.company_number;
-      if (!number) continue;
+
+      // size (accounts type from profile)
+      let accountsType: string | null = null;
+      try {
+        const prf = await fetch(`${CH}/company/${number}`, { headers: { Authorization: auth } });
+        if (prf.ok) { const pjj = await prf.json(); accountsType = pjj?.accounts?.last_accounts?.type ?? null; }
+      } catch (_) { /* best-effort */ }
+      const size = sizeClass(accountsType);
+      if (sizeBand === 'small_plus' && (size === 'micro')) continue;
+      if (sizeBand === 'medium_plus' && size !== 'medium_plus') continue;
+
       // officers (director ages)
       let directors: any[] = []; let oldest: number | null = null;
       try {
-        const or_ = await fetch(`${CH}/company/${number}/officers?items_per_page=20`, { headers: { Authorization: auth } });
+        const or_ = await fetch(`${CH}/company/${number}/officers?items_per_page=25`, { headers: { Authorization: auth } });
         if (or_.ok) {
           const oj = await or_.json();
           directors = (oj.items ?? []).filter((o: any) => (o.officer_role ?? '').includes('director') && !o.resigned_on)
@@ -143,12 +162,13 @@ Deno.serve(async (req: Request) => {
           const yrs = directors.map((d: any) => d.dob_year).filter(Boolean).map((y: number) => new Date().getFullYear() - y);
           oldest = yrs.length ? Math.max(...yrs) : null;
         }
-      } catch (_) { /* officers are best-effort */ }
+      } catch (_) { /* best-effort */ }
+      if (minDirectorAge > 0 && (oldest == null || oldest < minDirectorAge)) continue;
 
       const addr = it.registered_office_address ?? {};
       const address = [addr.address_line_1, addr.address_line_2, addr.locality, addr.region].filter(Boolean).join(', ');
-      const regionMatch = !!location && [addr.locality, addr.region, addr.postal_code].filter(Boolean).some((x: string) => x.toLowerCase().includes(location.toLowerCase()));
-      const { score, reasons } = fitScore({ incorporated_on: it.date_of_creation, oldest_director_age: oldest, company_status: it.company_status, regionMatch });
+      const distMiles: number | null = typeof it._distance === 'number' ? Math.round(it._distance * 10) / 10 : null;
+      const { score, reasons } = fitScore({ incorporated_on: it.date_of_creation, oldest_director_age: oldest, company_status: it.company_status, distance_miles: distMiles, size_class: size, location });
       const cat = categories.find((c) => TAXONOMY[c].sic.some((s) => (it.sic_codes ?? []).includes(s))) ?? categories[0] ?? null;
 
       const row = (await sql`
@@ -156,17 +176,19 @@ Deno.serve(async (req: Request) => {
           directors, oldest_director_age, provenance, exportable, source, fit_score, fit_reasons, stage, ch_snapshot, ch_last_checked)
         values (${orgId}, ${it.company_name}, ${number}, ${it.sic_codes ?? []}, ${address || null}, ${addr.postal_code ?? null}, ${addr.region ?? addr.locality ?? null},
           ${it.date_of_creation ?? null}, ${it.company_status ?? null}, ${JSON.stringify(directors)}, ${oldest}, 'platform', false,
-          ${JSON.stringify({ kind: 'companies_house', category: cat, query: { sic, location, minAgeYears } })}, ${score}, ${reasons}, 'enriched', ${JSON.stringify(it)}, now())
+          ${JSON.stringify({ kind: 'companies_house', category: cat, distance_miles: distMiles, accounts_type: accountsType, size_class: size, query: { sic, location, radius, minAgeYears, sizeBand, minDirectorAge } })},
+          ${score}, ${reasons}, 'enriched', ${JSON.stringify(it)}, now())
         on conflict (org_id, company_number) where company_number is not null
         do update set directors=excluded.directors, oldest_director_age=excluded.oldest_director_age, fit_score=excluded.fit_score,
-          fit_reasons=excluded.fit_reasons, ch_snapshot=excluded.ch_snapshot, ch_last_checked=now(), updated_at=now()
+          fit_reasons=excluded.fit_reasons, source=excluded.source, ch_snapshot=excluded.ch_snapshot, ch_last_checked=now(), updated_at=now()
         returning id, (xmax = 0) as inserted`)[0];
       if (row.inserted) created++; else updated++;
-      results.push({ id: row.id, company_name: it.company_name, company_number: number, fit_score: score, oldest_director_age: oldest, incorporated_on: it.date_of_creation, address });
+      results.push({ id: row.id, company_name: it.company_name, company_number: number, fit_score: score, oldest_director_age: oldest, incorporated_on: it.date_of_creation, address, distance_miles: distMiles, size: SIZE_LABEL[size] });
     }
+    results.sort((a, b) => b.fit_score - a.fit_score);
 
     await sql.end({ timeout: 5 });
-    return json({ ok: true, total_hits: sj.hits ?? items.length, created, updated, prospects: results });
+    return json({ ok: true, total_hits: sj.hits ?? candidates.length, scanned, created, updated, prospects: results });
   } catch (e) {
     try { await sql.end({ timeout: 5 }); } catch (_) {}
     return json({ error: String(e) }, 500);
