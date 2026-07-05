@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import SubmitOpportunity from './pages/SubmitOpportunity';
 import SellerFunnel from './pages/SellerFunnel';
 import Pipeline from './pages/admin/Pipeline';
+import Origination from './pages/admin/Origination';
 import Settings from './pages/admin/Settings';
 
 function ScrollToTop() {
@@ -38,6 +39,7 @@ function App() {
         <Route path="/f" element={<SellerFunnel />} />
         <Route path="/admin" element={<Pipeline />} />
         <Route path="/admin/pipeline" element={<Pipeline />} />
+        <Route path="/admin/origination" element={<Origination />} />
         <Route path="/admin/settings" element={<Settings />} />
       </Routes>
       {!isAdmin && <Footer />}
