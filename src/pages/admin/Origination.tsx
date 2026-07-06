@@ -5,11 +5,11 @@ import {
   LayoutDashboard, Target, Building2, PhoneCall, Mail, FileText, ChevronRight, X, Sparkles, Settings2, Copy, CreditCard,
 } from 'lucide-react';
 import {
-  prospectsList, prospectGet, prospectSuppress, prospectPromote,
+  prospectsList, prospectGet, prospectUpdate, prospectSuppress, prospectPromote,
   sourceTaxonomy, sourceSearch, sourceStartRun, sourceRuns, sourceCancelRun, ingestPropose, ingestCommit,
   outreachList, outreachCreate, outreachUpdate, outreachDraftTemplates, outreachEnrol,
   outreachQueue, outreachApprove, outreachApproveAll, outreachRun, outreachMarkReplied,
-  getOrgSettings, setOrgSettings, crmList, crmAddContact, crmAddTask, crmCompleteTask,
+  getOrgSettings, setOrgSettings, crmList, crmAddContact, crmAddTask, crmCompleteTask, crmContactDetail,
   buyboxList, buyboxChat, buyboxCreate, buyboxActivate, buyboxDelete,
 } from '../../lib/acq';
 
@@ -516,6 +516,18 @@ function ProspectsView({ setErr }: { setErr: (s: string) => void }) {
   const [page, setPage] = useState(1); const [q, setQ] = useState(''); const [stage, setStage] = useState(''); const [minFit, setMinFit] = useState('');
   const [loading, setLoading] = useState(true); const [openId, setOpenId] = useState<string | null>(null); const [detail, setDetail] = useState<any>(null);
   const [busy, setBusy] = useState(''); const [uploadOpen, setUploadOpen] = useState(false);
+  const [noteMode, setNoteMode] = useState<null | 'note' | 'call'>(null); const [noteText, setNoteText] = useState('');
+  const saveNote = async () => {
+    if (!noteText.trim() || !detail) return;
+    setBusy('note');
+    try {
+      const stamp = `[${noteMode === 'call' ? 'Call' : 'Note'} · ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}] ${noteText.trim()}`;
+      const newNotes = (detail.prospect.notes ? detail.prospect.notes + '\n\n' : '') + stamp;
+      await prospectUpdate(detail.prospect.id, { notes: newNotes });
+      setNoteMode(null); setNoteText('');
+      setDetail(await prospectGet(detail.prospect.id));
+    } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
+  };
   const per = 25;
   const load = async (p = page) => {
     setLoading(true); setErr('');
@@ -523,7 +535,7 @@ function ProspectsView({ setErr }: { setErr: (s: string) => void }) {
     catch (e: any) { setErr(e.message || String(e)); } finally { setLoading(false); }
   };
   useEffect(() => { load(1); setPage(1); }, [q, stage, minFit]);
-  const openDrawer = async (id: string) => { setOpenId(id); setDetail(null); try { setDetail(await prospectGet(id)); } catch (e: any) { setErr(e.message || String(e)); } };
+  const openDrawer = async (id: string) => { setOpenId(id); setDetail(null); setNoteMode(null); setNoteText(''); try { setDetail(await prospectGet(id)); } catch (e: any) { setErr(e.message || String(e)); } };
   const promote = async (id: string) => { setBusy('p'); try { const r = await prospectPromote(id); setOpenId(null); await load(); alert('Now on your pipeline as ' + r.reference); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
   const suppress = async (id: string) => { setBusy('s'); try { await prospectSuppress(id); setOpenId(null); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
   const markReplied = async (id: string) => { setBusy('r'); try { await outreachMarkReplied(id); setOpenId(null); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
@@ -607,18 +619,29 @@ function ProspectsView({ setErr }: { setErr: (s: string) => void }) {
                       {detail.memberships.map((m: any) => <div key={m.id} className="text-[12px]">{m.campaign_name} — {m.status}, step {m.current_step + 1}</div>)}
                     </div>
                   )}
-                  {detail.touches.length > 0 && (
-                    <div><div className="text-[11px] text-gray-400 mb-1">Outreach history</div>
-                      {detail.touches.slice(0, 8).map((t: any) => (
+                  <div><div className="text-[11px] text-gray-400 mb-1">Outreach & letters</div>
+                    {detail.touches.length === 0 ? <div className="text-[12px] text-gray-400 bg-gray-50 rounded-lg p-2.5">No letters sent yet. Enrol this prospect in a campaign to send the first one.</div>
+                    : detail.touches.slice(0, 8).map((t: any) => (
                         <div key={t.id} className="flex items-center gap-2 py-1.5 border-b border-gray-50 last:border-0 text-[12px]">
                           {t.channel === 'email' ? <Mail className="h-3.5 w-3.5 text-gray-400" /> : t.channel === 'letter' ? <FileText className="h-3.5 w-3.5 text-gray-400" /> : <PhoneCall className="h-3.5 w-3.5 text-gray-400" />}
-                          <span className="flex-1 truncate">{t.subject ?? t.channel}</span>
-                          <span className={'text-[10px] px-1.5 py-0.5 rounded-full ' + (t.status === 'sent' ? 'bg-emerald-50 text-emerald-700' : t.status === 'needs_approval' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500')}>{t.status.replace('_', ' ')}</span>
+                          <span className="flex-1 truncate">{t.channel === 'letter' ? 'Letter' : t.channel === 'email' ? (t.subject ?? 'Email') : 'Call task'}</span>
+                          <span className={'text-[10px] px-1.5 py-0.5 rounded-full ' + (t.status === 'sent' ? 'bg-emerald-50 text-emerald-700' : t.status === 'needs_approval' ? 'bg-amber-50 text-amber-700' : t.status === 'approved' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500')}>{t.status === 'sent' ? 'sent ' + (t.sent_at ? new Date(t.sent_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '') : t.status.replace('_', ' ')}</span>
                         </div>
                       ))}
+                    <div className="flex gap-2 flex-wrap mt-2.5">
+                      {detail.prospect.owner_phone && <a className={btnGhost} href={'tel:' + detail.prospect.owner_phone}><PhoneCall className="h-3.5 w-3.5" />Call {detail.prospect.owner_phone}</a>}
+                      <button className={btnGhost} onClick={() => { setNoteMode('call'); setNoteText(''); }}>Log a call</button>
+                      <button className={btnGhost} onClick={() => { setNoteMode('note'); setNoteText(''); }}>Add note</button>
                     </div>
-                  )}
-                  {detail.prospect.notes && <div className="text-[12px] text-gray-500 whitespace-pre-wrap bg-gray-50 rounded-lg p-3">{detail.prospect.notes}</div>}
+                    {noteMode && (
+                      <div className="mt-2.5 bg-gray-50 rounded-lg p-3">
+                        <div className="text-[11px] font-semibold text-gray-600 mb-1.5">{noteMode === 'call' ? 'What happened on the call?' : 'Note'}</div>
+                        <textarea className={input__ + ' w-full min-h-[70px] mb-2'} placeholder={noteMode === 'call' ? 'e.g. Spoke to Patrick. Open to a conversation after year end, call back in November.' : 'Anything worth remembering…'} value={noteText} onChange={(e) => setNoteText(e.target.value)} autoFocus />
+                        <div className="flex gap-2"><button className={btnGold} disabled={busy === 'note' || !noteText.trim()} onClick={saveNote}>{busy === 'note' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Save</button><button className={btnGhost} onClick={() => setNoteMode(null)}>Cancel</button></div>
+                      </div>
+                    )}
+                  </div>
+                  {detail.prospect.notes && <div><div className="text-[11px] text-gray-400 mb-1">Notes & call log</div><div className="text-[12px] text-gray-600 whitespace-pre-wrap bg-gray-50 rounded-lg p-3">{detail.prospect.notes}</div></div>}
                 </div>
                 {detail.prospect.stage !== 'promoted' && detail.prospect.stage !== 'suppressed' && (
                   <div className="px-6 py-4 border-t border-gray-100 flex gap-2 flex-wrap sticky bottom-0 bg-white">
@@ -690,11 +713,17 @@ function UploadModal({ onClose, setErr }: { onClose: () => void; setErr: (s: str
 }
 
 // ============================ CONTACTS (CRM) ============================
+const STAGE_LABEL: Record<string, string> = { new: 'New', reviewing: 'Screening', shortlisted: 'Shortlisted', discovery_call: 'Discovery call', hots: 'Heads of Terms', structuring: 'Structuring', funding: 'Funding', pre_completion: 'Pre-completion', completed: 'Completed', passed: 'Passed', ineligible: 'Ineligible' };
 function ContactsView({ setErr }: { setErr: (s: string) => void }) {
   const [contacts, setContacts] = useState<any[]>([]); const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); const [cf, setCf] = useState<Record<string, string>>({}); const [tf, setTf] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState('');
-  const load = async () => { setLoading(true); try { const r = await crmList(); setContacts(r.contacts || []); setTasks(r.tasks || []); } catch (e: any) { setErr(e.message || String(e)); } finally { setLoading(false); } };
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [openContact, setOpenContact] = useState<string | null>(null); const [cd, setCd] = useState<any>(null);
+  const roles = ['all', ...Array.from(new Set(contacts.map((c) => c.role || 'other')))];
+  const shown = roleFilter === 'all' ? contacts : contacts.filter((c) => (c.role || 'other') === roleFilter);
+  const openDetail = async (id: string) => { setOpenContact(id); setCd(null); try { setCd(await crmContactDetail(id)); } catch (e: any) { setErr(e.message || String(e)); } };
+  const load = async () => { setLoading(true); try { const r = await crmList(); setContacts(r.contacts || []); setTasks((r.tasks || []).filter((t: any) => !t.deal_id)); } catch (e: any) { setErr(e.message || String(e)); } finally { setLoading(false); } };
   useEffect(() => { load(); }, []);
   const addContact = async () => { if (!cf.name?.trim()) return; setBusy('c'); try { await crmAddContact({ name: cf.name, role: cf.role || 'other', company: cf.company, email: cf.email }); setCf({}); await load(); } finally { setBusy(''); } };
   const addTask = async () => { if (!tf.title?.trim()) return; setBusy('t'); try { await crmAddTask({ title: tf.title, due_date: tf.due || null }); setTf({}); await load(); } finally { setBusy(''); } };
@@ -704,7 +733,7 @@ function ContactsView({ setErr }: { setErr: (s: string) => void }) {
       <Header title="Contacts & tasks" sub="Everyone your deals touch — vendors, agents, accountants, solicitors, lenders — and what needs doing next. Call tasks from campaigns land here too." />
       <div className="px-8 pb-8 grid lg:grid-cols-5 gap-5">
         <div className={card + ' lg:col-span-2 p-5 h-fit'}>
-          <div className="font-semibold text-gray-900 mb-3">Needs you <span className="text-gray-400 font-normal">· {tasks.length} open</span></div>
+          <div className="font-semibold text-gray-900 mb-3">Needs you <span className="text-gray-400 font-normal">· {tasks.length} open · origination only</span></div>
           {loading ? <Loader2 className="h-4 w-4 animate-spin text-gray-300" /> : tasks.length === 0 ? <div className="text-[13px] text-gray-400">Nothing outstanding.</div> : tasks.map((t) => (
             <div key={t.id} className="flex items-start gap-2.5 py-2.5 border-b border-gray-50 last:border-0">
               <button onClick={() => done(t.id)} className="mt-0.5 text-gray-300 hover:text-emerald-500" title="Mark done"><Check className="h-4 w-4" /></button>
@@ -718,14 +747,17 @@ function ContactsView({ setErr }: { setErr: (s: string) => void }) {
           </div>
         </div>
         <div className={card + ' lg:col-span-3 p-5'}>
-          <div className="font-semibold text-gray-900 mb-3">Contacts <span className="text-gray-400 font-normal">· {contacts.length}</span></div>
+          <div className="font-semibold text-gray-900 mb-2">Contacts <span className="text-gray-400 font-normal">· {shown.length}</span></div>
+          <div className="flex flex-wrap gap-1.5 mb-3">{roles.map((r) => <button key={r} onClick={() => setRoleFilter(r)} className={chip(roleFilter === r)}>{r === 'all' ? 'All' : r}</button>)}</div>
           <div className="max-h-[420px] overflow-y-auto">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin text-gray-300" /> : contacts.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin text-gray-300" /> : shown.map((c) => (
+              <div key={c.id} onClick={() => openDetail(c.id)} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded-lg px-1">
                 <div className="h-8 w-8 rounded-full bg-[#0A2540] text-[#FFD700] text-[11px] font-bold flex items-center justify-center shrink-0">{(c.name || '?').split(/\s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join('')}</div>
                 <div className="min-w-0 flex-1"><div className="text-[13px] font-medium text-gray-800 truncate">{c.name}</div><div className="text-[11px] text-gray-400 truncate">{[c.company, c.email].filter(Boolean).join(' · ')}</div></div>
                 {c.role && <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">{c.role}</span>}
                 {c.deal_count > 0 && <span className="text-[10px] text-gray-400 shrink-0">{c.deal_count} deal{c.deal_count > 1 ? 's' : ''}</span>}
+                {c.interaction_count > 0 && <span className="text-[10px] text-gray-400 shrink-0">{c.interaction_count} touches</span>}
+                {c.last_interaction && <span className="text-[10px] text-gray-300 shrink-0">{new Date(c.last_interaction).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}
               </div>
             ))}
           </div>
@@ -737,6 +769,62 @@ function ContactsView({ setErr }: { setErr: (s: string) => void }) {
           </div>
         </div>
       </div>
+
+      {openContact && (
+        <div className="fixed inset-0 z-[65] bg-black/40 flex justify-end" onClick={(e) => e.target === e.currentTarget && setOpenContact(null)}>
+          <div className="w-full max-w-md bg-white h-full overflow-y-auto shadow-2xl">
+            {!cd ? <div className="p-8 text-gray-400"><Loader2 className="h-5 w-5 animate-spin" /></div> : (
+              <>
+                <div className="px-6 pt-6 pb-4 flex items-start justify-between" style={{ background: NAVY }}>
+                  <div>
+                    <div className="text-white font-bold text-[16px]">{cd.contact.name}</div>
+                    <div className="text-white/50 text-[12px] mt-0.5">{[cd.contact.company, cd.contact.email, cd.contact.phone].filter(Boolean).join(' · ')}</div>
+                    {cd.contact.role && <span className="inline-block mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FFD700]/20 text-[#FFD700] uppercase">{cd.contact.role}</span>}
+                  </div>
+                  <button onClick={() => setOpenContact(null)} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
+                </div>
+                <div className="px-6 py-5 text-[13px] text-gray-700 flex flex-col gap-5">
+                  <div>
+                    <div className="text-[11px] text-gray-400 mb-1.5">Deals & pipeline stage</div>
+                    {cd.deals.length === 0 ? <div className="text-[12px] text-gray-400">Not on any deals yet.</div> : cd.deals.map((d: any) => (
+                      <a key={d.id} href="/admin/pipeline" className="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded px-1">
+                        <div className="min-w-0 flex-1"><div className="text-[13px] font-medium text-gray-800 truncate">{d.reference ? d.reference + ' · ' : ''}{d.name}</div><div className="text-[11px] text-gray-400">{d.role ?? 'contact'}</div></div>
+                        {d.status && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#0A2540] text-[#FFD700] shrink-0">{STAGE_LABEL[d.status] ?? d.status}</span>}
+                        <ArrowUpRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                      </a>
+                    ))}
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-gray-400 mb-1.5">Timeline · emails, calls & notes</div>
+                    {cd.communications.length === 0 ? <div className="text-[12px] text-gray-400 bg-gray-50 rounded-lg p-2.5">No recorded interactions yet.</div> : cd.communications.slice(0, 30).map((m: any) => (
+                      <div key={m.id} className="flex gap-2.5 py-2 border-b border-gray-50 last:border-0">
+                        {m.kind === 'call' ? <PhoneCall className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" /> : m.kind === 'note' ? <FileText className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" /> : <Mail className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" />}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2"><span className="text-[12px] font-medium text-gray-800 truncate">{m.subject || (m.kind === 'call' ? 'Call' : m.kind === 'note' ? 'Note' : 'Email')}</span><span className={'text-[9px] px-1.5 rounded-full shrink-0 ' + (m.direction === 'in' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500')}>{m.direction === 'in' ? 'received' : 'sent'}</span></div>
+                          {m.body && <div className="text-[11px] text-gray-500 line-clamp-2">{m.body}</div>}
+                          <div className="text-[10px] text-gray-300 mt-0.5">{new Date(m.happened_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}{m.deal_name ? ' · ' + m.deal_name : ''}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {cd.documents.length > 0 && (
+                    <div>
+                      <div className="text-[11px] text-gray-400 mb-1.5">Files on their deals</div>
+                      {cd.documents.map((f: any) => <div key={f.id} className="flex items-center gap-2 py-1.5 border-b border-gray-50 last:border-0 text-[12px] text-gray-700"><FileText className="h-3.5 w-3.5 text-gray-400" /><span className="truncate flex-1">{f.file_name}</span><span className="text-[10px] text-gray-300">{new Date(f.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span></div>)}
+                    </div>
+                  )}
+                  {cd.tasks.length > 0 && (
+                    <div>
+                      <div className="text-[11px] text-gray-400 mb-1.5">Tasks</div>
+                      {cd.tasks.map((t: any) => <div key={t.id} className="flex items-center gap-2 py-1.5 text-[12px]"><span className={'h-1.5 w-1.5 rounded-full ' + (t.status === 'open' ? 'bg-amber-400' : 'bg-emerald-400')} /><span className={'flex-1 truncate ' + (t.status === 'done' ? 'text-gray-300 line-through' : 'text-gray-700')}>{t.title}</span>{t.due_date && <span className="text-[10px] text-gray-400">{new Date(t.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}</div>)}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

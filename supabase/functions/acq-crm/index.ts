@@ -80,6 +80,25 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, suggestions: rows });
     }
 
+    if (action === 'contact_detail') {
+      const c = (await sql`select * from acq.contacts where id=${body.contact_id} and org_id=${orgId}`)[0];
+      if (!c) { await sql.end({ timeout: 5 }); return json({ error: 'not found' }, 404); }
+      const deals = await sql`
+        select d.id, d.name, d.submission_id, dc.role, s.status, s.reference
+        from acq.deal_contacts dc join acq.deals d on d.id = dc.deal_id
+        left join public.submissions s on s.id = d.submission_id
+        where dc.contact_id = ${c.id} order by d.created_at desc`;
+      const comms = await sql`
+        select cm.id, cm.deal_id, cm.direction, cm.kind, cm.subject, left(cm.body, 400) as body, cm.happened_at, d.name as deal_name
+        from acq.communications cm left join acq.deals d on d.id = cm.deal_id
+        where cm.contact_id = ${c.id} and cm.org_id = ${orgId}
+        order by cm.happened_at desc limit 100`;
+      let docs: any[] = [];
+      try { if (deals.length) docs = await sql`select id, deal_id, file_name, created_at from acq.documents where deal_id = any(${deals.map((d: any) => d.id)}) order by created_at desc limit 30`; } catch (_) { docs = []; }
+      const tasks = await sql`select id, title, due_date, status from acq.tasks where contact_id=${c.id} and org_id=${orgId} order by status, due_date nulls last limit 20`;
+      return json({ ok: true, contact: c, deals, communications: comms, documents: docs, tasks });
+    }
+
     // backfill contacts from submitters (so the directory is never empty)
     const fromEmail = (cfg.from_email || '').toString();
     await sql`

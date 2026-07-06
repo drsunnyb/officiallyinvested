@@ -129,3 +129,4 @@ export const buyboxDelete = (box_id: string) => invoke('acq-buybox', { action: '
 export const sourceStartRun = (p: Record<string, unknown>) => invoke<{ ok: boolean; run: any; note: string }>('acq-source', { action: 'start_run', ...p });
 export const sourceRuns = () => invoke<{ ok: boolean; runs: any[] }>('acq-source', { action: 'runs' });
 export const sourceCancelRun = (run_id: string) => invoke('acq-source', { action: 'cancel_run', run_id });
+export const crmContactDetail = (contact_id: string) => invoke<{ ok: boolean; contact: any; deals: any[]; communications: any[]; documents: any[]; tasks: any[] }>('acq-crm', { action: 'contact_detail', contact_id });
