@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Loader2, Search, Upload, Send, Globe, Users, ShieldCheck, Check, ArrowUpRight, ArrowLeft,
-  LayoutDashboard, Target, Building2, PhoneCall, Mail, FileText, ChevronRight, X, Sparkles, Settings2, Copy,
+  LayoutDashboard, Target, Building2, PhoneCall, Mail, FileText, ChevronRight, X, Sparkles, Settings2, Copy, CreditCard,
 } from 'lucide-react';
 import {
   prospectsList, prospectGet, prospectSuppress, prospectPromote,
-  sourceTaxonomy, sourceSearch, ingestPropose, ingestCommit,
+  sourceTaxonomy, sourceSearch, sourceStartRun, sourceRuns, sourceCancelRun, ingestPropose, ingestCommit,
   outreachList, outreachCreate, outreachUpdate, outreachDraftTemplates, outreachEnrol,
   outreachQueue, outreachApprove, outreachApproveAll, outreachRun, outreachMarkReplied,
   getOrgSettings, setOrgSettings, crmList, crmAddContact, crmAddTask, crmCompleteTask,
+  buyboxList, buyboxChat, buyboxCreate, buyboxActivate, buyboxDelete,
 } from '../../lib/acq';
 
 // ---------------------------------------------------------------------------
@@ -20,7 +21,7 @@ import {
 
 const NAVY = '#0A2540';
 const card = 'bg-white rounded-xl border border-gray-200 shadow-sm';
-const input = 'border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#0A2540] focus:ring-1 focus:ring-[#0A2540]/30 bg-white';
+const input__ = 'border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#0A2540] focus:ring-1 focus:ring-[#0A2540]/30 bg-white';
 const btnPrimary = 'inline-flex items-center gap-1.5 bg-[#0A2540] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#0E3257] disabled:opacity-40';
 const btnGold = 'inline-flex items-center gap-1.5 bg-[#FFD700] text-[#0A2540] px-4 py-2 rounded-lg text-sm font-bold hover:brightness-95 disabled:opacity-40';
 const btnGhost = 'inline-flex items-center gap-1.5 border border-gray-300 text-gray-700 px-3.5 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 disabled:opacity-40';
@@ -35,7 +36,7 @@ const PROV_LABEL: Record<string, string> = { platform: 'Sourced', uploaded: 'You
 const fitTint = (n: number | null) => n == null ? 'bg-gray-100 text-gray-400' : n >= 80 ? 'bg-emerald-100 text-emerald-800' : n >= 60 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500';
 const money = (n: any) => n == null ? '—' : '£' + Number(n).toLocaleString();
 
-type View = 'dashboard' | 'find' | 'prospects' | 'contacts' | 'campaigns' | 'funnel' | 'buybox';
+type View = 'dashboard' | 'find' | 'prospects' | 'contacts' | 'campaigns' | 'funnel' | 'buybox' | 'about' | 'billing';
 
 export default function Origination() {
   const [view, setView] = useState<View>('dashboard');
@@ -47,7 +48,7 @@ export default function Origination() {
   const reloadSettings = async () => {
     const r = await getOrgSettings();
     setSettings(r.settings ?? {}); setOrgName(r.org_name ?? '');
-    if (!r.settings?.buy_box) setShowWizard(true);
+    if (!r.settings?.buy_box) setView('buybox');
     return r.settings ?? {};
   };
   useEffect(() => { reloadSettings().catch((e) => setErr(e.message || String(e))); }, []);
@@ -60,6 +61,8 @@ export default function Origination() {
     { key: 'campaigns', label: 'Campaigns', icon: Send },
     { key: 'funnel', label: 'Funnel & Meta ads', icon: Globe },
     { key: 'buybox', label: 'Buy box', icon: Target },
+    { key: 'about', label: 'About you', icon: Users },
+    { key: 'billing', label: 'Usage & billing', icon: CreditCard },
   ];
 
   if (settings === null) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-400"><Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading Origination…</div>;
@@ -90,13 +93,15 @@ export default function Origination() {
       {/* ============ CONTENT ============ */}
       <main className="flex-1 min-w-0 overflow-y-auto">
         {err && <div className="m-6 mb-0 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2.5">{err}</div>}
-        {view === 'dashboard' && <Dashboard setErr={setErr} go={setView} buyBox={settings.buy_box} openWizard={() => setShowWizard(true)} />}
+        {view === 'dashboard' && <Dashboard setErr={setErr} go={setView} buyBox={settings.buy_box} openWizard={() => setView('buybox')} />}
         {view === 'find' && <FindView setErr={setErr} buyBox={settings.buy_box} go={setView} />}
         {view === 'prospects' && <ProspectsView setErr={setErr} />}
         {view === 'contacts' && <ContactsView setErr={setErr} />}
         {view === 'campaigns' && <CampaignsView setErr={setErr} buyBox={settings.buy_box} />}
         {view === 'funnel' && <FunnelView setErr={setErr} settings={settings} onSaved={reloadSettings} />}
-        {view === 'buybox' && <BuyBoxView settings={settings} openWizard={() => setShowWizard(true)} />}
+        {view === 'buybox' && <BuyBoxView openWizard={() => setShowWizard(true)} setErr={setErr} onChanged={() => reloadSettings()} />}
+        {view === 'about' && <AboutView settings={settings} onSaved={reloadSettings} setErr={setErr} />}
+        {view === 'billing' && <BillingView settings={settings} onSaved={reloadSettings} setErr={setErr} />}
       </main>
 
       {showWizard && <BuyBoxWizard orgName={orgName} settings={settings} onDone={async () => { setShowWizard(false); await reloadSettings(); setView('find'); }} onSkip={() => setShowWizard(false)} />}
@@ -125,7 +130,7 @@ function IndustryPicker({ tax, sel, setSel, max = 10, height = 'max-h-72' }: { t
   const toggle = (k: string) => setSel((s: string[]) => s.includes(k) ? s.filter((x) => x !== k) : s.length < max ? [...s, k] : s);
   return (
     <div>
-      <input className={input + ' w-full mb-2'} placeholder={'Search ' + tax.length + ' business types\u2026'} value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className={input__ + ' w-full mb-2'} placeholder={'Search ' + tax.length + ' business types\u2026'} value={q} onChange={(e) => setQ(e.target.value)} />
       {sel.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
           {sel.map((k) => { const t = tax.find((x) => x.key === k); return (
@@ -156,8 +161,8 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
   const [radiusMiles, setRadiusMiles] = useState(String(bb.radius_miles ?? 25));
   const [sizeBand, setSizeBand] = useState(bb.size_band ?? 'small_plus');
   const [regions, setRegions] = useState<string[]>(bb.regions ?? []);
-  const [revMin, setRevMin] = useState(bb.revenue_min ?? '1000000');
-  const [profMin, setProfMin] = useState(bb.profit_min ?? '200000');
+  const [revMin, setRevMin] = useState(bb.revenue_min ?? '750000');
+  const [profMin, setProfMin] = useState(bb.profit_min ?? '180000');
   const [yearsMin, setYearsMin] = useState(String(bb.years_trading_min ?? 8));
   const [succession, setSuccession] = useState(bb.succession_pref !== false);
   const [senderName, setSenderName] = useState(settings?.outreach?.sender_name ?? '');
@@ -169,11 +174,11 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
   const save = async () => {
     setBusy(true);
     try {
-      await setOrgSettings({
-        ...(settings ?? {}),
-        buy_box: { industries, location, radius_miles: Number(radiusMiles) || 0, size_band: sizeBand, regions, revenue_min: Number(revMin) || null, profit_min: Number(profMin) || null, years_trading_min: Number(yearsMin) || 8, succession_pref: succession, completed_at: new Date().toISOString() },
-        outreach: { ...(settings?.outreach ?? {}), sender_name: senderName || undefined },
-      });
+      await setOrgSettings({ ...(settings ?? {}), outreach: { ...(settings?.outreach ?? {}), sender_name: senderName || undefined } });
+      await buyboxCreate(
+        { name: 'Wizard buy box', industries, location, radius_miles: Number(radiusMiles) || 0, size_band: sizeBand, regions, revenue_min: Number(revMin) || null, profit_min: Number(profMin) || null, years_trading_min: Number(yearsMin) || 8, succession_pref: succession, completed_at: new Date().toISOString() },
+        { name: 'Wizard buy box', created_from: 'wizard' },
+      );
       onDone();
     } finally { setBusy(false); }
   };
@@ -209,9 +214,9 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
               <p className="text-[13px] text-gray-500 mb-4">A home town or city gives the sharpest search; regions widen the net.</p>
               <label className="block text-[12px] font-semibold text-gray-700 mb-1">Primary town / city</label>
               <div className="flex gap-3 mb-4 items-end">
-                <input className={input + ' w-64'} placeholder="e.g. Manchester" value={location} onChange={(e) => setLocation(e.target.value)} />
+                <input className={input__ + ' w-64'} placeholder="e.g. Manchester" value={location} onChange={(e) => setLocation(e.target.value)} />
                 <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Within</label>
-                  <select className={input} value={radiusMiles} onChange={(e) => setRadiusMiles(e.target.value)}><option value="0">Town only</option><option value="10">10 miles</option><option value="25">25 miles</option><option value="50">50 miles</option><option value="75">75 miles</option></select></div>
+                  <select className={input__} value={radiusMiles} onChange={(e) => setRadiusMiles(e.target.value)}><option value="0">Town only</option><option value="10">10 miles</option><option value="25">25 miles</option><option value="50">50 miles</option><option value="75">75 miles</option></select></div>
               </div>
               <label className="block text-[12px] font-semibold text-gray-700 mb-2">Regions</label>
               <div className="flex flex-wrap gap-2">{REGIONS.map((r) => <button key={r} onClick={() => toggle(regions, setRegions, r)} className={chip(regions.includes(r))}>{r}</button>)}</div>
@@ -222,12 +227,12 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
               <h3 className="font-semibold text-gray-900 mb-1">What size of business, and which signals matter?</h3>
               <p className="text-[13px] text-gray-500 mb-4">We score every prospect 0–100 against this.</p>
               <div className="grid grid-cols-2 gap-4 max-w-md">
-                <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Min revenue (£)</label><input className={input + ' w-full'} value={revMin} onChange={(e) => setRevMin(e.target.value.replace(/[^0-9]/g, ''))} /></div>
-                <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Min profit (£)</label><input className={input + ' w-full'} value={profMin} onChange={(e) => setProfMin(e.target.value.replace(/[^0-9]/g, ''))} /></div>
+                <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Min revenue (£)</label><input className={input__ + ' w-full'} value={revMin} onChange={(e) => setRevMin(e.target.value.replace(/[^0-9]/g, ''))} /></div>
+                <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Min adjusted EBITDA (£)</label><input className={input__ + ' w-full'} value={profMin} onChange={(e) => setProfMin(e.target.value.replace(/[^0-9]/g, ''))} /></div>
                 <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Trading at least</label>
-                  <select className={input + ' w-full'} value={yearsMin} onChange={(e) => setYearsMin(e.target.value)}><option value="5">5 years</option><option value="8">8 years</option><option value="15">15 years</option></select></div>
+                  <select className={input__ + ' w-full'} value={yearsMin} onChange={(e) => setYearsMin(e.target.value)}><option value="5">5 years</option><option value="8">8 years</option><option value="15">15 years</option></select></div>
                 <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Company size (filed accounts)</label>
-                  <select className={input + ' w-full'} value={sizeBand} onChange={(e) => setSizeBand(e.target.value)}><option value="any">Any size</option><option value="small_plus">£632k+ turnover</option><option value="medium_plus">£10.2m+ turnover</option></select></div>
+                  <select className={input__ + ' w-full'} value={sizeBand} onChange={(e) => setSizeBand(e.target.value)}><option value="any">Any size</option><option value="small_plus">£632k+ turnover</option><option value="medium_plus">£10.2m+ turnover</option></select></div>
               </div>
               <label className="flex items-center gap-2.5 mt-5 cursor-pointer max-w-md">
                 <input type="checkbox" checked={succession} onChange={(e) => setSuccession(e.target.checked)} className="h-4 w-4 accent-[#0A2540]" />
@@ -240,7 +245,7 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
               <h3 className="font-semibold text-gray-900 mb-1">Who is the outreach from?</h3>
               <p className="text-[13px] text-gray-500 mb-4">Letters and emails are written in a personal voice. Owners respond to people, not companies.</p>
               <label className="block text-[12px] font-semibold text-gray-700 mb-1">Your name (as signed on letters)</label>
-              <input className={input + ' w-72'} placeholder="e.g. Sandeep Bansal" value={senderName} onChange={(e) => setSenderName(e.target.value)} />
+              <input className={input__ + ' w-72'} placeholder="e.g. Sandeep Bansal" value={senderName} onChange={(e) => setSenderName(e.target.value)} />
               <div className="mt-5 bg-gray-50 border border-gray-200 rounded-xl p-4 text-[13px] text-gray-600">
                 <b className="text-gray-800">Your buy box:</b> {industries.length} industries · {location || regions.join(', ') || 'UK-wide'} · £{Number(revMin || 0).toLocaleString()}+ revenue · £{Number(profMin || 0).toLocaleString()}+ profit · {yearsMin}+ years{succession ? ' · succession priority' : ''}
               </div>
@@ -351,15 +356,42 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
   const [radius, setRadius] = useState(String(buyBox?.radius_miles ?? 25));
   const [sizeBand, setSizeBand] = useState(buyBox?.size_band ?? 'any');
   const [dirAge, setDirAge] = useState(buyBox?.succession_pref !== false ? '55' : '0');
+  const REGIONS: Record<string, { label: string; town: string; miles: number }> = {
+    nw: { label: 'North West', town: 'Manchester', miles: 60 }, yorks: { label: 'Yorkshire & Humber', town: 'Leeds', miles: 55 },
+    ne: { label: 'North East', town: 'Newcastle upon Tyne', miles: 55 }, mids: { label: 'Midlands', town: 'Birmingham', miles: 65 },
+    east: { label: 'East of England', town: 'Cambridge', miles: 65 }, ldn: { label: 'London', town: 'London', miles: 35 },
+    se: { label: 'South East', town: 'Guildford', miles: 60 }, sw: { label: 'South West', town: 'Taunton', miles: 75 },
+    wales: { label: 'Wales', town: 'Builth Wells', miles: 85 }, scot: { label: 'Central Scotland', town: 'Stirling', miles: 90 },
+    ni: { label: 'Northern Ireland', town: 'Belfast', miles: 60 },
+  };
+  const [areaMode, setAreaMode] = useState<string>(buyBox?.location ? 'custom' : 'national');
+  const geo = () => areaMode === 'national' ? { location: undefined, radius_miles: 0 }
+    : areaMode === 'custom' ? { location: location || undefined, radius_miles: location ? Number(radius) : 0 }
+    : { location: REGIONS[areaMode].town, radius_miles: REGIONS[areaMode].miles };
+  const [statuses, setStatuses] = useState<string[]>(['active']);
+  const [customSic, setCustomSic] = useState('');
+  const [qName, setQName] = useState('');
+  const [excludeExisting, setExcludeExisting] = useState(true);
+  const STATUS_OPTS: [string, string][] = [['active', 'Active'], ['administration', 'In administration'], ['receivership', 'Receivership'], ['liquidation', 'Liquidation'], ['voluntary_arrangement', 'CVA']];
+  const toggleStatus = (k: string) => setStatuses((x) => x.includes(k) ? (x.length > 1 ? x.filter((y) => y !== k) : x) : [...x, k]);
+  const sicList = () => customSic.split(/[\s,;]+/).map((x) => x.trim()).filter((x) => /^\d{4,5}$/.test(x));
   const [minAge, setMinAge] = useState(String(buyBox?.years_trading_min ?? 8));
   const [maxN, setMaxN] = useState('25');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any>(null);
-  useEffect(() => { sourceTaxonomy().then((r) => setTax(r.taxonomy)).catch((e) => setErr(e.message || String(e))); }, []);
+  const [runs, setRuns] = useState<any[]>([]);
+  const loadRuns = () => sourceRuns().then((r) => setRuns(r.runs)).catch(() => {});
+  useEffect(() => { sourceTaxonomy().then((r) => setTax(r.taxonomy)).catch((e) => setErr(e.message || String(e))); loadRuns(); const t = setInterval(loadRuns, 30000); return () => clearInterval(t); }, []);
+  const startRun = async () => {
+    if (!sel.length && !sicList().length) { setErr('Pick at least one industry or enter SIC codes'); return; }
+    setErr('');
+    try { const r = await sourceStartRun({ categories: sel, sic_codes: sicList(), statuses, q_name: qName || undefined, exclude_existing: excludeExisting, ...geo(), size_band: sizeBand, min_director_age: Number(dirAge), min_age_years: Number(minAge) }); alert(r.note); loadRuns(); }
+    catch (e: any) { setErr(e.message || String(e)); }
+  };
   const run = async () => {
-    if (!sel.length) { setErr('Pick at least one industry'); return; }
+    if (!sel.length && !sicList().length) { setErr('Pick at least one industry or enter SIC codes'); return; }
     setBusy(true); setErr(''); setResult(null);
-    try { setResult(await sourceSearch({ categories: sel, location: location || undefined, radius_miles: location ? Number(radius) : 0, size_band: sizeBand, min_director_age: Number(dirAge), min_age_years: Number(minAge), max_results: Number(maxN) })); }
+    try { setResult(await sourceSearch({ categories: sel, sic_codes: sicList(), statuses, q_name: qName || undefined, exclude_existing: excludeExisting, ...geo(), size_band: sizeBand, min_director_age: Number(dirAge), min_age_years: Number(minAge), max_results: Number(maxN) })); }
     catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(false); }
   };
   return (
@@ -372,30 +404,69 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
           {buyBox && <div className="text-[11px] text-gray-400 mb-3 flex items-center gap-1"><Target className="h-3 w-3" /> Pre-filled from your buy box</div>}
           <div className="text-[12px] font-semibold text-gray-700 mb-2">Industries <span className="text-gray-400 font-normal">(up to 10)</span></div>
           <div className="mb-4"><IndustryPicker tax={tax} sel={sel} setSel={setSel} max={10} height="max-h-64" /></div>
-          <div className="text-[12px] font-semibold text-gray-700 mb-1">Town / city</div>
-          <input className={input + ' w-full mb-2'} placeholder="e.g. Manchester" value={location} onChange={(e) => setLocation(e.target.value)} />
-          <div className="text-[12px] font-semibold text-gray-700 mb-1">Distance</div>
-          <select className={input + ' w-full mb-3'} value={radius} onChange={(e) => setRadius(e.target.value)} disabled={!location}>
-            <option value="0">Town match only</option><option value="10">Within 10 miles</option><option value="25">Within 25 miles</option><option value="50">Within 50 miles</option><option value="75">Within 75 miles</option>
+          <div className="text-[12px] font-semibold text-gray-700 mb-1">Custom SIC codes <span className="text-gray-400 font-normal">(optional, comma-separated)</span></div>
+          <input className={input__ + ' w-full mb-3'} placeholder="e.g. 43220, 68209" value={customSic} onChange={(e) => setCustomSic(e.target.value)} />
+          <div className="text-[12px] font-semibold text-gray-700 mb-1.5">Company status</div>
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {STATUS_OPTS.map(([k, label]) => <button key={k} onClick={() => toggleStatus(k)} className={chip(statuses.includes(k))}>{label}</button>)}
+          </div>
+          <div className="text-[12px] font-semibold text-gray-700 mb-1">Name contains <span className="text-gray-400 font-normal">(optional)</span></div>
+          <input className={input__ + ' w-full mb-3'} placeholder="e.g. skip hire" value={qName} onChange={(e) => setQName(e.target.value)} />
+          <div className="text-[12px] font-semibold text-gray-700 mb-1">Area</div>
+          <select className={input__ + ' w-full mb-2'} value={areaMode} onChange={(e) => setAreaMode(e.target.value)}>
+            <option value="national">National (all of UK)</option>
+            {Object.entries(REGIONS).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}
+            <option value="custom">Near a town / city…</option>
           </select>
+          {areaMode === 'custom' && (<>
+            <input className={input__ + ' w-full mb-2'} placeholder="e.g. Manchester" value={location} onChange={(e) => setLocation(e.target.value)} />
+            <select className={input__ + ' w-full mb-3'} value={radius} onChange={(e) => setRadius(e.target.value)} disabled={!location}>
+              <option value="0">Town match only</option><option value="10">Within 10 miles</option><option value="25">Within 25 miles</option><option value="50">Within 50 miles</option><option value="75">Within 75 miles</option>
+            </select>
+          </>)}
           <div className="text-[12px] font-semibold text-gray-700 mb-1">Company size <span className="text-gray-400 font-normal">(from filed accounts)</span></div>
-          <select className={input + ' w-full mb-3'} value={sizeBand} onChange={(e) => setSizeBand(e.target.value)}>
+          <select className={input__ + ' w-full mb-3'} value={sizeBand} onChange={(e) => setSizeBand(e.target.value)}>
             <option value="any">Any size</option><option value="small_plus">£632k+ turnover</option><option value="medium_plus">£10.2m+ turnover</option>
           </select>
           <div className="text-[12px] font-semibold text-gray-700 mb-1">Succession signal</div>
-          <select className={input + ' w-full mb-3'} value={dirAge} onChange={(e) => setDirAge(e.target.value)}>
+          <select className={input__ + ' w-full mb-3'} value={dirAge} onChange={(e) => setDirAge(e.target.value)}>
             <option value="0">Any director age</option><option value="55">Oldest director 55+</option><option value="60">Oldest director 60+</option>
           </select>
           <div className="grid grid-cols-2 gap-2 mb-4">
             <div><div className="text-[12px] font-semibold text-gray-700 mb-1">Trading</div>
-              <select className={input + ' w-full'} value={minAge} onChange={(e) => setMinAge(e.target.value)}><option value="5">5+ yrs</option><option value="8">8+ yrs</option><option value="15">15+ yrs</option></select></div>
+              <select className={input__ + ' w-full'} value={minAge} onChange={(e) => setMinAge(e.target.value)}><option value="5">5+ yrs</option><option value="8">8+ yrs</option><option value="15">15+ yrs</option></select></div>
             <div><div className="text-[12px] font-semibold text-gray-700 mb-1">Results</div>
-              <select className={input + ' w-full'} value={maxN} onChange={(e) => setMaxN(e.target.value)}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></div>
+              <select className={input__ + ' w-full'} value={maxN} onChange={(e) => setMaxN(e.target.value)}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></div>
           </div>
+          <label className="flex items-center gap-2 mb-3 cursor-pointer text-[12px] text-gray-600">
+            <input type="checkbox" checked={excludeExisting} onChange={(e) => setExcludeExisting(e.target.checked)} className="h-3.5 w-3.5 accent-[#0A2540]" />
+            Hide companies already in my Prospects
+          </label>
           <button onClick={run} disabled={busy} className={btnGold + ' w-full justify-center'}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}{busy ? 'Searching Companies House…' : 'Find companies'}</button>
         </div>
         {/* results */}
         <div className="flex-1 min-w-0">
+          {runs.filter((r) => ['queued','running'].includes(r.status) || (r.status === 'done' && Date.now() - new Date(r.updated_at).getTime() < 86400000)).length > 0 && (
+            <div className={card + ' p-4 mb-4'}>
+              <div className="text-[12px] font-bold text-gray-800 uppercase tracking-wide mb-2">Background sourcing</div>
+              {runs.filter((r) => ['queued','running','done'].includes(r.status)).slice(0, 4).map((r) => {
+                const pct = r.candidates_total ? Math.min(100, Math.round((r.cursor_pos / r.candidates_total) * 100)) : 0;
+                const pr = r.params ?? {}; const t = r.totals ?? {};
+                return (
+                  <div key={r.id} className="py-2 border-b border-gray-50 last:border-0">
+                    <div className="flex items-center gap-2 text-[12px]">
+                      <span className={'h-2 w-2 rounded-full ' + (r.status === 'done' ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse')} />
+                      <span className="text-gray-700 font-medium truncate">{(pr.categories ?? []).slice(0, 3).map((k: string) => k.replace(/_/g, ' ')).join(', ')}{pr.location ? ' · ' + pr.location + (pr.radius_miles ? ` (${pr.radius_miles} mi)` : '') : ''}</span>
+                      <span className="text-gray-400 ml-auto shrink-0">{r.status === 'done' ? `done · ${t.created ?? 0} added` : r.candidates_total ? `${r.cursor_pos}/${r.candidates_total} · ${t.created ?? 0} added` : 'queued'}</span>
+                      {['queued','running'].includes(r.status) && <button onClick={async () => { await sourceCancelRun(r.id); loadRuns(); }} className="text-gray-300 hover:text-red-500 shrink-0" title="Cancel"><X className="h-3.5 w-3.5" /></button>}
+                    </div>
+                    {r.status !== 'done' && <div className="h-1.5 bg-gray-100 rounded-full mt-1.5"><div className="h-1.5 rounded-full bg-[#0A2540] transition-all" style={{ width: pct + '%' }} /></div>}
+                  </div>
+                );
+              })}
+              <div className="text-[11px] text-gray-400 mt-2">Runs in the background at roughly 700 companies an hour — every match lands in Prospects automatically. You can close this page.</div>
+            </div>
+          )}
           {!result && !busy && (
             <div className={card + ' p-10 text-center text-gray-400'}>
               <Building2 className="h-8 w-8 mx-auto mb-3 text-gray-300" />
@@ -407,8 +478,18 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
           {result && (
             <div className={card}>
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <div className="text-[14px] text-gray-800"><b>{result.created}</b> new prospects added{result.updated ? `, ${result.updated} refreshed` : ''} <span className="text-gray-400">(of {result.total_hits} matches)</span></div>
-                <button onClick={() => go('prospects')} className={btnPrimary}>Open Prospects<ArrowUpRight className="h-4 w-4" /></button>
+                <div>
+                  <div className="text-[14px] text-gray-800"><b>{result.created}</b> new prospects added{result.updated ? `, ${result.updated} refreshed` : ''}</div>
+                  <div className="text-[12px] text-gray-400 mt-0.5">
+                    Analysed the {result.scanned} {result.considered && result.considered < result.total_hits ? 'nearest' : 'best'} of {Number(result.total_hits).toLocaleString()} matches
+                    {result.excluded_size ? ` · ${result.excluded_size} excluded by size` : ''}{result.excluded_age ? ` · ${result.excluded_age} excluded by director age` : ''}
+                    {result.rate_limited ? ' · stopped early: Companies House rate limit — wait a minute for more' : ''}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {result.considered > result.scanned && <button onClick={startRun} className={btnGhost}>Source all {Number(result.considered).toLocaleString()} in background</button>}
+                  <button onClick={() => go('prospects')} className={btnPrimary}>Open Prospects<ArrowUpRight className="h-4 w-4" /></button>
+                </div>
               </div>
               {result.prospects.map((p: any) => (
                 <div key={p.id} className="px-5 py-3 border-b border-gray-50 last:border-0 flex items-center gap-3">
@@ -417,6 +498,7 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
                     <div className="text-[13px] font-semibold text-gray-800 truncate">{p.company_name}</div>
                     <div className="text-[12px] text-gray-400 truncate">{[p.company_number, p.address, p.distance_miles != null ? p.distance_miles + ' mi away' : null, p.size && !String(p.size).includes('unknown') ? p.size : null].filter(Boolean).join(' · ')}</div>
                   </div>
+                  {p.status && p.status !== 'active' && <span className="text-[11px] text-red-700 bg-red-50 px-2 py-0.5 rounded-full shrink-0 font-semibold">{p.status.replace(/_/g, ' ')}</span>}
                   {p.oldest_director_age && <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full shrink-0">Oldest director {p.oldest_director_age}</span>}
                 </div>
               ))}
@@ -453,12 +535,12 @@ function ProspectsView({ setErr }: { setErr: (s: string) => void }) {
       </Header>
       <div className="px-8 pb-8">
         <div className="flex gap-2 mb-4 items-center flex-wrap">
-          <div className="relative"><Search className="h-4 w-4 absolute left-3 top-2.5 text-gray-400" /><input className={input + ' pl-9 w-64'} placeholder="Search name, number, region…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-          <select className={input} value={stage} onChange={(e) => setStage(e.target.value)}>
+          <div className="relative"><Search className="h-4 w-4 absolute left-3 top-2.5 text-gray-400" /><input className={input__ + ' pl-9 w-64'} placeholder="Search name, number, region…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <select className={input__} value={stage} onChange={(e) => setStage(e.target.value)}>
             <option value="">All active stages</option>
             {['new','enriched','in_campaign','replied','qualified','promoted','suppressed','disqualified'].map((s) => <option key={s} value={s}>{s.replace('_', ' ')}{counts[s] ? ` (${counts[s]})` : ''}</option>)}
           </select>
-          <select className={input} value={minFit} onChange={(e) => setMinFit(e.target.value)}><option value="">Any fit</option><option value="80">Fit 80+</option><option value="60">Fit 60+</option></select>
+          <select className={input__} value={minFit} onChange={(e) => setMinFit(e.target.value)}><option value="">Any fit</option><option value="80">Fit 80+</option><option value="60">Fit 60+</option></select>
         </div>
         <div className={card + ' overflow-hidden'}>
           <table className="w-full text-left">
@@ -586,7 +668,7 @@ function UploadModal({ onClose, setErr }: { onClose: () => void; setErr: (s: str
               {proposal.headers.map((h: string) => (
                 <div key={h} className="flex items-center gap-2">
                   <span className="text-[13px] text-gray-700 w-48 truncate">{h}</span>
-                  <select className={input + ' flex-1'} value={mapping[h] ?? ''} onChange={(e) => setMapping((m) => ({ ...m, [h]: e.target.value || null }))}>
+                  <select className={input__ + ' flex-1'} value={mapping[h] ?? ''} onChange={(e) => setMapping((m) => ({ ...m, [h]: e.target.value || null }))}>
                     <option value="">— ignore —</option>{FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
@@ -630,8 +712,8 @@ function ContactsView({ setErr }: { setErr: (s: string) => void }) {
             </div>
           ))}
           <div className="flex gap-2 mt-3">
-            <input className={input + ' flex-1'} placeholder="Add a task…" value={tf.title ?? ''} onChange={(e) => setTf((f) => ({ ...f, title: e.target.value }))} />
-            <input type="date" className={input} value={tf.due ?? ''} onChange={(e) => setTf((f) => ({ ...f, due: e.target.value }))} />
+            <input className={input__ + ' flex-1'} placeholder="Add a task…" value={tf.title ?? ''} onChange={(e) => setTf((f) => ({ ...f, title: e.target.value }))} />
+            <input type="date" className={input__} value={tf.due ?? ''} onChange={(e) => setTf((f) => ({ ...f, due: e.target.value }))} />
             <button onClick={addTask} disabled={busy === 't'} className={btnPrimary}>Add</button>
           </div>
         </div>
@@ -648,9 +730,9 @@ function ContactsView({ setErr }: { setErr: (s: string) => void }) {
             ))}
           </div>
           <div className="grid grid-cols-4 gap-2 mt-3">
-            <input className={input} placeholder="Name" value={cf.name ?? ''} onChange={(e) => setCf((f) => ({ ...f, name: e.target.value }))} />
-            <input className={input} placeholder="Company" value={cf.company ?? ''} onChange={(e) => setCf((f) => ({ ...f, company: e.target.value }))} />
-            <input className={input} placeholder="Email" value={cf.email ?? ''} onChange={(e) => setCf((f) => ({ ...f, email: e.target.value }))} />
+            <input className={input__} placeholder="Name" value={cf.name ?? ''} onChange={(e) => setCf((f) => ({ ...f, name: e.target.value }))} />
+            <input className={input__} placeholder="Company" value={cf.company ?? ''} onChange={(e) => setCf((f) => ({ ...f, company: e.target.value }))} />
+            <input className={input__} placeholder="Email" value={cf.email ?? ''} onChange={(e) => setCf((f) => ({ ...f, email: e.target.value }))} />
             <button onClick={addContact} disabled={busy === 'c'} className={btnPrimary + ' justify-center'}>Add</button>
           </div>
         </div>
@@ -686,7 +768,7 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
 
   return (
     <>
-      <Header title="Campaigns" sub="Letter → email → call sequences, written in your voice from your buy box. Nothing sends until you approve it; suppressions and daily caps are enforced automatically.">
+      <Header title="Campaigns" sub="Register-sourced prospects are letters-only until they reply — a rejected cold email burns that owner for good, a letter never does. Your own uploads, funnel enquiries and Meta leads can be emailed from day one. Calls unlock once anyone engages. Nothing sends until you approve it.">
         <button onClick={showQueue} disabled={!!busy} className={btnGhost}><Check className="h-4 w-4" />Approval queue</button>
         <button onClick={runNow} disabled={!!busy} className={btnGhost}>{busy === 'run' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Run engine now</button>
         <button onClick={() => setCreating((c) => !c)} className={btnGold}><Send className="h-4 w-4" />New campaign</button>
@@ -695,7 +777,7 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
         {creating && (
           <div className={card + ' p-5 mb-5'}>
             <div className="flex gap-2 mb-3">
-              <input className={input + ' flex-1'} placeholder="Campaign name, e.g. Laundries North West Q3" value={name} onChange={(e) => setName(e.target.value)} />
+              <input className={input__ + ' flex-1'} placeholder="Campaign name, e.g. Laundries North West Q3" value={name} onChange={(e) => setName(e.target.value)} />
               <button onClick={aiDraft} disabled={busy === 'draft'} className={btnPrimary}>{busy === 'draft' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{busy === 'draft' ? 'Writing in your voice…' : 'Draft sequence with AI'}</button>
             </div>
             {draftSteps.map((s, i) => {
@@ -703,8 +785,8 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
               return (
                 <div key={i} className="mb-3 bg-gray-50 rounded-xl p-4">
                   <div className="flex items-center gap-2 text-[12px] text-gray-500 mb-2"><Icon className="h-4 w-4" /><b className="text-gray-700">Step {i + 1} · {CHANNEL_LABEL[s.channel]}</b>{s.wait_days ? `· ${s.wait_days} days after previous` : '· immediately'}</div>
-                  {s.subject != null && s.channel === 'email' && <input className={input + ' w-full mb-2'} value={s.subject} onChange={(e) => setDraftSteps((d) => d.map((x, j) => j === i ? { ...x, subject: e.target.value } : x))} />}
-                  <textarea className={input + ' w-full min-h-[100px]'} value={s.body} onChange={(e) => setDraftSteps((d) => d.map((x, j) => j === i ? { ...x, body: e.target.value } : x))} />
+                  {s.subject != null && s.channel === 'email' && <input className={input__ + ' w-full mb-2'} value={s.subject} onChange={(e) => setDraftSteps((d) => d.map((x, j) => j === i ? { ...x, subject: e.target.value } : x))} />}
+                  <textarea className={input__ + ' w-full min-h-[100px]'} value={s.body} onChange={(e) => setDraftSteps((d) => d.map((x, j) => j === i ? { ...x, body: e.target.value } : x))} />
                 </div>
               );
             })}
@@ -756,9 +838,9 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
             </div>
             {enrolFor === c.id && (
               <div className="flex gap-2 items-center mt-3 flex-wrap bg-gray-50 rounded-lg p-3">
-                <select className={input} value={ef.min_fit} onChange={(e) => setEf((f) => ({ ...f, min_fit: e.target.value }))}><option value="">Any fit</option><option value="60">Fit 60+</option><option value="80">Fit 80+</option></select>
-                <input className={input + ' w-40'} placeholder="Region (optional)" value={ef.region ?? ''} onChange={(e) => setEf((f) => ({ ...f, region: e.target.value }))} />
-                <select className={input} value={ef.limit} onChange={(e) => setEf((f) => ({ ...f, limit: e.target.value }))}><option value="25">Up to 25</option><option value="50">Up to 50</option><option value="100">Up to 100</option></select>
+                <select className={input__} value={ef.min_fit} onChange={(e) => setEf((f) => ({ ...f, min_fit: e.target.value }))}><option value="">Any fit</option><option value="60">Fit 60+</option><option value="80">Fit 80+</option></select>
+                <input className={input__ + ' w-40'} placeholder="Region (optional)" value={ef.region ?? ''} onChange={(e) => setEf((f) => ({ ...f, region: e.target.value }))} />
+                <select className={input__} value={ef.limit} onChange={(e) => setEf((f) => ({ ...f, limit: e.target.value }))}><option value="25">Up to 25</option><option value="50">Up to 50</option><option value="100">Up to 100</option></select>
                 <button onClick={() => enrol(c.id)} disabled={busy === 'enrol'} className={btnGold}>{busy === 'enrol' && <Loader2 className="h-4 w-4 animate-spin" />}Enrol</button>
               </div>
             )}
@@ -790,8 +872,8 @@ function FunnelView({ setErr, settings, onSaved }: { setErr: (s: string) => void
           <div className="font-semibold text-gray-900 mb-1">Your seller page</div>
           <p className="text-[13px] text-gray-500 mb-3">Use it in ads, letters, email signatures and QR codes. Enquiries arrive as qualified leads with an automatic confidential reply.</p>
           <div className="flex gap-2 mb-2">
-            <input className={input + ' w-44'} placeholder="Link slug" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} />
-            <input className={input + ' flex-1'} placeholder="Headline (optional)" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+            <input className={input__ + ' w-44'} placeholder="Link slug" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} />
+            <input className={input__ + ' flex-1'} placeholder="Headline (optional)" value={headline} onChange={(e) => setHeadline(e.target.value)} />
           </div>
           <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-2.5 mb-3">
             <Globe className="h-4 w-4 text-gray-400 shrink-0" />
@@ -815,7 +897,7 @@ function FunnelView({ setErr, settings, onSaved }: { setErr: (s: string) => void
             <button onClick={() => navigator.clipboard.writeText(apiBase)} className={btnGhost + ' !px-2.5'}><Copy className="h-3.5 w-3.5" /></button>
           </div>
           <div className="flex gap-2">
-            <input className={input + ' flex-1'} placeholder="Webhook verify token" value={verifyTok} onChange={(e) => setVerifyTok(e.target.value)} />
+            <input className={input__ + ' flex-1'} placeholder="Webhook verify token" value={verifyTok} onChange={(e) => setVerifyTok(e.target.value)} />
             <button onClick={save} disabled={busy} className={btnPrimary}>Save</button>
           </div>
         </div>
@@ -825,46 +907,219 @@ function FunnelView({ setErr, settings, onSaved }: { setErr: (s: string) => void
 }
 
 // ============================ BUY BOX ============================
-function BuyBoxView({ settings, openWizard }: { settings: any; openWizard: () => void }) {
-  const bb = settings?.buy_box;
+function money2(n: any) { return n == null ? null : '\u00a3' + Number(n).toLocaleString(); }
+
+function BuyBoxView({ openWizard, setErr, onChanged }: { openWizard: () => void; setErr: (s: string) => void; onChanged: () => void }) {
+  const [boxes, setBoxes] = useState<any[] | null>(null);
   const [tax, setTax] = useState<Record<string, string>>({});
-  useEffect(() => { sourceTaxonomy().then((r) => setTax(Object.fromEntries(r.taxonomy.map((t) => [t.key, t.label])))).catch(() => {}); }, []);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [busy, setBusy] = useState('');
+  const load = async () => { try { const r = await buyboxList(); setBoxes(r.boxes); } catch (e: any) { setErr(e.message || String(e)); } };
+  useEffect(() => { load(); sourceTaxonomy().then((r) => setTax(Object.fromEntries(r.taxonomy.map((t) => [t.key, t.label])))).catch(() => {}); }, []);
+  const activate = async (id: string) => { setBusy(id); try { await buyboxActivate(id); await load(); onChanged(); } finally { setBusy(''); } };
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`Delete buy box "${name}"? This cannot be undone.`)) return;
+    setBusy(id); try { await buyboxDelete(id); await load(); onChanged(); } finally { setBusy(''); }
+  };
   return (
     <>
-      <Header title="Buy box" sub="The definition of what you buy. Sourcing, fit scoring, campaign drafting and the funnel all read from it.">
-        <button onClick={openWizard} className={btnGold}><Settings2 className="h-4 w-4" />{bb ? 'Edit buy box' : 'Set up buy box'}</button>
+      <Header title="Buy box" sub="The definition of what you buy — built with the Officially Invested method. Sourcing, fit scoring, campaign drafting and the funnel all read from whichever box is active. Run as many as you like.">
+        <button onClick={openWizard} className={btnGhost}><Settings2 className="h-4 w-4" />Quick wizard</button>
+        <button onClick={() => setChatOpen(true)} className={btnGold}><Sparkles className="h-4 w-4" />Build with the coach</button>
       </Header>
       <div className="px-8 pb-8">
-        {!bb ? (
+        {boxes === null ? <div className="text-gray-400"><Loader2 className="h-5 w-5 animate-spin" /></div> : boxes.length === 0 ? (
           <div className={card + ' p-12 text-center text-gray-400'}>
             <Target className="h-8 w-8 mx-auto mb-3 text-gray-300" />
             <div className="text-gray-600 font-medium mb-1">No buy box yet</div>
-            <div className="text-[13px] mb-4">Two minutes of setup drives everything in Origination.</div>
-            <button onClick={openWizard} className={btnGold}>Start the wizard</button>
+            <div className="text-[13px] mb-4 max-w-md mx-auto">The coach interviews you the way we teach it: your background, your capital and funding stack, your income goal, geography, risk filters. Five minutes, and everything in Origination starts working for you.</div>
+            <button onClick={() => setChatOpen(true)} className={btnGold}><Sparkles className="h-4 w-4" />Build my buy box with the coach</button>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
-            <div className={card + ' p-5'}>
-              <div className="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-3">Industries</div>
-              <div className="flex flex-wrap gap-1.5">{(bb.industries ?? []).map((k: string) => <span key={k} className="text-[12px] px-3 py-1.5 rounded-full bg-[#0A2540] text-white">{tax[k] ?? k}</span>)}</div>
-            </div>
-            <div className={card + ' p-5'}>
-              <div className="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-3">Geography</div>
-              <div className="text-[14px] text-gray-800">{bb.location || '—'}</div>
-              <div className="flex flex-wrap gap-1.5 mt-2">{(bb.regions ?? []).map((r: string) => <span key={r} className="text-[12px] px-3 py-1 rounded-full bg-gray-100 text-gray-600">{r}</span>)}</div>
-            </div>
-            <div className={card + ' p-5'}>
-              <div className="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-3">Size</div>
-              <div className="text-[14px] text-gray-800">{money(bb.revenue_min)}+ revenue · {money(bb.profit_min)}+ profit</div>
-              <div className="text-[13px] text-gray-500 mt-1">Trading {bb.years_trading_min ?? 8}+ years</div>
-            </div>
-            <div className={card + ' p-5'}>
-              <div className="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-3">Signals</div>
-              <div className="text-[13px] text-gray-700">{bb.succession_pref !== false ? 'Succession priority on — owners 55+ score higher.' : 'Succession priority off.'}</div>
-              {settings?.outreach?.sender_name && <div className="text-[13px] text-gray-500 mt-2">Outreach signed by <b className="text-gray-700">{settings.outreach.sender_name}</b></div>}
-            </div>
+            {boxes.map((b) => {
+              const c = b.criteria ?? {};
+              return (
+                <div key={b.id} className={card + ' p-5 ' + (b.is_active ? 'ring-2 ring-[#FFD700]' : '')}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <b className="text-[15px] text-gray-900">{b.name}</b>
+                    {b.is_active ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#0A2540] text-[#FFD700]">ACTIVE</span>
+                      : <button disabled={!!busy} onClick={() => activate(b.id)} className="text-[11px] font-semibold text-gray-500 hover:text-[#0A2540] border border-gray-300 rounded-full px-2.5 py-0.5">Make active</button>}
+                    <span className="text-[10px] text-gray-300 ml-auto">{b.created_from === 'chat' ? 'Coach-built' : 'Wizard'}</span>
+                    <button disabled={!!busy} onClick={() => remove(b.id, b.name)} className="text-gray-300 hover:text-red-500" title="Delete"><X className="h-4 w-4" /></button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mb-2.5">
+                    {(c.industries ?? []).slice(0, 5).map((k: string) => <span key={k} className="text-[11px] px-2.5 py-1 rounded-full bg-[#0A2540] text-white">{tax[k] ?? k}</span>)}
+                    {(c.industries ?? []).length > 5 && <span className="text-[11px] px-2 py-1 text-gray-400">+{(c.industries ?? []).length - 5} more</span>}
+                    {(c.custom_industries ?? []).map((x: string) => <span key={x} className="text-[11px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">{x}</span>)}
+                  </div>
+                  <div className="text-[12px] text-gray-500 flex flex-col gap-1">
+                    <div>{[c.location ? `${c.location}${c.radius_miles ? ` (within ${c.radius_miles} mi)` : ''}` : null, (c.regions ?? []).join(', ') || null].filter(Boolean).join(' \u00b7 ') || 'UK-wide'}</div>
+                    <div>{[money2(c.revenue_min) ? money2(c.revenue_min) + '+ revenue' : null, money2(c.profit_min) ? money2(c.profit_min) + '+ profit' : null, c.max_price ? 'up to ' + money2(c.max_price) : null].filter(Boolean).join(' \u00b7 ') || 'Any size'}</div>
+                    <div>{[c.years_trading_min ? `${c.years_trading_min}+ yrs trading` : null, c.succession_pref !== false ? 'succession priority' : null, c.recurring_revenue_pref ? 'recurring revenue' : null, c.max_customer_concentration_pct ? `max ${c.max_customer_concentration_pct}% customer concentration` : null].filter(Boolean).join(' \u00b7 ')}</div>
+                    {(c.hands_on_level || c.regulated_ok != null || (c.capital_sources ?? []).length > 0) && <div>{[c.hands_on_level ? c.hands_on_level.replace(/_/g, ' ') : null, c.regulated_ok ? 'open to regulated' : c.regulated_ok === false ? 'non-regulated only' : null, (c.capital_sources ?? []).length ? 'capital: ' + c.capital_sources.map((x: string) => x.replace(/_/g, '/')).join(', ') : null].filter(Boolean).join(' · ')}</div>}
+                    {(c.exclusions ?? []).length > 0 && <div className="text-red-400">Avoids: {(c.exclusions ?? []).join(', ')}</div>}
+                  </div>
+                  {c.rationale && <div className="mt-2.5 text-[12px] text-gray-600 bg-gray-50 rounded-lg p-2.5 leading-relaxed">{c.rationale}</div>}
+                </div>
+              );
+            })}
           </div>
         )}
+      </div>
+      {chatOpen && <BuyBoxChat onClose={() => setChatOpen(false)} onSaved={async () => { setChatOpen(false); await load(); onChanged(); }} setErr={setErr} />}
+    </>
+  );
+}
+
+function BuyBoxChat({ onClose, onSaved, setErr }: { onClose: () => void; onSaved: () => void; setErr: (s: string) => void }) {
+  const [msgs, setMsgs] = useState<{ role: string; content: string }[]>([]);
+  const [input, setInput] = useState('');
+  const [thinking, setThinking] = useState(false);
+  const [proposal, setProposal] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, thinking, proposal]);
+  useEffect(() => {
+    setMsgs([{ role: 'assistant', content: "Let's build your buy box properly, the way we teach it. First: tell me about you. What's your background \u2014 what have you run, worked in, or know deeply? And roughly how much cash could you deploy into a deal?" }]);
+  }, []);
+
+  const send = async (text?: string) => {
+    const content = (text ?? input).trim();
+    if (!content || thinking) return;
+    const next = [...msgs, { role: 'user', content }];
+    setMsgs(next); setInput(''); setThinking(true); setErr('');
+    try {
+      const r = await buyboxChat(next.map((m) => ({ role: m.role, content: m.content })));
+      setMsgs((m) => [...m, { role: 'assistant', content: r.message }]);
+      if (r.complete && r.buy_box) setProposal(r.buy_box);
+    } catch (e: any) { setErr(e.message || String(e)); } finally { setThinking(false); }
+  };
+  const save = async () => {
+    setSaving(true);
+    try { await buyboxCreate(proposal, { name: proposal.name ?? 'My buy box', created_from: 'chat', transcript: msgs }); onSaved(); }
+    catch (e: any) { setErr(e.message || String(e)); setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col" style={{ height: 'min(720px, 90vh)' }}>
+        <div className="px-6 py-4 rounded-t-2xl flex items-center justify-between" style={{ background: NAVY }}>
+          <div>
+            <div className="text-[#FFD700] font-serif font-bold">The Buy Box coach</div>
+            <div className="text-white/50 text-[11px]">Built on the Officially Invested frameworks — screening gates, RED, the funding stack</div>
+          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3 bg-gray-50">
+          {msgs.map((m, i) => (
+            <div key={i} className={'max-w-[85%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ' + (m.role === 'user' ? 'self-end bg-[#0A2540] text-white rounded-br-md' : 'self-start bg-white border border-gray-200 text-gray-800 rounded-bl-md shadow-sm')}>{m.content}</div>
+          ))}
+          {thinking && <div className="self-start bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm"><Loader2 className="h-4 w-4 animate-spin text-gray-400" /></div>}
+          {proposal && (
+            <div className="self-stretch bg-white border-2 border-[#FFD700] rounded-2xl p-4 shadow-sm">
+              <div className="font-bold text-gray-900 text-[14px] mb-1">{proposal.name ?? 'Your buy box'}</div>
+              <div className="text-[12px] text-gray-600 flex flex-col gap-1 mb-3">
+                <div>{[proposal.location ? `${proposal.location}${proposal.radius_miles ? ` (within ${proposal.radius_miles} mi)` : ''}` : null, money2(proposal.profit_min) ? money2(proposal.profit_min) + '+ profit' : null, money2(proposal.revenue_min) ? money2(proposal.revenue_min) + '+ revenue' : null, proposal.max_price ? 'up to ' + money2(proposal.max_price) : null].filter(Boolean).join(' \u00b7 ')}</div>
+                <div className="flex flex-wrap gap-1">{(proposal.industries ?? []).map((k: string) => <span key={k} className="text-[10px] px-2 py-0.5 rounded-full bg-[#0A2540] text-white">{k.replace(/_/g, ' ')}</span>)}</div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={save} disabled={saving} className={btnGold}>{saving && <Loader2 className="h-4 w-4 animate-spin" />}Save & make active</button>
+                <button onClick={() => { setProposal(null); }} className={btnGhost}>Keep refining</button>
+              </div>
+            </div>
+          )}
+          <div ref={endRef} />
+        </div>
+        <div className="px-4 py-3 border-t border-gray-100 flex gap-2">
+          <textarea className={input__ + ' flex-1 resize-none'} rows={2} placeholder="Type your answer — or paste your CV / LinkedIn experience…" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} autoFocus />
+          <button onClick={() => send()} disabled={thinking || !input.trim()} className={btnPrimary}><Send className="h-4 w-4" /></button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================ ABOUT YOU (buyer profile) ============================
+function AboutView({ settings, onSaved, setErr }: { settings: any; onSaved: () => void; setErr: (s: string) => void }) {
+  const pr = settings?.profile ?? {};
+  const [f, setF] = useState<Record<string, string>>({
+    founder_name: pr.founder_name ?? '', entity_name: pr.entity_name ?? '', website: pr.website ?? '',
+    years_experience: pr.years_experience ?? '', bio: pr.bio ?? '', highlights: pr.highlights ?? '',
+  });
+  const [busy, setBusy] = useState(false); const [saved, setSaved] = useState(false);
+  const set = (k: string) => (e: any) => { setF((x) => ({ ...x, [k]: e.target.value })); setSaved(false); };
+  const save = async () => {
+    setBusy(true); setErr('');
+    try { await setOrgSettings({ ...(settings ?? {}), profile: Object.fromEntries(Object.entries(f).filter(([, v]) => String(v).trim() !== '')) }); setSaved(true); onSaved(); }
+    catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(false); }
+  };
+  return (
+    <>
+      <Header title="About you" sub="Who is buying. This flows into everything: the coach personalises your buy box around it, and your letters and emails weave it in so owners see a credible principal, not a mailshot." />
+      <div className="px-8 pb-8 max-w-2xl">
+        <div className={card + ' p-5 flex flex-col gap-3'}>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Your name</label><input className={input__ + ' w-full'} placeholder="e.g. Sandeep Bansal" value={f.founder_name} onChange={set('founder_name')} /></div>
+            <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Buying entity / firm</label><input className={input__ + ' w-full'} placeholder="e.g. Officially Invested Ltd" value={f.entity_name} onChange={set('entity_name')} /></div>
+            <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Website</label><input className={input__ + ' w-full'} placeholder="https://…" value={f.website} onChange={set('website')} /></div>
+            <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Years of relevant experience</label><input className={input__ + ' w-full'} placeholder="e.g. 25" value={f.years_experience} onChange={set('years_experience')} /></div>
+          </div>
+          <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Short bio <span className="text-gray-400 font-normal">(2-4 sentences, as you would say it to an owner over coffee)</span></label>
+            <textarea className={input__ + ' w-full min-h-[90px]'} placeholder="e.g. I spent 12 years building and running a commercial cleaning business in Yorkshire before selling it in 2024. Now I buy good local businesses from owners who want to retire, and I keep their people and their name." value={f.bio} onChange={set('bio')} /></div>
+          <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Credibility highlights <span className="text-gray-400 font-normal">(one per line: track record, credentials, funding in place)</span></label>
+            <textarea className={input__ + ' w-full min-h-[70px]'} placeholder={"Funding agreed with two lenders\nBought and sold 3 businesses\nChartered engineer, 20 years in facilities"} value={f.highlights} onChange={set('highlights')} /></div>
+          <div className="flex items-center gap-3">
+            <button onClick={save} disabled={busy} className={btnGold}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}Save profile</button>
+            {saved && <span className="text-emerald-600 text-[12px] font-semibold">Saved. The coach and your outreach drafts now use this.</span>}
+          </div>
+        </div>
+        <p className="text-[12px] text-gray-400 mt-3">Used in: the Buy Box coach, AI-drafted letters and emails (one or two specifics woven in naturally, never a brag list), and later your funnel page. Never shared with other users of the platform.</p>
+      </div>
+    </>
+  );
+}
+
+// ============================ USAGE & BILLING ============================
+function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: () => void; setErr: (s: string) => void }) {
+  const u = settings?.outreach ?? {};
+  const [vol, setVol] = useState(String(u.letter_monthly_cap ?? 100));
+  const [busy, setBusy] = useState(false);
+  const credits = settings?.usage?.letter_credits ?? 0;
+  const save = async () => {
+    setBusy(true); setErr('');
+    try { await setOrgSettings({ ...(settings ?? {}), outreach: { ...(settings?.outreach ?? {}), letter_monthly_cap: Number(vol) } }); onSaved(); }
+    catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(false); }
+  };
+  return (
+    <>
+      <Header title="Usage & billing" sub="Control how much the machine does each month. Letters are your only cold-outreach cost — email and phone are free and unlock once a prospect engages." />
+      <div className="px-8 pb-8 grid lg:grid-cols-2 gap-5 max-w-3xl">
+        <div className={card + ' p-5'}>
+          <div className="font-semibold text-gray-900 mb-1">Letter volume</div>
+          <p className="text-[13px] text-gray-500 mb-3">How many letters may be posted per month, across all campaigns. From £1.20 per letter, printed and posted for you.</p>
+          <div className="flex gap-2 items-center">
+            <select className={input__} value={vol} onChange={(e) => setVol(e.target.value)}>
+              {['25','50','100','250','500','1000'].map((v) => <option key={v} value={v}>{v} letters / month</option>)}
+            </select>
+            <button onClick={save} disabled={busy} className={btnGold}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}Save</button>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-3">Approximate monthly letter spend at this volume: £{(Number(vol) * 1.2).toLocaleString()}.</p>
+        </div>
+        <div className={card + ' p-5'}>
+          <div className="font-semibold text-gray-900 mb-1">Letter credits</div>
+          <div className="text-[28px] font-bold text-gray-900 my-2">{credits.toLocaleString()} <span className="text-[13px] font-normal text-gray-400">credits</span></div>
+          <p className="text-[13px] text-gray-500 mb-3">One credit = one posted letter. Top-ups roll over month to month.</p>
+          <a className={btnPrimary} href="mailto:deals@officiallyinvested.com?subject=Letter%20credits%20top-up">Top up credits</a>
+        </div>
+        <div className={card + ' p-5 lg:col-span-2'}>
+          <div className="font-semibold text-gray-900 mb-1">Plan & billing</div>
+          <p className="text-[13px] text-gray-500 mb-3">Change your plan, payment method and invoices. Self-serve billing arrives with the Stripe launch — until then we handle changes same-day by email.</p>
+          <div className="flex gap-2">
+            <a className={btnGhost} href="mailto:deals@officiallyinvested.com?subject=Billing%20change">Change plan / billing</a>
+            <span className="text-[11px] text-gray-400 self-center">Stripe self-serve portal — coming soon</span>
+          </div>
+        </div>
       </div>
     </>
   );

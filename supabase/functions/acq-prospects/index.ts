@@ -54,7 +54,7 @@ Deno.serve(async (req: Request) => {
         order by fit_score desc nulls last, created_at desc
         limit ${per} offset ${(page - 1) * per}`;
       const total = rows.length ? Number(rows[0].total) : 0;
-      await sql`insert into acq.access_log (org_id, user_id, action, detail) values (${orgId}, ${userId}, 'prospects_list', ${JSON.stringify({ page, per, stage, q, returned: rows.length })})`;
+      await sql`insert into acq.access_log (org_id, user_id, action, detail) values (${orgId}, ${userId}, 'prospects_list', ${{ page, per, stage, q, returned: rows.length }})`;
       const counts = await sql`select stage, count(*)::int as n from acq.prospects where org_id=${orgId} group by stage`;
       await sql.end({ timeout: 5 });
       return json({ ok: true, prospects: rows.map(({ total: _t, ...r }: any) => r), total, page, per, stage_counts: Object.fromEntries(counts.map((c: any) => [c.stage, c.n])) });
@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
       if (!p) { await sql.end({ timeout: 5 }); return json({ error: 'not found' }, 404); }
       const touches = await sql`select id, channel, status, subject, body, scheduled_at, sent_at, error, created_at from acq.outreach_touches where prospect_id=${p.id} order by created_at desc limit 50`;
       const memberships = await sql`select m.id, m.status, m.current_step, m.next_action_at, c.name as campaign_name, c.id as campaign_id from acq.campaign_members m join acq.campaigns c on c.id=m.campaign_id where m.prospect_id=${p.id}`;
-      await sql`insert into acq.access_log (org_id, user_id, action, detail) values (${orgId}, ${userId}, 'prospect_view', ${JSON.stringify({ prospect_id: p.id })})`;
+      await sql`insert into acq.access_log (org_id, user_id, action, detail) values (${orgId}, ${userId}, 'prospect_view', ${{ prospect_id: p.id }})`;
       await sql.end({ timeout: 5 });
       return json({ ok: true, prospect: p, touches, memberships });
     }

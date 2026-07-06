@@ -106,7 +106,7 @@ Deno.serve(async (req: Request) => {
           if (!dupe) {
             await sql`insert into acq.prospects (org_id, company_name, owner_name, owner_email, owner_phone, region, provenance, exportable, source, stage, notes)
               values (${org.id}, ${company}, ${fields.full_name || fields.name || null}, ${email}, ${fields.phone_number || fields.phone || null}, ${fields.city || fields.region || null},
-                'meta_ads', true, ${JSON.stringify({ kind: 'meta_lead', leadgen_id: v.leadgen_id ?? null, page_id: pageId, raw: fields })}, 'qualified', ${'Meta lead ad enquiry.' + (fields.message ? ' Message: ' + fields.message : '')})`;
+                'meta_ads', true, ${{ kind: 'meta_lead', leadgen_id: v.leadgen_id ?? null, page_id: pageId, raw: fields }}, 'qualified', ${'Meta lead ad enquiry.' + (fields.message ? ' Message: ' + fields.message : '')})`;
             await sql`insert into acq.tasks (org_id, title, due_date) values (${org.id}, ${'New Meta lead: ' + company + (email ? ' <' + email + '>' : '') + ' — review and respond today'}, ${new Date().toISOString().slice(0, 10)})`;
             createdCount++;
           }
@@ -129,7 +129,7 @@ Deno.serve(async (req: Request) => {
       await sql`insert into acq.prospects (org_id, company_name, owner_name, owner_email, owner_phone, region, revenue_estimate, revenue_basis, provenance, exportable, source, stage, notes)
         values (${org.id}, ${company}, ${String(body.name ?? '').slice(0, 120) || null}, ${email}, ${String(body.phone ?? '').slice(0, 40) || null}, ${String(body.region ?? '').slice(0, 120) || null},
           ${num(body.revenue)}, ${num(body.revenue) ? 'self_reported' : null}, 'funnel', true,
-          ${JSON.stringify({ kind: 'funnel', sector: body.sector ?? null, profit: body.profit ?? null })}, 'qualified',
+          ${{ kind: 'funnel', sector: body.sector ?? null, profit: body.profit ?? null }}, 'qualified',
           ${['Inbound seller enquiry via funnel.', body.sector ? 'Sector: ' + String(body.sector).slice(0, 120) : null, body.profit ? 'Stated profit: ' + String(body.profit).slice(0, 40) : null, body.message ? 'Message: ' + String(body.message).slice(0, 1500) : null].filter(Boolean).join('\n')})`;
       await sql`insert into acq.tasks (org_id, title, due_date) values (${org.id}, ${'New seller enquiry: ' + company + ' — respond within 2 working days'}, ${new Date().toISOString().slice(0, 10)})`;
     }

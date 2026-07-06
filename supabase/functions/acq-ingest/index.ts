@@ -86,7 +86,7 @@ Deno.serve(async (req: Request) => {
             model: 'claude-sonnet-4-6', max_tokens: 1000,
             tools: [{ name: 'set_mapping', description: 'Map CSV headers to prospect fields', input_schema: { type: 'object', properties: { mapping: { type: 'object', description: 'keys = CSV header names, values = one of: ' + FIELDS.join(', ') + ' or null if no match', additionalProperties: { type: ['string','null'] } } }, required: ['mapping'] } }],
             tool_choice: { type: 'tool', name: 'set_mapping' },
-            messages: [{ role: 'user', content: `Map these CSV columns from a UK business prospect list to our schema fields (${FIELDS.join(', ')}). Headers: ${JSON.stringify(headers)}. Sample rows: ${JSON.stringify(sample)}. Map each header to the best field or null. company_number is a UK Companies House number.` }],
+            messages: [{ role: 'user', content: `Map these CSV columns from a UK business prospect list to our schema fields (${FIELDS.join(', ')}). Headers: ${headers}. Sample rows: ${sample}. Map each header to the best field or null. company_number is a UK Companies House number.` }],
           }),
         });
         if (ar.ok) { const aj = await ar.json(); mapping = ((aj.content ?? []).find((b: any) => b.type === 'tool_use')?.input?.mapping) ?? {}; }
@@ -110,7 +110,7 @@ Deno.serve(async (req: Request) => {
           : /note|comment|desc/.test(l) ? 'notes' : null;
       }
       const job = (await sql`insert into acq.ingest_jobs (org_id, file_name, mapping, status, rows_total, created_by)
-        values (${orgId}, ${body.file_name ?? 'upload.csv'}, ${JSON.stringify(mapping)}, 'proposed', ${rows.length - 1}, ${userId}) returning id`)[0];
+        values (${orgId}, ${body.file_name ?? 'upload.csv'}, ${mapping}, 'proposed', ${rows.length - 1}, ${userId}) returning id`)[0];
       await sql.end({ timeout: 5 });
       return json({ ok: true, job_id: job.id, mapping, headers, rows_total: rows.length - 1, preview: rows.slice(1, 6) });
     }
@@ -165,13 +165,13 @@ Deno.serve(async (req: Request) => {
                 address, postcode, region, sic_codes, revenue_estimate, revenue_basis, staff_band, notes, provenance, exportable, source, stage)
               values (${orgId}, ${company_name}, ${company_number}, ${website}, ${domain}, ${g('owner_name') || null}, ${owner_email}, ${g('owner_phone') || null},
                 ${g('address') || null}, ${postcode}, ${g('region') || null}, ${g('sic_code') ? [g('sic_code')] : []}, ${revenue}, ${revenue ? 'uploaded' : null}, ${g('staff') || null}, ${g('notes') || null},
-                'uploaded', true, ${JSON.stringify({ kind: 'upload', file: body.file_name ?? 'upload.csv', job_id: body.job_id ?? null })}, 'new')`;
+                'uploaded', true, ${{ kind: 'upload', file: body.file_name ?? 'upload.csv', job_id: body.job_id ?? null }}, 'new')`;
             created++;
           }
         } catch (e) { skipped++; if (errors.length < 10) errors.push(String(e).slice(0, 200)); }
       }
 
-      if (body.job_id) await sql`update acq.ingest_jobs set status='committed', mapping=${JSON.stringify(mapping)}, rows_created=${created}, rows_merged=${merged}, rows_skipped=${skipped}, errors=${JSON.stringify(errors)} where id=${body.job_id} and org_id=${orgId}`;
+      if (body.job_id) await sql`update acq.ingest_jobs set status='committed', mapping=${mapping}, rows_created=${created}, rows_merged=${merged}, rows_skipped=${skipped}, errors=${errors} where id=${body.job_id} and org_id=${orgId}`;
       await sql.end({ timeout: 5 });
       return json({ ok: true, created, merged, skipped, errors });
     }

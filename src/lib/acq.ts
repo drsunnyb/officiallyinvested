@@ -121,3 +121,11 @@ export const outreachCancel = (touch_ids: string[]) => invoke('acq-outreach', { 
 export const outreachApproveAll = (campaign_id?: string) => invoke<{ ok: boolean; approved: number }>('acq-outreach', { action: 'approve_all', ...(campaign_id ? { campaign_id } : {}) });
 export const outreachRun = () => invoke<{ ok: boolean; orgs: any[] }>('acq-outreach', { action: 'run' });
 export const outreachMarkReplied = (prospect_id: string) => invoke('acq-outreach', { action: 'mark_replied', prospect_id });
+export const buyboxList = () => invoke<{ ok: boolean; boxes: any[] }>('acq-buybox', { action: 'list' });
+export const buyboxChat = (messages: { role: string; content: string }[]) => invoke<{ ok: boolean; message: string; complete: boolean; buy_box: any | null }>('acq-buybox', { action: 'chat', messages });
+export const buyboxCreate = (criteria: Record<string, unknown>, opts: Record<string, unknown> = {}) => invoke<{ ok: boolean; box: any }>('acq-buybox', { action: 'create', criteria, ...opts });
+export const buyboxActivate = (box_id: string) => invoke('acq-buybox', { action: 'activate', box_id });
+export const buyboxDelete = (box_id: string) => invoke('acq-buybox', { action: 'delete', box_id });
+export const sourceStartRun = (p: Record<string, unknown>) => invoke<{ ok: boolean; run: any; note: string }>('acq-source', { action: 'start_run', ...p });
+export const sourceRuns = () => invoke<{ ok: boolean; runs: any[] }>('acq-source', { action: 'runs' });
+export const sourceCancelRun = (run_id: string) => invoke('acq-source', { action: 'cancel_run', run_id });

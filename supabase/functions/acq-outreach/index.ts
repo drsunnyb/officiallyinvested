@@ -1,5 +1,5 @@
 // =============================================================================
-// acq-outreach — multi-channel campaign engine (email via Resend, letters via
+// acq-outreach v2 — multi-channel campaign engine (opt-outs honoured platform-wide) (email via Resend, letters via
 // Stannp, human call tasks). Sequences with wait states, suppression checks,
 // per-campaign daily caps + send windows, approval gates (nothing sends
 // without approval unless approval_mode='auto'), AI-drafted human-voice
@@ -29,7 +29,7 @@ async function isSuppressed(sql: any, orgId: string, p: any): Promise<string | n
   if (p.owner_email) { vals.push({ kind: 'email', value: p.owner_email.toLowerCase() }); if (p.owner_email.includes('@')) vals.push({ kind: 'domain', value: p.owner_email.split('@')[1].toLowerCase() }); }
   if (p.company_number) vals.push({ kind: 'company_number', value: p.company_number });
   for (const v of vals) {
-    const hit = (await sql`select reason from acq.suppressions where org_id=${orgId} and kind=${v.kind} and value=${v.value} limit 1`)[0];
+    const hit = (await sql`select reason from acq.suppressions where (org_id=${orgId} or reason='opt_out') and kind=${v.kind} and value=${v.value} limit 1`)[0];
     if (hit) return hit.reason ?? 'suppressed';
   }
   return null;
@@ -82,7 +82,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'create') {
-      const c = (await sql`insert into acq.campaigns (org_id, name, target_filter, approval_mode, daily_cap) values (${orgId}, ${body.name ?? 'New campaign'}, ${JSON.stringify(body.target_filter ?? {})}, ${body.approval_mode === 'auto' ? 'auto' : 'manual'}, ${Number(body.daily_cap ?? 25)}) returning *`)[0];
+      const c = (await sql`insert into acq.campaigns (org_id, name, target_filter, approval_mode, daily_cap) values (${orgId}, ${body.name ?? 'New campaign'}, ${body.target_filter ?? {}}, ${body.approval_mode === 'auto' ? 'auto' : 'manual'}, ${Number(body.daily_cap ?? 25)}) returning *`)[0];
       const steps = Array.isArray(body.steps) ? body.steps : [];
       const out: any[] = [];
       for (let i = 0; i < steps.length; i++) {
@@ -107,7 +107,8 @@ Deno.serve(async (req: Request) => {
       const ANTHROPIC = Deno.env.get('ANTHROPIC_API_KEY') || cfg.anthropic_api_key;
       if (!ANTHROPIC) { await sql.end({ timeout: 5 }); return json({ error: 'no anthropic key' }, 500); }
       const thesis = org?.settings?.thesis ?? org?.settings?.buy_box ?? {};
-      const system = `You write direct-to-owner acquisition outreach for ${org.name}, a buyer of established UK businesses. Voice: plain, warm, human, credible; short sentences; no hype, no jargon, no em-dashes, no markdown, no AI tells. Never pressure. The reader is a busy owner of a boring-but-good business, probably thinking about retirement. Merge fields available: {{owner_name}}, {{first_name}}, {{company_name}}, {{region}}, {{sender_name}}, {{sender_company}}. ${cfg.drafting_rules ? 'House rules: ' + String(cfg.drafting_rules).slice(0, 1500) : ''}`;
+      const profile = org?.settings?.profile ?? null;
+      const system = `You write direct-to-owner acquisition outreach for ${org.name}, a buyer of established UK businesses. Voice: plain, warm, human, credible; short sentences; no hype, no jargon, no em-dashes, no markdown, no AI tells. Never pressure. The reader is a busy owner of a boring-but-good business, probably thinking about retirement. Merge fields available: {{owner_name}}, {{first_name}}, {{company_name}}, {{region}}, {{sender_name}}, {{sender_company}}. ${profile ? 'ABOUT THE BUYER (weave one or two specifics in naturally for credibility, never brag, never list): ' + JSON.stringify(profile).slice(0, 900) + ' ' : ''}${cfg.drafting_rules ? 'House rules: ' + String(cfg.drafting_rules).slice(0, 1500) : ''}`;
       const user = `Write a 3-step outreach sequence for this target profile: ${JSON.stringify(body.profile ?? thesis).slice(0, 800)}.\nStep 1: a physical LETTER (200-260 words, letter layout, no subject).\nStep 2: a short follow-up EMAIL (subject + 90-130 words).\nStep 3: a phone CALL brief for the caller (bullet-free, 80-120 words: who we are, why calling, the one question to ask, what NOT to say).\nTone: neighbourly, confidential, zero pressure. Mention we buy businesses like theirs and keep staff and legacy intact. Include a soft opt-out line in letter and email.`;
       const ar = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
