@@ -14,7 +14,7 @@ import {
   buyboxList, buyboxChat, buyboxCreate, buyboxActivate, buyboxDelete,
   dfAdminReleases, dfAdminReleaseUpsert, dfAdminPublish, dfAdminBoard, dfAdminDecide, dfAdminAdvance,
   dfAdminExclusivity, dfAdminAnswer, dfAdminCountersign, dfAdminMembers, dfAdminMemberUpsert,
-  onboardStatus, onboardCompleteTour, billingCheckout, billingPortal,
+  onboardStatus, onboardCompleteTour, billingPortal,
 } from '../../lib/acq';
 import Paywall, { CreditsTopUp, ensureCredits } from '../../components/Paywall';
 import { creditsBalance } from '../../lib/acq';
@@ -72,7 +72,7 @@ export default function Origination() {
   const [err, setErr] = useState('');
   const [paywall, setPaywall] = useState(false);
   const [topup, setTopup] = useState<'ai' | 'letter' | null>(null);
-  const [plan, setPlan] = useState<string>('free');
+  const [, setPlan] = useState<string>('free'); // plan gating uses module-level CURRENT_PLAN
   const [tour, setTour] = useState<number>(qp.get('tour') === '1' ? 0 : -1);
 
   useEffect(() => {
@@ -1326,7 +1326,6 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
 }
 
 // =============================== DEAL FLOW (member releases) ===============================
-const DF_STATES = ['applied', 'nda_pending', 'nda_signed', 'data_room', 'interest_expressed', 'intro_call_booked', 'offer_submitted', 'heads_of_terms', 'diligence'];
 const DF_LABEL: Record<string, string> = {
   applied: 'Queue', nda_pending: 'NDA pending', nda_signed: 'Awaiting countersign', data_room: 'In data room',
   interest_expressed: 'Interested', intro_call_booked: 'Intro call', offer_submitted: 'Offer', heads_of_terms: 'Heads of terms',

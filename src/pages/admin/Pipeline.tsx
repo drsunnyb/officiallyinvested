@@ -359,11 +359,6 @@ export default function Pipeline() {
     setMsg(error ? 'Could not add: ' + error.message : `Added ${rows.length} tickable items to the deal — progress and your notes feed the next assessment.`);
     load();
   };
-  const toggleMember = async (deal: Deal) => {
-    if (!supabase) return;
-    await supabase.from('submissions').update({ member_listed: !deal.member_listed }).eq('id', deal.id);
-    load();
-  };
   const rescore = async (dealId: string) => {
     if (!supabase) return;
     setMsg('Re-scoring with the OI framework…');
@@ -382,7 +377,7 @@ export default function Pipeline() {
       <Shell>
         <div className="max-w-md mx-auto mt-20 bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
           <AlertTriangle className="h-8 w-8 text-amber-400 mx-auto mb-3" />
-          <p className="text-white mb-2">Signed in as <b>{session.user.email}</b></p>
+          <p className="text-white mb-2">Signed in as <b>{session?.user.email}</b></p>
           <p className="text-white/60 mb-6">Only {ADMIN_DOMAIN} accounts can access the pipeline.</p>
           <button onClick={() => supabase!.auth.signOut()} className="bg-white/10 text-white px-6 py-2.5 rounded-full font-semibold hover:bg-white/20">Sign out & switch account</button>
         </div>

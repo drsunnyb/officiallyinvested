@@ -29,10 +29,12 @@ function ScrollToTop() {
 function App() {
   const { pathname } = useLocation();
   const isAdmin = pathname.startsWith('/admin');
+  // Product surfaces carry their own chrome — no marketing nav/footer there.
+  const bare = isAdmin || pathname.startsWith('/signup') || pathname.startsWith('/start') || pathname.startsWith('/deals');
   return (
     <div className="min-h-screen bg-[#0A2540]">
       <ScrollToTop />
-      {!isAdmin && <Header />}
+      {!bare && <Header />}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/submit-opportunity" element={<SubmitOpportunity />} />
@@ -48,7 +50,7 @@ function App() {
         <Route path="/admin/origination" element={<Origination />} />
         <Route path="/admin/settings" element={<Settings />} />
       </Routes>
-      {!isAdmin && <Footer />}
+      {!bare && <Footer />}
     </div>
   );
 }

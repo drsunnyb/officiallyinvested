@@ -61,7 +61,7 @@ export default function PipelineLite() {
                     <div className="text-[13px] font-semibold text-gray-900 leading-snug">{d.name}</div>
                     <div className="flex items-center justify-between mt-1.5">
                       <span className="text-[10px] text-gray-400">{d.sector ?? ''}</span>
-                      {d.ch_snapshot?.acquisition_score != null && <span className="text-[10px] font-bold bg-[#0A2540] text-white px-1.5 py-0.5 rounded-full">⚡ {d.ch_snapshot.acquisition_score}</span>}
+                      {d.ch_snapshot?.acquisition_score != null && <span className="text-[10px] font-bold bg-[#0A2540] text-white px-1.5 py-0.5 rounded-full">✦ {d.ch_snapshot.acquisition_score}</span>}
                     </div>
                   </button>
                 ))}
