@@ -93,7 +93,7 @@ Deno.serve(async (req: Request) => {
         if (tr.ok) { const tj = await tr.json(); taxLine = (tj.taxonomy ?? []).map((t: any) => `${t.key}=${t.label}`).join(', '); }
       } catch (_) { /* optional */ }
 
-      const system = `You are the Officially Invested Buy Box coach. You help acquisition entrepreneurs define a precise, disciplined buy box using the Officially Invested methodology — the frameworks behind £5bn+ of deal analysis. Voice: warm, plain, expert; one question at a time; short messages (2-4 sentences max before your question); no markdown, no bullet lists, no em-dashes, no AI tells.
+      const system = `You are the Officially Invested Buy Box coach. You help acquisition entrepreneurs define a precise, disciplined buy box using the Officially Invested methodology — the frameworks behind £5bn+ of deal analysis. Voice: warm, plain, expert; one question at a time; short messages (2-4 sentences max before your question); no markdown, no bullet lists, no em-dashes, no AI tells. If the user attaches a CV, LinkedIn profile or similar, read it closely, reflect back the 3-4 most acquisition-relevant facts (sectors, seniority, operational experience, geography) and skip questions it already answers. If they attach or paste an existing INVESTMENT THESIS, mandate or acquisition criteria document, treat it as the foundation: map it straight into the buy box fields, reflect it back in one concise message for confirmation, and ask only about genuine gaps - never make a seasoned investor start from zero. Calibrate to experience: someone with prior acquisitions, PE, search fund or portfolio experience gets a faster, peer-level conversation with no basics explained.\n\nFINANCING DOCTRINE - never treat personal capital as a hard cap on deal size. Deployable capital is the deposit, not the ceiling. UK acquisition entrepreneurs routinely fund the balance by leveraging the target business itself: Growth Guarantee Scheme backed lending, cashflow term loans against the target EBITDA, asset finance secured on the target plant, vehicles, property or debtor book, invoice finance, plus vendor finance and deferred consideration which commonly cover 30-50 percent of price in succession deals. A buyer with 100k deployable can credibly pursue deals of 500k-1m plus where the target cashflows support the debt. Frame deal size on serviceability: post-debt cashflow should cover repayments with sensible headroom, roughly 1.25x or better. Mention leverage naturally when capital comes up, set max_price from what the capital plus sensible structure supports, and note the assumed structure in the rationale.
 
 THE METHOD (ground every recommendation in this):
 - Screening gates: a trading business should normally show at least £750k revenue AND £180k adjusted EBITDA; property portfolios at least £1m, ideally bought as an SPV/share purchase. Smaller is usually not worth the same effort.
@@ -105,8 +105,8 @@ THE METHOD (ground every recommendation in this):
 ${cfg.acq_analyst_brief ? '\nHOUSE METHODOLOGY (authoritative):\n' + String(cfg.acq_analyst_brief).slice(0, 2500) : ''}
 
 CONVERSATION PLAN — one area at a time, adapting to what they already told you (never re-ask). START WITH THE PERSON, NOT THE INDUSTRY:
-1) Expertise first: their career, industries worked in, what they've run or managed, trade skills, sector contacts, unfair advantages. Invite them to paste their CV or LinkedIn experience text if that's easier — read it carefully and reflect back what you see.
-2) Financial foundations (explain WHY you ask: the funding stack starts from deployable capital, and there are often untapped sources): cash available; pension — a SSAS can lend to or invest in their own trading company and SIPPs/SSAS can hold commercial property; stocks/ISAs; equity in property that could be released; rough net-worth band (bands are fine, be tactful); and their investment or deal experience to date. Capture all of it in the buy box fields.
+1) Expertise first: their career, industries worked in, what they've run or managed, trade skills, sector contacts, unfair advantages. Invite them to paste their CV or LinkedIn experience text, or attach it with the paperclip - and if they already run a thesis or acquisition mandate, to attach that instead and skip ahead — read it carefully and reflect back what you see.
+2) Financial foundations (explain WHY you ask: the funding stack starts from deployable capital, and there are often untapped sources): cash available; pension — a SSAS can lend to or invest in their own trading company and SIPPs/SSAS can hold commercial property; stocks/ISAs; equity in property that could be released; rough net-worth band (bands are fine, be tactful); and their investment or deal experience to date. Capture all of it in the buy box fields. Always pair the capital number with what it supports once leverage is applied - never present it as a ceiling.
 3) Involvement: full-time owner-operator vs part-time chairman with a strong GM vs hands-off investor — explain how each changes the multiple they'll pay, the risk, and which businesses suit.
 4) Regulated or not: care (CQC), childcare (Ofsted), financial services (FCA), pharmacy (GPhC) — regulation is a moat and often means motivated sellers, but brings scrutiny, slower deals and fit-and-proper checks. Gauge their appetite honestly.
 5) Geography and how far they'll travel or relocate.
@@ -119,7 +119,21 @@ INDUSTRY TAXONOMY KEYS (use ONLY these keys in industries[]): ${taxLine || 'use 
       const orgRow = (await sql`select name, settings from acq.organizations where id=${orgId}`)[0];
       const profile = orgRow?.settings?.profile ?? null;
       const systemFull = system + (profile ? '\n\nBUYER PROFILE (already known, do not re-ask; use it to personalise your coaching): ' + JSON.stringify(profile).slice(0, 900) : '');
-      const messages = Array.isArray(body.messages) && body.messages.length ? body.messages.slice(-30) : [{ role: 'user', content: 'Hi, help me define my buy box.' }];
+      // Messages may carry attachments (CV PDFs, LinkedIn screenshots) passed to Claude natively.
+      const IMG_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+      const rawMessages = Array.isArray(body.messages) && body.messages.length ? body.messages.slice(-30) : [{ role: 'user', content: 'Hi, help me define my buy box.' }];
+      const messages = rawMessages.map((m: any) => {
+        const atts = Array.isArray(m.attachments) ? m.attachments.slice(0, 3) : [];
+        if (!atts.length) return { role: m.role, content: m.content };
+        const blocks: any[] = [];
+        for (const a of atts) {
+          if (a?.media_type === 'application/pdf' && a.data) blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } });
+          else if (IMG_TYPES.includes(a?.media_type) && a.data) blocks.push({ type: 'image', source: { type: 'base64', media_type: a.media_type, data: a.data } });
+          else if (a?.text) blocks.push({ type: 'text', text: 'Attached file ' + (a.name ?? 'document') + ':\n' + String(a.text).slice(0, 24000) });
+        }
+        blocks.push({ type: 'text', text: (typeof m.content === 'string' && m.content.trim()) || 'I have attached my background - please read it and use it.' });
+        return { role: m.role, content: blocks };
+      });
       const ar = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({

@@ -16,7 +16,7 @@ import {
   dfAdminExclusivity, dfAdminAnswer, dfAdminCountersign, dfAdminMembers, dfAdminMemberUpsert,
   onboardStatus, onboardCompleteTour, billingPortal,
 } from '../../lib/acq';
-import Paywall, { CreditsTopUp, ensureCredits } from '../../components/Paywall';
+import Paywall, { CreditsTopUp } from '../../components/Paywall';
 import { creditsBalance } from '../../lib/acq';
 
 // Plan gate: free workspaces hit the paywall on paid capabilities.
@@ -897,27 +897,47 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
   const [loading, setLoading] = useState(true); const [busy, setBusy] = useState('');
   const [creating, setCreating] = useState(false); const [name, setName] = useState('');
   const [draftSteps, setDraftSteps] = useState<any[]>([]); const [queue, setQueue] = useState<any[] | null>(null);
-  const [enrolFor, setEnrolFor] = useState<string | null>(null); const [ef, setEf] = useState<Record<string, string>>({ min_fit: '60', limit: '50' });
+  const [enrolFor, setEnrolFor] = useState<string | null>(null); const [ef, setEf] = useState<Record<string, string>>({ min_fit: '60', limit: '50', provenance: '' });
+  const [picking, setPicking] = useState(false); const [pickList, setPickList] = useState<any[] | null>(null); const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [showMethod, setShowMethod] = useState(() => { try { return localStorage.getItem('oi_method_seen') !== '1'; } catch { return true; } });
+  const dismissMethod = () => { setShowMethod(false); try { localStorage.setItem('oi_method_seen', '1'); } catch (_) {} };
+  const openPicker = async () => {
+    setPicking(true); setPickList(null); setPicked(new Set());
+    try { const r = await prospectsList({ per: 50, min_fit: ef.min_fit ? Number(ef.min_fit) : undefined }); setPickList(r.prospects.filter((x: any) => !['suppressed', 'disqualified', 'in_campaign'].includes(x.stage))); }
+    catch (e: any) { setErr(e.message || String(e)); setPicking(false); }
+  };
   const CHANNEL_LABEL: Record<string, string> = { letter: 'Letter (posted)', email: 'Email', call_task: 'Call task (human)' };
   const CHANNEL_ICON: Record<string, any> = { letter: FileText, email: Mail, call_task: PhoneCall };
 
   const load = async () => { setLoading(true); try { const r = await outreachList(); setCamps(r.campaigns); setSteps(r.steps); } catch (e: any) { setErr(e.message || String(e)); } finally { setLoading(false); } };
   useEffect(() => { load(); }, []);
-  const aiDraft = async () => { setBusy('draft'); setErr(''); try { const r = await outreachDraftTemplates(buyBox ? { buy_box: buyBox } : undefined); setDraftSteps(r.steps); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
+  const aiDraft = async () => { if (!requirePaid()) return; setBusy('draft'); setErr(''); try { const r = await outreachDraftTemplates(buyBox ? { buy_box: buyBox } : undefined); setDraftSteps(r.steps); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
   const create = async () => {
     if (!name.trim() || !draftSteps.length) { setErr('Name the campaign and draft the sequence first'); return; }
     setBusy('create'); try { await outreachCreate({ name, steps: draftSteps }); setCreating(false); setName(''); setDraftSteps([]); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
-  const setStatus = async (id: string, status: string) => { setBusy(id); try { await outreachUpdate(id, { status }); await load(); } finally { setBusy(''); } };
+  const setStatus = async (id: string, status: string) => { if (status === 'active' && !requirePaid()) return; setBusy(id); try { await outreachUpdate(id, { status }); await load(); } finally { setBusy(''); } };
   const enrol = async (id: string) => {
-    setBusy('enrol'); try { const r = await outreachEnrol(id, { min_fit: ef.min_fit ? Number(ef.min_fit) : undefined, region: ef.region || undefined, limit: Number(ef.limit || 50) }); alert(`${r.enrolled} prospects enrolled (${r.suppressed} suppressed).`); setEnrolFor(null); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
+    if (!requirePaid()) return;
+    setBusy('enrol'); try {
+      const filter: any = { min_fit: ef.min_fit ? Number(ef.min_fit) : undefined, region: ef.region || undefined, limit: Number(ef.limit || 50) };
+      if (ef.provenance) filter.provenance = ef.provenance;
+      if (picking && picked.size) { filter.prospect_ids = [...picked]; filter.limit = picked.size; }
+      const r = await outreachEnrol(id, filter);
+      alert(`${r.enrolled} prospects enrolled (${r.suppressed} suppressed).`);
+      setEnrolFor(null); setPicking(false); await load();
+    } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
   const showQueue = async () => { setBusy('queue'); try { const r = await outreachQueue('needs_approval'); setQueue(r.touches); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
+  const creditErr = (e: any): boolean => {
+    const m = String(e?.message ?? e);
+    if (/insufficient_credits/.test(m)) { window.dispatchEvent(new CustomEvent('oi:topup', { detail: { kind: 'letter' } })); return true; }
+    return false;
+  };
   const approveAll = async () => { if (!requirePaid()) return;
-    const letters = (queue ?? []).filter((t: any) => t.channel === 'letter').length;
-    if (letters > 0 && !(await ensureCredits('letter', letters, 'approve all letters'))) return;
-    setBusy('approve'); try { const r = await outreachApproveAll(); alert(`${r.approved} messages approved. They send inside each campaign's window and daily cap.`); setQueue(null); await load(); } finally { setBusy(''); } };
-  const runNow = async () => { setBusy('run'); try { await outreachRun(); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
+    setBusy('approve'); try { const r = await outreachApproveAll(); alert(`${r.approved} messages approved. They send inside each campaign's window and daily cap.`); setQueue(null); await load(); }
+    catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } finally { setBusy(''); } };
+  const runNow = async () => { if (!requirePaid()) return; setBusy('run'); try { await outreachRun(); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
 
   return (
     <>
@@ -927,6 +947,30 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
         <button onClick={() => setCreating((c) => !c)} className={btnGold}><Send className="h-4 w-4" />New campaign</button>
       </Header>
       <div className="px-8 pb-8">
+        {showMethod && (
+          <div className="rounded-2xl p-6 mb-5 text-white" style={{ background: 'linear-gradient(120deg,#0A2540,#0E3257)' }}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[#FFD700] font-serif font-bold text-[17px]">Why this method finds deals nobody else sees</div>
+                <div className="grid sm:grid-cols-3 gap-4 mt-4">
+                  <div>
+                    <div className="text-[#FFD700] text-[12px] font-bold uppercase tracking-wide mb-1">1 · A letter on the desk</div>
+                    <p className="text-white/75 text-[12.5px] leading-relaxed">Owners in their 60s do not answer cold emails or LinkedIn. A short, personal letter from a named buyer lands on their desk where nothing else does. Reply rates run 3-8% against under 1% for email.</p>
+                  </div>
+                  <div>
+                    <div className="text-[#FFD700] text-[12px] font-bold uppercase tracking-wide mb-1">2 · The follow-up rhythm</div>
+                    <p className="text-white/75 text-[12.5px] leading-relaxed">Ten days later a short email, then a call brief for you. The engine paces every step, honours opt-outs, and nothing ever sends until you approve it. One letter credit per letter posted.</p>
+                  </div>
+                  <div>
+                    <div className="text-[#FFD700] text-[12px] font-bold uppercase tracking-wide mb-1">3 · You are first in the room</div>
+                    <p className="text-white/75 text-[12.5px] leading-relaxed">When an owner replies, they reply to you alone. No broker, no auction, no listing. That is where fair prices and vendor-financed structures get agreed.</p>
+                  </div>
+                </div>
+              </div>
+              <button onClick={dismissMethod} className="text-white/40 hover:text-white/80 shrink-0" aria-label="Dismiss"><X className="h-4 w-4" /></button>
+            </div>
+          </div>
+        )}
         {creating && (
           <div className={card + ' p-5 mb-5'}>
             <div className="flex gap-2 mb-3">
@@ -956,7 +1000,7 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
               {queue.map((t) => (
                 <div key={t.id} className="bg-gray-50 rounded-lg p-3 text-[12px]">
                   <div className="flex items-center gap-2 mb-1"><b className="text-gray-800">{t.company_name}</b><span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-500">{t.channel}</span>
-                    <button onClick={async () => { if (!requirePaid()) return; if (t.channel === 'letter' && !(await ensureCredits('letter', 1, 'approve letter'))) return; await outreachApprove([t.id]); setQueue((q) => q!.filter((x) => x.id !== t.id)); }} className="ml-auto text-emerald-600 hover:text-emerald-700 font-semibold">Approve</button></div>
+                    <button onClick={async () => { if (!requirePaid()) return; try { await outreachApprove([t.id]); setQueue((q) => q!.filter((x) => x.id !== t.id)); } catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } }} className="ml-auto text-emerald-600 hover:text-emerald-700 font-semibold">Approve</button></div>
                   {t.subject && <div className="text-gray-600 font-medium">{t.subject}</div>}
                   <div className="text-gray-500 line-clamp-2 whitespace-pre-wrap">{t.body}</div>
                 </div>
@@ -990,11 +1034,29 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
               })}
             </div>
             {enrolFor === c.id && (
-              <div className="flex gap-2 items-center mt-3 flex-wrap bg-gray-50 rounded-lg p-3">
-                <select className={input__} value={ef.min_fit} onChange={(e) => setEf((f) => ({ ...f, min_fit: e.target.value }))}><option value="">Any fit</option><option value="60">Fit 60+</option><option value="80">Fit 80+</option></select>
-                <input className={input__ + ' w-40'} placeholder="Region (optional)" value={ef.region ?? ''} onChange={(e) => setEf((f) => ({ ...f, region: e.target.value }))} />
-                <select className={input__} value={ef.limit} onChange={(e) => setEf((f) => ({ ...f, limit: e.target.value }))}><option value="25">Up to 25</option><option value="50">Up to 50</option><option value="100">Up to 100</option></select>
-                <button onClick={() => enrol(c.id)} disabled={busy === 'enrol'} className={btnGold}>{busy === 'enrol' && <Loader2 className="h-4 w-4 animate-spin" />}Enrol</button>
+              <div className="mt-3 bg-gray-50 rounded-lg p-3">
+                <div className="flex gap-2 items-center flex-wrap">
+                  <select className={input__} value={ef.min_fit} onChange={(e) => setEf((f) => ({ ...f, min_fit: e.target.value }))}><option value="">Any fit</option><option value="60">Fit 60+</option><option value="80">Fit 80+</option></select>
+                  <input className={input__ + ' w-40'} placeholder="Region (optional)" value={ef.region ?? ''} onChange={(e) => setEf((f) => ({ ...f, region: e.target.value }))} />
+                  <select className={input__} value={ef.provenance} onChange={(e) => setEf((f) => ({ ...f, provenance: e.target.value }))}>
+                    <option value="">Any source</option><option value="platform">Register-sourced</option><option value="funnel">Seller funnel</option><option value="upload">Your uploads</option><option value="meta">Meta leads</option>
+                  </select>
+                  {!picking && <select className={input__} value={ef.limit} onChange={(e) => setEf((f) => ({ ...f, limit: e.target.value }))}><option value="25">Up to 25</option><option value="50">Up to 50</option><option value="100">Up to 100</option></select>}
+                  <button onClick={() => (picking ? setPicking(false) : openPicker())} className={btnGhost}>{picking ? 'Back to filters' : 'Choose individually'}</button>
+                  <button onClick={() => enrol(c.id)} disabled={busy === 'enrol' || (picking && picked.size === 0)} className={btnGold}>{busy === 'enrol' && <Loader2 className="h-4 w-4 animate-spin" />}{picking ? `Enrol ${picked.size} selected` : 'Enrol'}</button>
+                </div>
+                {picking && (
+                  <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
+                    {!pickList ? <div className="p-4 text-gray-400"><Loader2 className="h-4 w-4 animate-spin" /></div> : pickList.length === 0 ? <div className="p-4 text-[12px] text-gray-400">No available prospects match — loosen the fit filter or source more.</div> : pickList.map((pr: any) => (
+                      <label key={pr.id} className="flex items-center gap-3 px-3 py-2 text-[12.5px] cursor-pointer hover:bg-gray-50">
+                        <input type="checkbox" checked={picked.has(pr.id)} onChange={(e) => setPicked((old_) => { const n = new Set(old_); e.target.checked ? n.add(pr.id) : n.delete(pr.id); return n; })} />
+                        <span className="font-semibold text-gray-800">{pr.company_name}</span>
+                        <span className="text-gray-400">{pr.region ?? pr.postcode ?? ''}</span>
+                        {pr.fit_score != null && <span className="ml-auto text-[11px] font-bold bg-[#0A2540] text-white px-2 py-0.5 rounded-full">fit {pr.fit_score}</span>}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

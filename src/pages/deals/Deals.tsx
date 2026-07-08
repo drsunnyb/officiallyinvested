@@ -15,7 +15,21 @@ import { supabase } from '../../lib/supabase';
 import Paywall from '../../components/Paywall';
 import {
   dfListings, dfDetail, dfMe, dfApply, dfSignNda, dfDataRoom, dfLogOpen, dfAsk, dfInterest, dfBookConfirm, dfPass,
+  buyboxList, sourceTaxonomy,
 } from '../../lib/acq';
+
+// ---- buy-box matching: surface what fits the viewer's own criteria first ----
+function buyboxMatcher(box: any | null, taxGroups: Record<string, string>) {
+  if (!box) return null;
+  const groups = new Set((box.industries ?? []).map((k: string) => (taxGroups[k] ?? '').toLowerCase()).filter(Boolean));
+  const locs = [box.location, ...(box.regions ?? [])].filter(Boolean).map((x: any) => String(x).toLowerCase());
+  return (l: any) => {
+    const sector = groups.size > 0 && !!l.sector_group && groups.has(String(l.sector_group).toLowerCase());
+    const lr = String(l.region ?? '').toLowerCase();
+    const region = !!lr && locs.some((x: string) => lr.includes(x) || x.includes(lr));
+    return { sector, region, score: (sector ? 2 : 0) + (region ? 1 : 0) };
+  };
+}
 
 const NAVY = '#0A2540';
 const GOLD = '#FFD700';
@@ -207,6 +221,8 @@ export default function Deals() {
   const session = useMember();
   const [data, setData] = useState<any>(null);
   const [me, setMe] = useState<any>(null);
+  const [box, setBox] = useState<any | null>(null);
+  const [taxGroups, setTaxGroups] = useState<Record<string, string>>({});
   const [auth, setAuth] = useState(false);
   const [paywall, setPaywall] = useState(false);
   const [err, setErr] = useState('');
@@ -214,6 +230,14 @@ export default function Deals() {
     try {
       const [l, m] = await Promise.all([dfListings(), session ? dfMe() : Promise.resolve(null)]);
       setData(l); setMe(m);
+      if (session) {
+        try {
+          const [bb, tx] = await Promise.all([buyboxList(), sourceTaxonomy()]);
+          const activeBox = (bb.boxes ?? []).find((b: any) => b.is_active) ?? (bb.boxes ?? [])[0] ?? null;
+          setBox(activeBox?.criteria ?? null);
+          setTaxGroups(Object.fromEntries((tx.taxonomy ?? []).map((t: any) => [t.key, t.group ?? ''])));
+        } catch (_) { /* members without a workspace just get the default order */ }
+      }
     } catch (e: any) { setErr(e.message || String(e)); }
   };
   useEffect(() => { if (session !== undefined) load(); }, [session]);
@@ -223,6 +247,9 @@ export default function Deals() {
     return () => window.removeEventListener('oi:deals-paywall', f);
   }, []);
   const active = (me?.deals ?? []).filter((x: any) => !['passed', 'declined', 'expired', 'revoked', 'completed'].includes(x.state));
+  const bbMatch = buyboxMatcher(box, taxGroups);
+  const sorted = data ? [...data.listings].map((l: any) => ({ l, bm: bbMatch ? bbMatch(l) : null })).sort((a: any, b: any) => (b.bm?.score ?? 0) - (a.bm?.score ?? 0)) : [];
+  const anyMatch = sorted.some((x: any) => (x.bm?.score ?? 0) > 0);
 
   return (
     <div className="min-h-screen pb-24 pt-20" style={{ background: NAVY }}>
@@ -267,12 +294,15 @@ export default function Deals() {
         {/* listings */}
         {!data ? <div className="text-white/50 text-center py-20"><Loader2 className="h-6 w-6 animate-spin inline" /></div> : (
           <>
-            <h2 className="text-white font-serif font-bold text-lg mb-4">{me?.member ? 'Live deals' : 'Current deals'}</h2>
+            <h2 className="text-white font-serif font-bold text-lg mb-1">{me?.member ? 'Live deals' : 'Current deals'}</h2>
+            {anyMatch && <p className="text-white/40 text-[12px]">Ordered for you — deals matching your buy box come first.</p>}
+            <div className="mb-4" />
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {data.listings.map((l: any) => (
+              {sorted.map(({ l, bm }: any) => (
                 <Link key={l.id} to={`/deals/${l.id}`} className={card + ' overflow-hidden hover:-translate-y-1 transition-transform block rounded-2xl'}>
                   <SectorHero sector={l.sector_group} status={l.status} />
                   <div className="p-5">
+                    {bm && bm.score > 0 && <div className="inline-flex items-center gap-1 bg-[#FFFDF2] border border-[#FFD700] text-[#7A6200] text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 uppercase tracking-wide"><Sparkles className="h-3 w-3" /> In your buy box{bm.sector && bm.region ? ' · your area' : ''}</div>}
                     <div className="font-serif font-bold text-gray-900 leading-snug min-h-[44px]">{l.headline}</div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-gray-500 mt-2">
                       {l.region && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{l.region}</span>}

@@ -6,7 +6,7 @@
 // =============================================================================
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Sparkles, Check, ArrowRight, Building2, Send } from 'lucide-react';
+import { Loader2, Sparkles, Check, ArrowRight, Building2, Send, Paperclip, FileText, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { onboardStatus, onboardProvision, buyboxChat, buyboxCreate, sourceSearch } from '../lib/acq';
 
@@ -31,6 +31,20 @@ export default function Signup() {
   // step 2 (coach)
   const [msgs, setMsgs] = useState<{ role: string; content: string }[]>([]);
   const [draft, setDraft] = useState('');
+  const [attach, setAttach] = useState<{ name: string; media_type: string; data?: string; text?: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const pickFile = async (f: File | undefined) => {
+    if (!f) return;
+    if (f.size > 4.5 * 1024 * 1024) { setErr('That file is over 4.5MB - try a smaller export or a screenshot.'); return; }
+    setErr('');
+    const okTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+    if (f.type === 'text/plain') { setAttach({ name: f.name, media_type: 'text/plain', text: await f.text() }); return; }
+    if (!okTypes.includes(f.type)) { setErr('PDF, image or plain text files work best (e.g. your CV as PDF or a LinkedIn screenshot).'); return; }
+    const buf = new Uint8Array(await f.arrayBuffer());
+    let bin = ''; const CH = 0x8000;
+    for (let i = 0; i < buf.length; i += CH) bin += String.fromCharCode(...buf.subarray(i, i + CH));
+    setAttach({ name: f.name, media_type: f.type, data: btoa(bin) });
+  };
   const [proposal, setProposal] = useState<any | null>(null);
   const [thinking, setThinking] = useState(false);
   const chatEnd = useRef<HTMLDivElement>(null);
@@ -112,9 +126,11 @@ export default function Signup() {
   };
 
   const send = async () => {
-    if (!draft.trim() || thinking) return;
-    const next = [...msgs, { role: 'user', content: draft.trim() }];
-    setMsgs(next); setDraft(''); setThinking(true); setErr('');
+    if ((!draft.trim() && !attach) || thinking) return;
+    const userMsg: any = { role: 'user', content: draft.trim() || 'I have attached my background - please read it and use it.' };
+    if (attach) userMsg.attachments = [attach];
+    const next = [...msgs, userMsg];
+    setMsgs(next); setDraft(''); setAttach(null); setThinking(true); setErr('');
     try {
       const r = await buyboxChat(next);
       setMsgs([...next, { role: 'assistant', content: r.message }]);
@@ -206,7 +222,12 @@ export default function Signup() {
             </div>
             <div className="h-[380px] overflow-y-auto p-5 space-y-3 bg-gray-50">
               {msgs.map((m, i) => (
-                <div key={i} className={'max-w-[85%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ' + (m.role === 'user' ? 'ml-auto bg-[#0A2540] text-white' : 'bg-white border border-gray-200 text-gray-800')}>{m.content}</div>
+                <div key={i} className={'max-w-[85%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ' + (m.role === 'user' ? 'ml-auto bg-[#0A2540] text-white' : 'bg-white border border-gray-200 text-gray-800')}>
+                  {(m as any).attachments?.map((a: any, j: number) => (
+                    <span key={j} className="inline-flex items-center gap-1.5 bg-white/15 border border-white/25 rounded-lg px-2 py-1 text-[11px] font-semibold mb-1.5 mr-1.5"><FileText className="h-3 w-3" /> {a.name}</span>
+                  ))}
+                  <div>{m.content}</div>
+                </div>
               ))}
               {thinking && <div className="bg-white border border-gray-200 rounded-2xl px-4 py-2.5 w-16 text-gray-400"><Loader2 className="h-4 w-4 animate-spin" /></div>}
               <div ref={chatEnd} />
@@ -216,18 +237,30 @@ export default function Signup() {
                 <div className="bg-[#FFFDF2] border-2 border-[#FFD700] rounded-2xl p-4">
                   <div className="font-bold text-gray-900 text-[14px] flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-[#0A2540]" /> Your buy box is ready</div>
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {(proposal.industries ?? []).slice(0, 6).map((x: any, i: number) => <span key={i} className="bg-[#0A2540] text-white text-[11px] px-2.5 py-1 rounded-full">{x.label ?? x}</span>)}
+                    {(proposal.industries ?? []).slice(0, 6).map((x: any, i: number) => <span key={i} className="bg-[#0A2540] text-white text-[11px] px-2.5 py-1 rounded-full capitalize">{String(x.label ?? x).replace(/_/g, ' ')}</span>)}
+                    {(proposal.custom_industries ?? []).slice(0, 3).map((x: string) => <span key={x} className="bg-gray-100 text-gray-600 text-[11px] px-2.5 py-1 rounded-full capitalize">{x.replace(/_/g, ' ')}</span>)}
                   </div>
-                  {proposal.rationale && <p className="text-[12px] text-gray-600 mt-2 italic">{String(proposal.rationale).slice(0, 220)}</p>}
+                  {proposal.rationale && <p className="text-[12px] text-gray-600 mt-2 italic">{String(proposal.rationale).slice(0, 420)}{String(proposal.rationale).length > 420 ? '\u2026' : ''}</p>}
                 </div>
                 <button className={btnGold + ' mt-4'} onClick={buildWorkspace}>Build my workspace <ArrowRight className="h-4 w-4" /></button>
                 <button className="text-[12px] text-gray-500 hover:text-gray-800 mt-2.5 w-full" onClick={() => setProposal(null)}>Keep refining instead</button>
               </div>
             ) : (
-              <div className="p-4 border-t border-gray-100 flex gap-2">
-                <textarea className={input + ' resize-none'} rows={2} placeholder="Type here… (Enter to send)" value={draft} onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
-                <button className="bg-[#0A2540] text-white rounded-xl px-4 disabled:opacity-40" disabled={thinking || !draft.trim()} onClick={send}><Send className="h-4 w-4" /></button>
+              <div className="p-4 border-t border-gray-100">
+                {attach && (
+                  <div className="inline-flex items-center gap-2 bg-[#FFFDF2] border border-[#FFD700] rounded-lg px-2.5 py-1.5 text-[12px] font-semibold text-gray-800 mb-2">
+                    <FileText className="h-3.5 w-3.5 text-[#0A2540]" /> {attach.name}
+                    <button onClick={() => setAttach(null)} aria-label="Remove attachment"><X className="h-3.5 w-3.5 text-gray-400 hover:text-gray-700" /></button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input ref={fileRef} type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,application/pdf,image/png,image/jpeg,image/webp,image/gif,text/plain"
+                    onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ''; }} />
+                  <button className="border border-gray-300 text-gray-500 rounded-xl px-3 hover:bg-gray-50 hover:text-gray-800" title="Attach your CV, a LinkedIn screenshot or your investment thesis" onClick={() => fileRef.current?.click()}><Paperclip className="h-4 w-4" /></button>
+                  <textarea className={input + ' resize-none'} rows={2} placeholder={attach ? 'Add a note (optional), then send' : 'Type here… or attach your CV, LinkedIn or investment thesis'} value={draft} onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
+                  <button className="bg-[#0A2540] text-white rounded-xl px-4 disabled:opacity-40" disabled={thinking || (!draft.trim() && !attach)} onClick={send}><Send className="h-4 w-4" /></button>
+                </div>
               </div>
             )}
           </div>
