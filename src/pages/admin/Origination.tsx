@@ -14,7 +14,27 @@ import {
   buyboxList, buyboxChat, buyboxCreate, buyboxActivate, buyboxDelete,
   dfAdminReleases, dfAdminReleaseUpsert, dfAdminPublish, dfAdminBoard, dfAdminDecide, dfAdminAdvance,
   dfAdminExclusivity, dfAdminAnswer, dfAdminCountersign, dfAdminMembers, dfAdminMemberUpsert,
+  onboardStatus, onboardCompleteTour, billingCheckout, billingPortal,
 } from '../../lib/acq';
+import Paywall, { CreditsTopUp, ensureCredits } from '../../components/Paywall';
+import { creditsBalance } from '../../lib/acq';
+
+// Plan gate: free workspaces hit the paywall on paid capabilities.
+let CURRENT_PLAN = 'free';
+export const requirePaid = () => {
+  if (CURRENT_PLAN === 'free') { window.dispatchEvent(new Event('oi:paywall')); return false; }
+  return true;
+};
+
+const TOUR_STEPS: { key: View | null; title: string; text: string }[] = [
+  { key: 'dashboard', title: 'Your command centre', text: 'Everything starts here: live counts of prospects, campaigns and replies. This is the advantage — while others browse listings, your system is out finding owners.' },
+  { key: 'buybox', title: 'Your buy box runs the show', text: 'Built from your expertise and capital by the coach. Every search, score and letter keys off it. Refine it any time — you can run several.' },
+  { key: 'find', title: 'Find companies in seconds', text: '900,000+ UK companies, filtered to your buy box instantly: distance, size, owner age, even distressed businesses. No rate limits, no lists to buy.' },
+  { key: 'prospects', title: 'Your private prospect CRM', text: 'Everything you source lands here, scored and explained. Track letters, log calls, attach notes. Sourced data stays in the platform — your uploads stay yours.' },
+  { key: 'campaigns', title: 'Outreach on autopilot', text: 'Letters first, by design — a rejected cold email burns a contact forever, a letter does not. AI drafts in your voice; nothing sends without your approval. (Paid)' },
+  { key: 'dealflow', title: 'Community deal flow', text: "Off-market deals we source and release to members. Browse teasers free; NDA and data-room access unlock with your plan tier." },
+  { key: null, title: 'And when a deal gets real…', text: 'Add it to your pipeline (free, always) and get your Acquisition Score. The AI analyst, committee and memos join on any paid plan. Good hunting.' },
+];
 
 // ---------------------------------------------------------------------------
 // The Origination workspace: a full product surface (not a modal).
@@ -42,16 +62,34 @@ const money = (n: any) => n == null ? '—' : '£' + Number(n).toLocaleString();
 type View = 'dashboard' | 'find' | 'prospects' | 'contacts' | 'campaigns' | 'dealflow' | 'members' | 'funnel' | 'buybox' | 'about' | 'billing';
 
 export default function Origination() {
-  const [view, setView] = useState<View>('dashboard');
+  const qp = new URLSearchParams(window.location.search);
+  const deepView = qp.get('view') as View | null;
+  const deepSubmission = qp.get('submission');
+  const [view, setView] = useState<View>(deepView === 'dealflow' ? 'dealflow' : 'dashboard');
   const [settings, setSettings] = useState<any | null>(null);
   const [orgName, setOrgName] = useState('');
   const [showWizard, setShowWizard] = useState(false);
   const [err, setErr] = useState('');
+  const [paywall, setPaywall] = useState(false);
+  const [topup, setTopup] = useState<'ai' | 'letter' | null>(null);
+  const [plan, setPlan] = useState<string>('free');
+  const [tour, setTour] = useState<number>(qp.get('tour') === '1' ? 0 : -1);
+
+  useEffect(() => {
+    onboardStatus().then((st) => { CURRENT_PLAN = st.plan ?? 'free'; setPlan(st.plan ?? 'free'); }).catch(() => { CURRENT_PLAN = 'team'; });
+    const onPaywall = () => setPaywall(true);
+    const onTopup = (e: any) => setTopup(e.detail?.kind ?? 'letter');
+    window.addEventListener('oi:paywall', onPaywall);
+    window.addEventListener('oi:topup', onTopup);
+    return () => { window.removeEventListener('oi:paywall', onPaywall); window.removeEventListener('oi:topup', onTopup); };
+  }, []);
+  useEffect(() => { if (tour >= 0 && TOUR_STEPS[tour]?.key) setView(TOUR_STEPS[tour].key as View); }, [tour]);
+  const endTour = () => { setTour(-1); onboardCompleteTour().catch(() => {}); window.history.replaceState({}, '', '/admin/origination'); };
 
   const reloadSettings = async () => {
     const r = await getOrgSettings();
     setSettings(r.settings ?? {}); setOrgName(r.org_name ?? '');
-    if (!r.settings?.buy_box) setView('buybox');
+    if (!r.settings?.buy_box && deepView !== 'dealflow') setView('buybox');
     return r.settings ?? {};
   };
   useEffect(() => { reloadSettings().catch((e) => setErr(e.message || String(e))); }, []);
@@ -83,13 +121,14 @@ export default function Origination() {
         <nav className="flex-1 px-3 flex flex-col gap-0.5">
           {NAV.map((n) => (
             <button key={n.key} onClick={() => setView(n.key)}
-              className={'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] text-left transition ' + (view === n.key ? 'bg-white/10 text-white font-semibold' : 'text-white/60 hover:text-white hover:bg-white/5')}>
+              className={'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] text-left transition ' + (view === n.key ? 'bg-white/10 text-white font-semibold' : 'text-white/60 hover:text-white hover:bg-white/5') + (tour >= 0 && TOUR_STEPS[tour]?.key === n.key ? ' ring-2 ring-[#FFD700]' : '')}>
               <n.icon className="h-4 w-4" />{n.label}
               {view === n.key && <ChevronRight className="h-3.5 w-3.5 ml-auto text-[#FFD700]" />}
             </button>
           ))}
         </nav>
         <div className="px-5 py-4 border-t border-white/10">
+          <a href="/deals" className="flex items-center gap-2 text-[#FFD700]/90 hover:text-[#FFD700] text-[13px] mb-2.5"><Sparkles className="h-4 w-4" /> Community deals</a>
           <Link to="/admin/pipeline" className="flex items-center gap-2 text-white/60 hover:text-white text-[13px]"><ArrowLeft className="h-4 w-4" /> Back to pipeline</Link>
           <div className="flex items-start gap-1.5 text-[10px] text-white/35 mt-3 leading-relaxed"><ShieldCheck className="h-3.5 w-3.5 shrink-0 mt-px" /> Sourced data lives here and cannot be exported. Lists you upload remain yours.</div>
         </div>
@@ -98,12 +137,27 @@ export default function Origination() {
       {/* ============ CONTENT ============ */}
       <main className="flex-1 min-w-0 overflow-y-auto">
         {err && <div className="m-6 mb-0 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2.5">{err}</div>}
+        {paywall && <Paywall onClose={() => setPaywall(false)} />}
+        {topup && <CreditsTopUp focus={topup} onClose={() => setTopup(null)} />}
+        {tour >= 0 && TOUR_STEPS[tour] && (
+          <div className="fixed bottom-6 right-6 z-[70] max-w-sm bg-white rounded-2xl shadow-2xl border-2 border-[#FFD700] p-5">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tour {tour + 1} of {TOUR_STEPS.length}</div>
+            <div className="font-serif font-bold text-gray-900 text-lg mt-1">{TOUR_STEPS[tour].title}</div>
+            <p className="text-[13px] text-gray-600 mt-1.5 leading-relaxed">{TOUR_STEPS[tour].text}</p>
+            <div className="flex items-center justify-between mt-4">
+              <button className="text-[12px] text-gray-400 hover:text-gray-600" onClick={endTour}>Skip tour</button>
+              <button className={btnGold + ' !py-2'} onClick={() => (tour + 1 < TOUR_STEPS.length ? setTour(tour + 1) : endTour())}>
+                {tour + 1 < TOUR_STEPS.length ? 'Next' : "Let's go"}
+              </button>
+            </div>
+          </div>
+        )}
         {view === 'dashboard' && <Dashboard setErr={setErr} go={setView} buyBox={settings.buy_box} openWizard={() => setView('buybox')} />}
         {view === 'find' && <FindView setErr={setErr} buyBox={settings.buy_box} go={setView} />}
         {view === 'prospects' && <ProspectsView setErr={setErr} />}
         {view === 'contacts' && <ContactsView setErr={setErr} />}
         {view === 'campaigns' && <CampaignsView setErr={setErr} buyBox={settings.buy_box} />}
-        {view === 'dealflow' && <DealFlowView setErr={setErr} />}
+        {view === 'dealflow' && <DealFlowView setErr={setErr} initialSubmission={deepSubmission} />}
         {view === 'members' && <MembersView setErr={setErr} />}
         {view === 'funnel' && <FunnelView setErr={setErr} settings={settings} onSaved={reloadSettings} />}
         {view === 'buybox' && <BuyBoxView openWizard={() => setShowWizard(true)} setErr={setErr} onChanged={() => reloadSettings()} />}
@@ -392,6 +446,7 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
   const startRun = async () => {
     if (!sel.length && !sicList().length) { setErr('Pick at least one industry or enter SIC codes'); return; }
     setErr('');
+    if (!requirePaid()) return;
     try { const r = await sourceStartRun({ categories: sel, sic_codes: sicList(), statuses, q_name: qName || undefined, exclude_existing: excludeExisting, ...geo(), size_band: sizeBand, min_director_age: Number(dirAge), min_age_years: Number(minAge) }); alert(r.note); loadRuns(); }
     catch (e: any) { setErr(e.message || String(e)); }
   };
@@ -858,7 +913,10 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
     setBusy('enrol'); try { const r = await outreachEnrol(id, { min_fit: ef.min_fit ? Number(ef.min_fit) : undefined, region: ef.region || undefined, limit: Number(ef.limit || 50) }); alert(`${r.enrolled} prospects enrolled (${r.suppressed} suppressed).`); setEnrolFor(null); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
   const showQueue = async () => { setBusy('queue'); try { const r = await outreachQueue('needs_approval'); setQueue(r.touches); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
-  const approveAll = async () => { setBusy('approve'); try { const r = await outreachApproveAll(); alert(`${r.approved} messages approved. They send inside each campaign's window and daily cap.`); setQueue(null); await load(); } finally { setBusy(''); } };
+  const approveAll = async () => { if (!requirePaid()) return;
+    const letters = (queue ?? []).filter((t: any) => t.channel === 'letter').length;
+    if (letters > 0 && !(await ensureCredits('letter', letters, 'approve all letters'))) return;
+    setBusy('approve'); try { const r = await outreachApproveAll(); alert(`${r.approved} messages approved. They send inside each campaign's window and daily cap.`); setQueue(null); await load(); } finally { setBusy(''); } };
   const runNow = async () => { setBusy('run'); try { await outreachRun(); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
 
   return (
@@ -898,7 +956,7 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
               {queue.map((t) => (
                 <div key={t.id} className="bg-gray-50 rounded-lg p-3 text-[12px]">
                   <div className="flex items-center gap-2 mb-1"><b className="text-gray-800">{t.company_name}</b><span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-500">{t.channel}</span>
-                    <button onClick={async () => { await outreachApprove([t.id]); setQueue((q) => q!.filter((x) => x.id !== t.id)); }} className="ml-auto text-emerald-600 hover:text-emerald-700 font-semibold">Approve</button></div>
+                    <button onClick={async () => { if (!requirePaid()) return; if (t.channel === 'letter' && !(await ensureCredits('letter', 1, 'approve letter'))) return; await outreachApprove([t.id]); setQueue((q) => q!.filter((x) => x.id !== t.id)); }} className="ml-auto text-emerald-600 hover:text-emerald-700 font-semibold">Approve</button></div>
                   {t.subject && <div className="text-gray-600 font-medium">{t.subject}</div>}
                   <div className="text-gray-500 line-clamp-2 whitespace-pre-wrap">{t.body}</div>
                 </div>
@@ -1180,7 +1238,16 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
   const u = settings?.outreach ?? {};
   const [vol, setVol] = useState(String(u.letter_monthly_cap ?? 100));
   const [busy, setBusy] = useState(false);
+  const [showPlans, setShowPlans] = useState(false);
+  const [showTopup, setShowTopup] = useState(false);
+  const [bal, setBal] = useState<any>(null);
+  useEffect(() => { creditsBalance().then(setBal).catch(() => {}); }, []);
   const credits = settings?.usage?.letter_credits ?? 0;
+  const plan = settings?.plan ?? 'free';
+  const managePortal = async () => {
+    try { const r = await billingPortal(); if (r.url) window.location.href = r.url; else setErr(r.error ?? 'No subscription found'); }
+    catch (e: any) { setErr(e.message || String(e)); }
+  };
   const save = async () => {
     setBusy(true); setErr('');
     try { await setOrgSettings({ ...(settings ?? {}), outreach: { ...(settings?.outreach ?? {}), letter_monthly_cap: Number(vol) } }); onSaved(); }
@@ -1188,6 +1255,44 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
   };
   return (
     <>
+      <div className={card + ' p-5 mb-4 max-w-2xl'}>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Current plan</div>
+            <div className="font-serif font-bold text-xl text-gray-900 capitalize mt-0.5">{plan === 'free' ? 'Free' : plan}</div>
+            <div className="text-[12px] text-gray-500 mt-0.5">{plan === 'free' ? 'Pipeline, CRM and Acquisition Scores are free forever. AI + automation live on paid plans.' : 'Full AI analyst and automation unlocked.'}</div>
+          </div>
+          <div className="flex gap-2">
+            <button className={btnGold} onClick={() => setShowPlans(true)}>{plan === 'free' ? 'Upgrade' : 'Change plan'}</button>
+            {plan !== 'free' && <button className={btnGhost} onClick={managePortal}>Manage billing</button>}
+          </div>
+        </div>
+      </div>
+      {showPlans && <Paywall context={plan === 'free' ? 'Pick the plan that fits how you buy' : 'Change your plan'} onClose={() => setShowPlans(false)} />}
+      <div className={card + ' p-5 mb-4 max-w-2xl'}>
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Credits this month</div>
+          <button className={btnGhost + ' !py-1.5 !px-3 !text-[12px]'} onClick={() => setShowTopup(true)}>Buy credits</button>
+        </div>
+        {bal ? (
+          <div className="grid sm:grid-cols-2 gap-4 mt-3">
+            {[['AI runs', bal.ai, bal.detail?.ai_monthly ?? 0, bal.detail?.ai_topup ?? 0], ['Letters', bal.letter, bal.detail?.letter_monthly ?? 0, bal.detail?.letter_topup ?? 0]].map(([label, total, monthly, extra]: any) => (
+              <div key={label}>
+                <div className="flex justify-between text-[13px]"><span className="font-semibold text-gray-800">{label}</span><span className="font-bold text-gray-900">{total}</span></div>
+                <div className="h-2 bg-gray-100 rounded-full mt-1.5 overflow-hidden"><div className="h-full rounded-full" style={{ width: Math.min(100, total > 0 ? 100 : 0) + '%', background: total <= 5 ? '#dc2626' : total <= 20 ? '#f59e0b' : '#0A2540' }} /></div>
+                <div className="text-[11px] text-gray-400 mt-1">{monthly} monthly (resets 1st) + {extra} purchased{total <= 5 ? ' — running low' : ''}</div>
+              </div>
+            ))}
+          </div>
+        ) : <div className="text-[12px] text-gray-400 mt-2">Loading…</div>}
+        {bal && (bal.ai <= 5 || bal.letter <= 5) && (
+          <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5 text-[12px] text-amber-800 flex items-center justify-between">
+            <span>You're nearly out of {bal.ai <= 5 ? 'AI' : 'letter'} credits.</span>
+            <span><button className="font-bold underline" onClick={() => setShowTopup(true)}>Top up</button> · <button className="font-bold underline" onClick={() => setShowPlans(true)}>Upgrade plan</button></span>
+          </div>
+        )}
+      </div>
+      {showTopup && <CreditsTopUp onClose={() => { setShowTopup(false); creditsBalance().then(setBal).catch(() => {}); }} />}
       <Header title="Usage & billing" sub="Control how much the machine does each month. Letters are your only cold-outreach cost — email and phone are free and unlock once a prospect engages." />
       <div className="px-8 pb-8 grid lg:grid-cols-2 gap-5 max-w-3xl">
         <div className={card + ' p-5'}>
@@ -1229,13 +1334,21 @@ const DF_LABEL: Record<string, string> = {
 };
 const READY_LABEL: Record<string, string> = { cash_ready: 'Cash ready', finance_agreed: 'Finance agreed', finance_not_arranged: 'Finance not arranged', exploring: 'Exploring' };
 
-function DealFlowView({ setErr }: { setErr: (m: string) => void }) {
+function DealFlowView({ setErr, initialSubmission }: { setErr: (m: string) => void; initialSubmission?: string | null }) {
   const [releases, setReleases] = useState<any[] | null>(null);
+  const [subs, setSubs] = useState<any[]>([]);
   const [open, setOpen] = useState<any | null>(null);       // release being managed
   const [board, setBoard] = useState<any | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<false | string>(false); // false | '' | submission_id to prefill
   const load = () => dfAdminReleases().then((r) => setReleases(r.releases)).catch((e) => setErr(e.message || String(e)));
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    supabase?.from('submissions').select('id,business_name,reference,status,revenue,net_profit,created_at').order('created_at', { ascending: false }).limit(200).then(({ data }) => setSubs(data ?? []));
+    if (initialSubmission) setCreating(initialSubmission);
+  }, []);
+  const relBySub: Record<string, any> = {};
+  (releases ?? []).forEach((r) => { if (r.submission_id) relBySub[r.submission_id] = r; });
+  const unreleased = subs.filter((x) => !relBySub[x.id] && !['passed', 'ineligible'].includes(x.status));
   const openBoard = async (r: any) => {
     setOpen(r); setBoard(null);
     try { setBoard(await dfAdminBoard(r.id)); } catch (e: any) { setErr(e.message || String(e)); }
@@ -1244,7 +1357,7 @@ function DealFlowView({ setErr }: { setErr: (m: string) => void }) {
     <div className="p-6 max-w-6xl">
       <div className="flex items-center justify-between mb-1">
         <h1 className="font-serif text-xl font-bold text-gray-900">Deal flow</h1>
-        <button className={btnGold} onClick={() => setCreating(true)}><Sparkles className="h-4 w-4" /> Release a deal</button>
+        <button className={btnGold} onClick={() => setCreating('')}><Sparkles className="h-4 w-4" /> Release a deal</button>
       </div>
       <p className="text-[13px] text-gray-500 mb-5">Anonymised member releases. Members apply, sign the NDA in-app, then work the data room. Everything they touch is logged.</p>
       {!releases ? <div className="text-gray-400 py-16 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></div> : (
@@ -1271,7 +1384,42 @@ function DealFlowView({ setErr }: { setErr: (m: string) => void }) {
           {!releases.length && <div className={card + ' p-10 text-center text-gray-400 text-sm'}>No releases yet. Release a pipeline deal to your members — anonymised until NDA.</div>}
         </div>
       )}
-      {creating && <ReleaseForm onClose={() => setCreating(false)} onSaved={() => { setCreating(false); load(); }} setErr={setErr} />}
+      {/* every pipeline deal, released or not */}
+      <div className="mt-8">
+        <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Your pipeline · {unreleased.length} not yet released</div>
+        <div className={card + ' overflow-hidden'}>
+          <table className="w-full text-[13px]">
+            <thead><tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+              <th className="px-4 py-2.5">Deal</th><th className="px-4 py-2.5">Pipeline stage</th><th className="px-4 py-2.5">Members</th><th className="px-4 py-2.5 text-right">Action</th>
+            </tr></thead>
+            <tbody>
+              {subs.map((x) => {
+                const rel = relBySub[x.id];
+                return (
+                  <tr key={x.id} className="border-b border-gray-50 hover:bg-gray-50/60">
+                    <td className="px-4 py-2.5"><div className="font-semibold text-gray-900">{x.business_name || '—'}</div><div className="text-[11px] text-gray-400">{x.reference}</div></td>
+                    <td className="px-4 py-2.5 text-gray-600 capitalize">{String(x.status).replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-2.5">
+                      {rel ? (
+                        <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (rel.status === 'released' ? 'bg-emerald-100 text-emerald-700' : rel.status === 'draft' ? 'bg-gray-100 text-gray-500' : rel.status === 'under_offer' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')}>
+                          {rel.status === 'released' ? `LIVE · ${rel.n_applied} applied · ${rel.n_nda} NDA'd` : rel.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                      ) : <span className="text-[11px] text-gray-400">Not released</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {rel
+                        ? <button className="text-[12px] font-bold text-[#0A2540] hover:underline" onClick={() => openBoard(rel)}>Manage →</button>
+                        : <button className="text-[12px] font-bold text-[#0A2540] hover:underline" onClick={() => setCreating(x.id)}>Release →</button>}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!subs.length && <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">No pipeline deals yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {creating !== false && <ReleaseForm initialSubmissionId={creating || undefined} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); load(); }} setErr={setErr} />}
       {open && (
         <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={() => setOpen(null)}>
           <div className="w-full max-w-2xl bg-white h-full overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
@@ -1365,9 +1513,9 @@ const TURNOVER_BANDS = ['£750k–1m', '£1–2m', '£2–5m', '£5–10m', '£1
 const EBITDA_BANDS = ['£180–300k', '£300–500k', '£500k–1m', '£1m+'];
 const UK_REGIONS = ['North West', 'North East', 'Yorkshire', 'Midlands', 'East of England', 'London', 'South East', 'South West', 'Wales', 'Scotland', 'Northern Ireland'];
 
-function ReleaseForm({ onClose, onSaved, setErr }: { onClose: () => void; onSaved: () => void; setErr: (m: string) => void }) {
+function ReleaseForm({ onClose, onSaved, setErr, initialSubmissionId }: { onClose: () => void; onSaved: () => void; setErr: (m: string) => void; initialSubmissionId?: string }) {
   const [subs, setSubs] = useState<any[]>([]);
-  const [f, setF] = useState<any>({ headline: '', sector_group: '', region: 'North West', turnover_band: TURNOVER_BANDS[1], ebitda_band: EBITDA_BANDS[1], guide_multiple: '', why_sourced: '', nda_max: 10, manual_review: false, countersign_mode: 'auto', submission_id: '', windows_academy: 7 });
+  const [f, setF] = useState<any>({ headline: '', sector_group: '', region: 'North West', turnover_band: TURNOVER_BANDS[1], ebitda_band: EBITDA_BANDS[1], guide_multiple: '', why_sourced: '', nda_max: 10, manual_review: false, countersign_mode: 'auto', submission_id: initialSubmissionId ?? '', windows_academy: 7 });
   const [si, setSi] = useState<any>({ oldest_director_age: '', revenue: '', ebitda: '', incorporated_on: '', accounts_current: true, seller_engaged: true, asset_backing: 'none' });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -1378,7 +1526,7 @@ function ReleaseForm({ onClose, onSaved, setErr }: { onClose: () => void; onSave
     setBusy(true);
     try {
       await dfAdminReleaseUpsert(
-        { submission_id: f.submission_id || null, headline: f.headline, sector_group: f.sector_group || null, region: f.region, turnover_band: f.turnover_band, ebitda_band: f.ebitda_band, guide_multiple: f.guide_multiple || null, why_sourced: f.why_sourced, nda_max: Number(f.nda_max) || 10, manual_review: f.manual_review, countersign_mode: f.countersign_mode, tier_windows: { circle: 0, accelerator: 0, academy: Number(f.windows_academy) || 7 } },
+        { submission_id: f.submission_id || null, headline: f.headline, sector_group: f.sector_group || null, region: f.region, turnover_band: f.turnover_band, ebitda_band: f.ebitda_band, guide_multiple: f.guide_multiple || null, why_sourced: f.why_sourced, nda_max: Number(f.nda_max) || 10, manual_review: f.manual_review, countersign_mode: f.countersign_mode, tier_windows: { circle: 0, accelerator: 3, academy: Number(f.windows_academy) || 7 } },
         { oldest_director_age: Number(si.oldest_director_age) || 0, revenue: Number(si.revenue) || 0, ebitda: Number(si.ebitda) || 0, incorporated_on: si.incorporated_on || null, accounts_current: si.accounts_current, seller_engaged: si.seller_engaged, asset_backing: si.asset_backing },
       );
       onSaved();

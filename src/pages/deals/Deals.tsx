@@ -12,6 +12,7 @@ import {
   Wrench, Home as HomeIcon, Truck, Factory, HeartPulse, UtensilsCrossed, Store, Laptop, Leaf, Briefcase,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import Paywall from '../../components/Paywall';
 import {
   dfListings, dfDetail, dfMe, dfApply, dfSignNda, dfDataRoom, dfLogOpen, dfAsk, dfInterest, dfBookConfirm, dfPass,
 } from '../../lib/acq';
@@ -185,6 +186,8 @@ function TopBar({ me, onSignIn, onChanged }: { me: any; onSignIn: () => void; on
           </div>
         ) : me?.is_admin ? (
           <Link to="/admin/origination" className="text-[#FFD700] text-[12px] font-bold">You're the admin → Deal flow console</Link>
+        ) : me?.needs_upgrade ? (
+          <button className="bg-[#FFD700] text-[#0A2540] text-[12px] font-bold px-4 py-2 rounded-lg hover:brightness-95" onClick={() => window.dispatchEvent(new Event('oi:deals-paywall'))}>Unlock deal access</button>
         ) : (
           <button className="bg-[#FFD700] text-[#0A2540] text-[12px] font-bold px-4 py-2 rounded-lg hover:brightness-95" onClick={onSignIn}>Member sign in</button>
         )}
@@ -199,6 +202,7 @@ export default function Deals() {
   const [data, setData] = useState<any>(null);
   const [me, setMe] = useState<any>(null);
   const [auth, setAuth] = useState(false);
+  const [paywall, setPaywall] = useState(false);
   const [err, setErr] = useState('');
   const load = async () => {
     try {
@@ -207,6 +211,11 @@ export default function Deals() {
     } catch (e: any) { setErr(e.message || String(e)); }
   };
   useEffect(() => { if (session !== undefined) load(); }, [session]);
+  useEffect(() => {
+    const f = () => setPaywall(true);
+    window.addEventListener('oi:deals-paywall', f);
+    return () => window.removeEventListener('oi:deals-paywall', f);
+  }, []);
   const active = (me?.deals ?? []).filter((x: any) => !['passed', 'declined', 'expired', 'revoked', 'completed'].includes(x.state));
 
   return (
@@ -267,7 +276,7 @@ export default function Deals() {
                     <div className="mt-3.5 pt-3.5 border-t border-gray-100 flex items-center justify-between">
                       <ScoreBadge score={l.ownership_score} />
                       <span className="text-[12px] font-bold" style={{ color: NAVY }}>
-                        {l.my_state ? (BAND_LABEL[l.my_state] ?? l.my_state) : l.access === 'open' ? 'Open to you →' : l.access?.startsWith('opens:') ? `Opens ${l.access.slice(6)}` : l.access === 'waitlist' ? 'Waitlist' : l.access === 'join' ? 'Sign in to view →' : ''}
+                        {l.my_state ? (BAND_LABEL[l.my_state] ?? l.my_state) : l.access === 'open' ? 'Open to you →' : l.access?.startsWith('opens:') ? `Opens ${l.access.slice(6)}` : l.access === 'waitlist' ? 'Waitlist' : l.access === 'join' ? (me?.needs_upgrade ? 'Upgrade to view →' : 'Sign in to view →') : ''}
                       </span>
                     </div>
                   </div>
@@ -290,8 +299,10 @@ export default function Deals() {
                     </ul>
                   </div>
                   <div className="text-center sm:text-right">
-                    <a href="mailto:sandeep@officiallyinvested.com?subject=Deal%20Flow%20membership" className={btnGold + ' w-full sm:w-auto'}>Request membership</a>
-                    <div className="mt-3"><button className="text-white/50 hover:text-white text-[13px] underline underline-offset-4" onClick={() => setAuth(true)}>Already a member? Sign in</button></div>
+                    {me?.needs_upgrade
+                      ? <button className={btnGold + ' w-full sm:w-auto'} onClick={() => setPaywall(true)}>Unlock deal access</button>
+                      : <a href="mailto:sandeep@officiallyinvested.com?subject=Deal%20Flow%20membership" className={btnGold + ' w-full sm:w-auto'}>Request membership</a>}
+                    <div className="mt-3"><button className="text-white/50 hover:text-white text-[13px] underline underline-offset-4" onClick={() => setAuth(true)}>{me?.needs_upgrade ? 'Use a different account' : 'Already a member? Sign in'}</button></div>
                   </div>
                 </div>
               </div>
@@ -300,6 +311,7 @@ export default function Deals() {
         )}
       </div>
       {auth && <AuthModal onClose={() => setAuth(false)} onDone={() => { setAuth(false); load(); }} />}
+      {paywall && <Paywall context="Deal access is a member benefit — pick your tier" onClose={() => setPaywall(false)} />}
     </div>
   );
 }
@@ -312,6 +324,7 @@ export function DealPage() {
   const [me, setMe] = useState<any>(null);
   const [room, setRoom] = useState<any>(null);
   const [auth, setAuth] = useState(false);
+  const [paywall, setPaywall] = useState(false);
   const [err, setErr] = useState('');
   const [applying, setApplying] = useState(false);
   const [passing, setPassing] = useState(false);
@@ -379,8 +392,10 @@ export function DealPage() {
                 </div>
               )}
               {session && me && !me.member && !me.is_admin && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-[13px] text-amber-800">
-                  Your account isn't linked to a membership yet. Deal access is for Officially Invested members — email <a className="underline font-semibold" href="mailto:sandeep@officiallyinvested.com">sandeep@officiallyinvested.com</a> to join.
+                <div className="rounded-2xl border-2 border-[#FFD700] p-5" style={{ background: '#FFFDF2' }}>
+                  <div className="font-bold text-gray-900 text-[15px]">This is where it gets real</div>
+                  <p className="text-[13px] text-gray-600 mt-1">Applying, signing the NDA and opening the data room are member benefits. Your plan tier sets your access: Analyst → Academy, Originator → Accelerator (3 NDA slots), Team → Circle (day-one, unlimited).</p>
+                  <button className={btnGold + ' w-full mt-3'} onClick={() => setPaywall(true)}>Unlock deal access</button>
                 </div>
               )}
               {session && d.tier && !state && d.access === 'open' && !applying && (
@@ -410,6 +425,7 @@ export function DealPage() {
         </div>
       </div>
       {auth && <AuthModal onClose={() => setAuth(false)} onDone={() => { setAuth(false); load(); }} />}
+      {paywall && <Paywall context="Deal access is a member benefit — pick your tier" onClose={() => setPaywall(false)} />}
     </div>
   );
 }

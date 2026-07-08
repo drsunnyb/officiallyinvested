@@ -1,3 +1,5 @@
+import { dfAdminReleases } from '../../lib/acq';
+import PipelineLite from './PipelineLite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
@@ -176,9 +178,15 @@ export default function Pipeline() {
   const [showThesis, setShowThesis] = useState(false);
   const [showCRM, setShowCRM] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
+  const [relMap, setRelMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (!session) return;
+    dfAdminReleases().then((r) => {
+      const m: Record<string, any> = {};
+      (r.releases ?? []).forEach((x: any) => { if (x.submission_id) m[x.submission_id] = x; });
+      setRelMap(m);
+    }).catch(() => {});
     getVerdicts().then((r) => {
       const m: Record<string, { verdict?: string; score?: number }> = {};
       (r.verdicts ?? []).forEach((v) => { m[v.submission_id] = { verdict: v.verdict, score: v.score }; });
@@ -368,7 +376,8 @@ export default function Pipeline() {
   if (!supabase) return <Shell><p className="text-white/70 p-10">Supabase isn't configured (missing env vars).</p></Shell>;
   if (!authReady) return <Shell><div className="p-16 text-center"><Loader2 className="h-7 w-7 animate-spin text-[#FFD700] mx-auto" /></div></Shell>;
   if (!session) return <Login />;
-  if (!authorised) {
+  if (!authorised) return <PipelineLite />;
+  if (false) {
     return (
       <Shell>
         <div className="max-w-md mx-auto mt-20 bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
@@ -485,7 +494,8 @@ export default function Pipeline() {
                             {(d.secondary_stages ?? []).map((ss) => (
                               <span key={ss} className="bg-blue-500/25 text-blue-200 px-1.5 py-0.5 rounded-full">‖ {STAGES.find((s) => s.key === ss)?.label ?? ss}</span>
                             ))}
-                            {d.member_listed && <span className="bg-[#FFD700]/20 text-[#FFD700] px-1.5 py-0.5 rounded-full">★ members</span>}
+                            {relMap[d.id] && <span className="bg-emerald-400/25 text-emerald-200 px-1.5 py-0.5 rounded-full">◆ {relMap[d.id].status === 'released' ? 'live to members' : relMap[d.id].status.replace('_', ' ')}</span>}
+                            {d.member_listed && !relMap[d.id] && <span className="bg-[#FFD700]/20 text-[#FFD700] px-1.5 py-0.5 rounded-full">★ members</span>}
                           </div>
                         </div>
                       );
@@ -539,12 +549,15 @@ export default function Pipeline() {
             <h2 className="text-2xl font-serif font-bold text-[#FFD700]">{assetName(open)}</h2>
             <p className="text-white/50 text-xs mb-3">{open.reference} · {new Date(open.created_at).toLocaleDateString('en-GB')}{open.network_optin && <span className="text-[#FFD700]"> · buyer-network consent ✓</span>}</p>
 
-            <button
-              onClick={() => toggleMember(open)}
-              className={'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold mb-2 ' + (open.member_listed ? 'bg-[#FFD700] text-[#0A2540]' : 'bg-white/10 text-white')}
-            >
-              <Star className="h-3.5 w-3.5" />{open.member_listed ? 'Listed to members — click to unlist' : 'Make available to members'}
-            </button>
+            {relMap[open.id] ? (
+              <a href="/admin/origination?view=dealflow" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold mb-2 bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 hover:bg-emerald-400/30">
+                <Star className="h-3.5 w-3.5" /> {relMap[open.id].status === 'released' ? 'Live to members' : 'Members: ' + relMap[open.id].status.replace('_', ' ')} · {relMap[open.id].n_applied ?? 0} applied · {relMap[open.id].n_nda ?? 0} NDA'd — manage →
+              </a>
+            ) : (
+              <a href={'/admin/origination?view=dealflow&submission=' + open.id} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold mb-2 bg-[#FFD700] text-[#0A2540] hover:brightness-95">
+                <Star className="h-3.5 w-3.5" /> Release to members →
+              </a>
+            )}
             {open.member_listed && !open.network_optin && (
               <p className="text-amber-300 text-xs mb-2">⚠ Seller hasn't given buyer-network consent — get their OK before presenting.</p>
             )}

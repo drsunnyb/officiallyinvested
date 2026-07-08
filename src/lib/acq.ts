@@ -155,3 +155,18 @@ export const dfAdminAnswer = (qa_id: string, answer: string, published: boolean)
 export const dfAdminCountersign = (member_deal_id: string) => invoke('acq-dealflow', { action: 'admin_countersign', member_deal_id });
 export const dfAdminMembers = () => invoke<{ ok: boolean; members: any[] }>('acq-dealflow', { action: 'admin_members' });
 export const dfAdminMemberUpsert = (member: Record<string, unknown>) => invoke<{ ok: boolean; member: any }>('acq-dealflow', { action: 'admin_member_upsert', member });
+
+// ---------------- Self-serve onboarding + billing ----------------
+export const onboardStatus = () => invoke<{ ok: boolean; has_org: boolean; org_id?: string; org_name?: string; role?: string; plan?: string; is_host_org?: boolean; profile?: any; tour_done?: boolean; buyboxes?: number; prospects?: number; deals?: number; email?: string }>('acq-onboard', { action: 'status' });
+export const onboardProvision = (p: { org_name?: string; full_name?: string; website?: string; bio?: string }) => invoke<{ ok: boolean; org_id: string; existing: boolean }>('acq-onboard', { action: 'provision', ...p });
+export const onboardScore = (inputs: Record<string, unknown>, deal_id?: string) => invoke<{ ok: boolean; score: number; band: string; breakdown: { part: string; pts: number; max: number }[] }>('acq-onboard', { action: 'score', inputs, ...(deal_id ? { deal_id } : {}) });
+export const onboardCompleteTour = () => invoke('acq-onboard', { action: 'complete_tour' });
+export const billingCheckout = (plan: 'analyst' | 'originator' | 'team') => invoke<{ ok?: boolean; url?: string; error?: string; message?: string }>('acq-billing', { action: 'checkout', plan });
+export const billingPortal = () => invoke<{ ok?: boolean; url?: string; error?: string }>('acq-billing', { action: 'portal' });
+export const liteDeals = () => invoke<{ ok: boolean; deals: any[]; stages: string[] }>('acq-onboard', { action: 'deals_list' });
+export const liteDealCreate = (deal: Record<string, unknown>) => invoke<{ ok: boolean; deal: any }>('acq-onboard', { action: 'deal_create', deal });
+export const liteDealUpdate = (deal_id: string, patch: Record<string, unknown>) => invoke<{ ok: boolean; deal: any }>('acq-onboard', { action: 'deal_update', deal_id, ...patch });
+// ---------------- Metered credits ----------------
+export const creditsBalance = () => invoke<{ ok: boolean; ai: number; letter: number; detail: any; packs: Record<string, { kind: string; qty: number; amount: number; label: string }>; events: any[] }>('acq-credits', { action: 'balance' });
+export const creditsConsume = (kind: 'ai' | 'letter', amount = 1, reason?: string) => invoke<{ ok: boolean; balance?: { ai: number; letter: number }; needs_topup?: boolean; ai?: number; letter?: number }>('acq-credits', { action: 'consume', kind, amount, ...(reason ? { reason } : {}) });
+export const creditsTopup = (pack: string) => invoke<{ ok?: boolean; url?: string; error?: string; message?: string }>('acq-credits', { action: 'topup_checkout', pack });

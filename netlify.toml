@@ -3,6 +3,21 @@
   command = "npm run build"
 
 [[redirects]]
+  from = "/sitemap.xml"
+  to = "https://edplsdocwqzzsdvduwly.supabase.co/functions/v1/acq-seo?p=sitemap"
+  status = 200
+
+[[redirects]]
+  from = "/for-sale"
+  to = "https://edplsdocwqzzsdvduwly.supabase.co/functions/v1/acq-seo?p="
+  status = 200
+
+[[redirects]]
+  from = "/for-sale/*"
+  to = "https://edplsdocwqzzsdvduwly.supabase.co/functions/v1/acq-seo?p=:splat"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

@@ -24,7 +24,11 @@ const LIVE_STATES = ['nda_signed', 'data_room', 'interest_expressed', 'intro_cal
 const PRE_OFFER = ['viewing', 'applied', 'approved', 'nda_pending', 'nda_signed', 'data_room', 'interest_expressed', 'intro_call_booked', 'waitlisted'];
 const TEASER = 'r.id, r.headline, r.sector_group, r.region, r.turnover_band, r.ebitda_band, r.guide_multiple, r.ownership_score, r.score_breakdown, r.why_sourced, r.unlocks, r.image_key, r.nda_max, r.tier_windows, r.status, r.released_at, r.manual_review';
 
-function wrapEmail(inner: string, brandName = 'Officially Invested') {
+function wrapEmail(inner: string, brandName = 'Officially Invested', tpl?: string) {
+  if (tpl && tpl.includes('{{CONTENT}}')) {
+    const pre = inner.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 130);
+    return tpl.replace(/{{BRAND}}/g, esc(brandName)).replace(/{{PREHEADER}}/g, esc(pre)).replace('{{CONTENT}}', inner);
+  }
   return `<!doctype html><html><body style="margin:0;background:#f4f6f9;font-family:Arial,Helvetica,sans-serif"><div style="max-width:600px;margin:0 auto;padding:24px 14px"><div style="background:#0A2540;border-radius:14px 14px 0 0;padding:22px 28px"><div style="color:#FFD700;font-size:18px;font-weight:800">${esc(brandName)}</div></div><div style="background:#fff;border-radius:0 0 14px 14px;padding:24px 28px;font-size:14px;color:#26313c;line-height:1.6">${inner}</div></div></body></html>`;
 }
 
@@ -70,7 +74,7 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({} as any));
     const action = body.action ?? 'listings';
-    const cfg = Object.fromEntries((await sql`select key, value from public.oi_config where key in ('acq_internal_secret','resend_api_key','from_email')`).map((r: any) => [r.key, r.value]));
+    const cfg = Object.fromEntries((await sql`select key, value from public.oi_config where key in ('acq_internal_secret','resend_api_key','from_email','email_template')`).map((r: any) => [r.key, r.value]));
     const trusted = !!req.headers.get('x-acq-secret') && req.headers.get('x-acq-secret') === cfg.acq_internal_secret;
 
     // ---- identity: admin (org member) OR member (acq.members) OR anonymous
@@ -80,11 +84,17 @@ Deno.serve(async (req: Request) => {
       const { data } = await sb.auth.getUser();
       if (data?.user) { userId = data.user.id; userEmail = data.user.email ?? null; }
     }
-    let orgId: string | null = null, isAdmin = false;
-    if (userId) { const m = (await sql`select org_id from acq.org_members where user_id=${userId} order by created_at limit 1`)[0]; if (m) { orgId = m.org_id; isAdmin = true; } }
-    if (!orgId) { const o = (await sql`select id, name, settings from acq.organizations order by created_at limit 1`)[0]; orgId = o?.id ?? null; }
-    if (!orgId) return done({ error: 'no org' }, 403);
-    const org = (await sql`select id, name, settings from acq.organizations where id=${orgId}`)[0];
+    // Deal flow lives in the HOST org's space (Officially Invested). SaaS users
+    // from other workspaces become members here when their plan entitles them.
+    const org = (await sql`select id, name, settings from acq.organizations order by created_at limit 1`)[0];
+    if (!org) return done({ error: 'no org' }, 403);
+    const orgId = org.id;
+    let isAdmin = false; let userOrg: any = null;
+    if (userId) {
+      userOrg = (await sql`select o.id, o.settings->>'plan' as plan from acq.org_members m join acq.organizations o on o.id=m.org_id where m.user_id=${userId} order by m.created_at limit 1`)[0] ?? null;
+      if (userOrg?.id === orgId) isAdmin = true;
+    }
+    const TIER_MAP: Record<string, string> = { analyst: 'academy', originator: 'accelerator', team: 'circle' };
 
     let member: any = null;
     if (userId && !isAdmin) {
@@ -92,12 +102,17 @@ Deno.serve(async (req: Request) => {
       if (!member && userEmail) {
         member = (await sql`update acq.members set user_id=${userId}, updated_at=now() where org_id=${orgId} and lower(email)=${userEmail.toLowerCase()} and user_id is null returning *`)[0] ?? null;
       }
+      if (!member && userEmail && userOrg && TIER_MAP[userOrg.plan]) {
+        member = (await sql`insert into acq.members (org_id, user_id, email, full_name, tier, status, notes)
+          values (${orgId}, ${userId}, ${userEmail.toLowerCase()}, '', ${TIER_MAP[userOrg.plan]}, 'active', ${'auto: plan ' + userOrg.plan})
+          on conflict (org_id, email) do update set user_id=coalesce(acq.members.user_id, excluded.user_id), tier=${TIER_MAP[userOrg.plan]}, status='active', updated_at=now() returning *`)[0] ?? null;
+      }
       if (member?.status === 'suspended') member = null;
     }
 
     const mail = async (to: string, subject: string, inner: string) => {
       if (!cfg.resend_api_key) return;
-      try { await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${cfg.resend_api_key}`, 'content-type': 'application/json' }, body: JSON.stringify({ from: org.settings?.outreach?.from || cfg.from_email, to: [to], subject, html: wrapEmail(inner, org.settings?.brand?.name || org.name) }) }); } catch (_) { /* best effort */ }
+      try { await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${cfg.resend_api_key}`, 'content-type': 'application/json' }, body: JSON.stringify({ from: org.settings?.outreach?.from || cfg.from_email, to: [to], subject, html: wrapEmail(inner, org.settings?.brand?.name || org.name, cfg.email_template) }) }); } catch (_) { /* best effort */ }
     };
     const adminEmails = async () => (await sql`select u.email from acq.org_members m join auth.users u on u.id=m.user_id where m.org_id=${orgId} and u.email is not null`).map((r: any) => r.email);
     const ev = (mdId: string, kind: string, detail: any = null) => sql`insert into acq.member_deal_events (org_id, member_deal_id, kind, detail) values (${orgId}, ${mdId}, ${kind}, ${detail})`;
@@ -107,10 +122,11 @@ Deno.serve(async (req: Request) => {
     };
     const touch = (mdId: string) => sql`update acq.member_deals set last_activity_at=now(), expiry_warned_at=null where id=${mdId}`;
     const ndaActive = async (releaseId: string) => Number((await sql`select count(*)::int as n from acq.member_deals where release_id=${releaseId} and nda_signed_at is not null and state = any(${LIVE_STATES})`)[0].n);
+    const memberGate = () => done({ error: userId ? 'upgrade required' : 'membership required', needs_upgrade: !!userId && !isAdmin }, 403);
 
     // ============================ PUBLIC / MEMBER ============================
     if (action === 'me') {
-      if (!member) return done({ member: null, is_admin: isAdmin });
+      if (!member) return done({ member: null, is_admin: isAdmin, plan: userOrg?.plan ?? null, needs_upgrade: !!userId && !isAdmin });
       const mds = await sql`select md.*, r.headline, r.status as release_status from acq.member_deals md join acq.deal_releases r on r.id=md.release_id where md.member_id=${member.id} order by md.updated_at desc`;
       const slots = Number((await sql`select acq.member_active_slots(${member.id}) as n`)[0].n);
       return done({ member: { id: member.id, full_name: member.full_name, email: member.email, tier: member.tier }, deals: mds, slots_used: slots, slots_cap: TIER_SLOTS[member.tier] });
@@ -120,7 +136,7 @@ Deno.serve(async (req: Request) => {
       const rows = await sql.unsafe(`select ${TEASER} from acq.deal_releases r where r.org_id='${orgId}' and r.status in ('released','under_offer','completed') and (r.status <> 'completed' or r.updated_at > now() - interval '30 days') order by r.released_at desc nulls last`);
       let states: Record<string, any> = {};
       if (member) for (const md of await sql`select release_id, state from acq.member_deals where member_id=${member.id}`) states[md.release_id] = md.state;
-      return done({ listings: rows.map((r: any) => ({ ...r, access: accessState(r, member?.tier ?? null), my_state: states[r.id] ?? null })), tier: member?.tier ?? null });
+      return done({ listings: rows.map((r: any) => ({ ...r, access: accessState(r, member?.tier ?? null), my_state: states[r.id] ?? null })), tier: member?.tier ?? null, needs_upgrade: !!userId && !member && !isAdmin, plan: userOrg?.plan ?? null });
     }
 
     if (action === 'detail') {
@@ -132,11 +148,11 @@ Deno.serve(async (req: Request) => {
         md = (await sql`select * from acq.member_deals where member_id=${member.id} and release_id=${r.id}`)[0] ?? null;
         qaPublished = Number((await sql`select count(*)::int as n from acq.deal_qa where release_id=${r.id} and published`)[0].n);
       }
-      return done({ release: r, ndas_active: active, access: accessState(r, member?.tier ?? null), my: md, qa_published: qaPublished, tier: member?.tier ?? null });
+      return done({ release: r, ndas_active: active, access: accessState(r, member?.tier ?? null), my: md, qa_published: qaPublished, tier: member?.tier ?? null, needs_upgrade: !!userId && !member && !isAdmin, plan: userOrg?.plan ?? null });
     }
 
     if (action === 'apply') {
-      if (!member) return done({ error: 'membership required' }, 403);
+      if (!member) return memberGate();
       const r = (await sql`select * from acq.deal_releases where id=${body.release_id} and org_id=${orgId}`)[0];
       if (!r || r.status === 'draft' || r.status === 'withdrawn' || r.status === 'completed') return done({ error: 'deal not open' }, 400);
       const access = accessState(r, member.tier);
@@ -165,7 +181,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'sign_nda') {
-      if (!member) return done({ error: 'membership required' }, 403);
+      if (!member) return memberGate();
       const md = (await sql`select md.*, r.headline, r.nda_max, r.nda_version, r.countersign_mode from acq.member_deals md join acq.deal_releases r on r.id=md.release_id where md.member_id=${member.id} and md.release_id=${body.release_id}`)[0];
       if (!md || md.state !== 'nda_pending') return done({ error: 'not approved for NDA yet' }, 400);
       if (!body.typed_name || !body.agree) return done({ error: 'typed name and agreement required' }, 400);
@@ -187,7 +203,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'data_room') {
-      if (!member) return done({ error: 'membership required' }, 403);
+      if (!member) return memberGate();
       const md = (await sql`select * from acq.member_deals where member_id=${member.id} and release_id=${body.release_id}`)[0];
       if (!md || !LIVE_STATES.includes(md.state) || md.state === 'nda_signed') return done({ error: 'data room locked' }, 403);
       const r = (await sql`select * from acq.deal_releases where id=${md.release_id}`)[0];
@@ -210,14 +226,14 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'log_open') {
-      if (!member) return done({ error: 'membership required' }, 403);
+      if (!member) return memberGate();
       const md = (await sql`select id from acq.member_deals where member_id=${member.id} and release_id=${body.release_id}`)[0];
       if (md) { await ev(md.id, body.kind === 'download' ? 'doc_download' : 'doc_open', { document_id: body.document_id ?? null, name: body.name ?? null }); await touch(md.id); }
       return done({ ok: true });
     }
 
     if (action === 'ask') {
-      if (!member) return done({ error: 'membership required' }, 403);
+      if (!member) return memberGate();
       const md = (await sql`select id, state from acq.member_deals where member_id=${member.id} and release_id=${body.release_id}`)[0];
       if (!md || !LIVE_STATES.includes(md.state)) return done({ error: 'Q&A is for NDA-signed members' }, 403);
       const q = (await sql`insert into acq.deal_qa (org_id, release_id, member_deal_id, question) values (${orgId}, ${body.release_id}, ${md.id}, ${String(body.question).slice(0, 2000)}) returning *`)[0];
@@ -227,23 +243,23 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'express_interest') {
-      if (!member) return done({ error: 'membership required' }, 403);
+      if (!member) return memberGate();
       const md = (await sql`select md.*, r.headline from acq.member_deals md join acq.deal_releases r on r.id=md.release_id where md.member_id=${member.id} and md.release_id=${body.release_id}`)[0];
       if (!md || md.state !== 'data_room') return done({ error: 'open the data room first' }, 400);
       await setState(md.id, 'interest_expressed');
-      for (const a of await adminEmails()) await mail(a, `🔥 Interest expressed · ${md.headline}`, `<p><b>${esc(member.full_name)}</b> (${member.tier}, ${String(md.funding_readiness).replace(/_/g, ' ')}) has expressed interest in <b>${esc(md.headline)}</b>. They're booking an intro call — the member board has their full activity log.</p>`);
+      for (const a of await adminEmails()) await mail(a, `Interest expressed · ${md.headline}`, `<p><b>${esc(member.full_name)}</b> (${member.tier}, ${String(md.funding_readiness).replace(/_/g, ' ')}) has expressed interest in <b>${esc(md.headline)}</b>. They're booking an intro call — the member board has their full activity log.</p>`);
       return done({ ok: true, calendly: (org.settings?.dealflow?.booking_url ?? org.settings?.dealflow?.calendly_url) ?? null });
     }
 
     if (action === 'book_confirm') {
-      if (!member) return done({ error: 'membership required' }, 403);
+      if (!member) return memberGate();
       const md = (await sql`select id, state from acq.member_deals where member_id=${member.id} and release_id=${body.release_id}`)[0];
       if (md?.state === 'interest_expressed') await setState(md.id, 'intro_call_booked');
       return done({ ok: true });
     }
 
     if (action === 'pass') {
-      if (!member) return done({ error: 'membership required' }, 403);
+      if (!member) return memberGate();
       const md = (await sql`select md.*, r.headline from acq.member_deals md join acq.deal_releases r on r.id=md.release_id where md.member_id=${member.id} and md.release_id=${body.release_id}`)[0];
       if (!md || !PRE_OFFER.includes(md.state)) return done({ error: 'cannot pass at this stage' }, 400);
       const reason = ['price', 'sector', 'location', 'timing', 'other'].includes(body.reason) ? body.reason : 'other';
