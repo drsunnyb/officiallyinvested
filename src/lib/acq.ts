@@ -34,7 +34,7 @@ async function invoke<T = any>(fn: string, body: Record<string, unknown>): Promi
     } catch (inner: any) { if (inner instanceof Error && inner.message && !/body stream|json/i.test(inner.message)) throw inner; }
     throw error;
   }
-  if (data && data.error) throw new Error(data.error);
+  if (data && data.error) throw new Error(data.message ?? data.error);
   return data as T;
 }
 
@@ -77,6 +77,7 @@ export async function legalFillBroker(deal_id: string, file: File, counterparty?
 export const crmList = () => invoke<{ ok: boolean; contacts: any[]; tasks: any[] }>('acq-crm', { action: 'list' });
 export const crmAddContact = (c: Record<string, unknown>) => invoke('acq-crm', { action: 'add_contact', ...c });
 export const crmAddTask = (t: Record<string, unknown>) => invoke('acq-crm', { action: 'add_task', ...t });
+export const crmAiTasks = () => invoke<{ ok: boolean; created: number; tasks: any[] }>('acq-crm', { action: 'ai_tasks' });
 export const crmCompleteTask = (task_id: string) => invoke('acq-crm', { action: 'complete_task', task_id });
 export const crmSuggest = (deal_id: string, roles?: string[]) => invoke<{ ok: boolean; suggestions: any[] }>('acq-crm', { action: 'suggest', deal_id, ...(roles ? { roles } : {}) });
 export const monitorList = () => invoke<{ ok: boolean; alerts: any[] }>('acq-monitor', { action: 'list' });

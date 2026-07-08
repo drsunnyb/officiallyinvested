@@ -10,13 +10,13 @@ import {
   sourceTaxonomy, sourceSearch, sourceStartRun, sourceRuns, sourceCancelRun, ingestPropose, ingestCommit,
   outreachList, outreachCreate, outreachUpdate, outreachDraftTemplates, outreachEnrol,
   outreachQueue, outreachApprove, outreachApproveAll, outreachRun, outreachMarkReplied,
-  getOrgSettings, setOrgSettings, crmList, crmAddTask, crmCompleteTask,
+  getOrgSettings, setOrgSettings, crmList, crmAddTask, crmCompleteTask, crmAiTasks,
   buyboxList, buyboxChat, buyboxCreate, buyboxActivate, buyboxDelete,
   dfAdminReleases, dfAdminReleaseUpsert, dfAdminPublish, dfAdminBoard, dfAdminDecide, dfAdminAdvance,
   dfAdminExclusivity, dfAdminAnswer, dfAdminCountersign, dfAdminMembers, dfAdminMemberUpsert,
   onboardStatus, onboardCompleteTour, billingPortal,
 } from '../../lib/acq';
-import Paywall, { CreditsTopUp } from '../../components/Paywall';
+import Paywall, { CreditsTopUp, UnlockChoice } from '../../components/Paywall';
 import { creditsBalance } from '../../lib/acq';
 
 // Plan gate: free workspaces hit the paywall on paid capabilities.
@@ -71,6 +71,7 @@ export default function Origination() {
   const [showWizard, setShowWizard] = useState(false);
   const [err, setErr] = useState('');
   const [paywall, setPaywall] = useState(false);
+  const [unlock, setUnlock] = useState(false);
   const [topup, setTopup] = useState<'ai' | 'letter' | null>(null);
   const [, setPlan] = useState<string>('free'); // plan gating uses module-level CURRENT_PLAN
   const [tour, setTour] = useState<number>(qp.get('tour') === '1' ? 0 : -1);
@@ -78,10 +79,12 @@ export default function Origination() {
   useEffect(() => {
     onboardStatus().then((st) => { CURRENT_PLAN = st.plan ?? 'free'; setPlan(st.plan ?? 'free'); }).catch(() => { CURRENT_PLAN = 'team'; });
     const onPaywall = () => setPaywall(true);
+    const onUnlock = () => setUnlock(true);
+    window.addEventListener('oi:unlock', onUnlock);
     const onTopup = (e: any) => setTopup(e.detail?.kind ?? 'letter');
     window.addEventListener('oi:paywall', onPaywall);
     window.addEventListener('oi:topup', onTopup);
-    return () => { window.removeEventListener('oi:paywall', onPaywall); window.removeEventListener('oi:topup', onTopup); };
+    return () => { window.removeEventListener('oi:paywall', onPaywall); window.removeEventListener('oi:topup', onTopup); window.removeEventListener('oi:unlock', () => setUnlock(true)); };
   }, []);
   useEffect(() => { if (tour >= 0 && TOUR_STEPS[tour]?.key) setView(TOUR_STEPS[tour].key as View); }, [tour]);
   const endTour = () => { setTour(-1); onboardCompleteTour().catch(() => {}); window.history.replaceState({}, '', '/admin/origination'); };
@@ -138,6 +141,7 @@ export default function Origination() {
       <main className="flex-1 min-w-0 overflow-y-auto">
         {err && <div className="m-6 mb-0 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2.5">{err}</div>}
         {paywall && <Paywall onClose={() => setPaywall(false)} />}
+        {unlock && <UnlockChoice context="Activate your campaign" onClose={() => setUnlock(false)} />}
         {topup && <CreditsTopUp focus={topup} onClose={() => setTopup(null)} />}
         {tour >= 0 && TOUR_STEPS[tour] && (
           <div className="fixed bottom-6 right-6 z-[70] max-w-sm bg-white rounded-2xl shadow-2xl border-2 border-[#FFD700] p-5">
@@ -795,10 +799,19 @@ function ContactsView({ setErr }: { setErr: (s: string) => void }) {
   useEffect(() => { load(); }, []);
   const addTask = async () => { if (!tf.title?.trim()) return; setBusy('t'); try { await crmAddTask({ title: tf.title, due_date: tf.due || null }); setTf({}); await load(); } finally { setBusy(''); } };
   const done = async (id: string) => { await crmCompleteTask(id); setTasks((t) => t.filter((x) => x.id !== id)); };
+  const aiPlan = async () => {
+    setBusy('ai'); try {
+      const r = await crmAiTasks();
+      if (r.created === 0) setErr('Nothing new to suggest. Your open tasks already cover the priorities.');
+      await load();
+    } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
+  };
   const overdue = (t: any) => t.due_date && new Date(t.due_date) < new Date();
   return (
     <>
-      <Header title="Tasks" sub="What needs a human: call tasks from your campaigns land here with their brief, plus anything you add yourself. Contacts for the people around your deals live in the pipeline, on each deal." />
+      <Header title="Tasks" sub="What needs a human: call tasks from your campaigns land here with their brief, plus anything you add yourself. Contacts for the people around your deals live in the pipeline, on each deal.">
+        <button onClick={aiPlan} disabled={busy === 'ai'} className={btnGold}>{busy === 'ai' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{busy === 'ai' ? 'Reading your workspace…' : 'AI: plan my next moves'}</button>
+      </Header>
       <div className="px-8 pb-8 max-w-3xl">
         <div className={card + ' p-5'}>
           <div className="font-semibold text-gray-900 mb-3">Needs you <span className="text-gray-400 font-normal">· {tasks.length} open · origination only</span></div>
@@ -897,14 +910,22 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
 
   const load = async () => { setLoading(true); try { const r = await outreachList(); setCamps(r.campaigns); setSteps(r.steps); } catch (e: any) { setErr(e.message || String(e)); } finally { setLoading(false); } };
   useEffect(() => { load(); loadCredits(); }, []);
-  const aiDraft = async () => { if (!requirePaid()) return; setBusy('draft'); setErr(''); try { const r = await outreachDraftTemplates(buyBox ? { buy_box: buyBox } : undefined); setDraftSteps(r.steps); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
+  const aiDraft = async () => { if (!gate('ai')) return; setBusy('draft'); setErr(''); try { const r = await outreachDraftTemplates(buyBox ? { buy_box: buyBox } : undefined); setDraftSteps(r.steps); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
   const create = async () => {
     if (!name.trim() || !draftSteps.length) { setErr('Name the campaign and draft the sequence first'); return; }
     setBusy('create'); try { await outreachCreate({ name, steps: draftSteps }); setCreating(false); setName(''); setDraftSteps([]); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
-  const setStatus = async (id: string, status: string) => { if (status === 'active' && !requirePaid()) return; setBusy(id); try { await outreachUpdate(id, { status }); await load(); } finally { setBusy(''); } };
+  const setStatus = async (id: string, status: string) => { if (status === 'active' && !gate('letter')) return; setBusy(id); try { await outreachUpdate(id, { status }); await load(); } finally { setBusy(''); } };
+  // Free workspaces with purchased letter credits may run campaigns on their
+  // own lists: pay as you go. Otherwise offer the choice of plan or credits.
+  const gate = (kind: 'letter' | 'ai' = 'letter') => {
+    if (CURRENT_PLAN !== 'free') return true;
+    if (credits && (kind === 'letter' ? credits.letter : credits.ai) > 0) return true;
+    window.dispatchEvent(new Event('oi:unlock'));
+    return false;
+  };
   const enrol = async (id: string, ids: string[]) => {
-    if (!requirePaid()) return;
+    if (!gate('letter')) return;
     setBusy('enrol'); try {
       const r = await outreachEnrol(id, { prospect_ids: ids, limit: ids.length });
       alert(`${r.enrolled} prospects enrolled (${r.suppressed} suppressed). Their first step now sits in your approval queue.`);
@@ -917,10 +938,10 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
     if (/insufficient_credits/.test(m)) { window.dispatchEvent(new CustomEvent('oi:topup', { detail: { kind: 'letter' } })); return true; }
     return false;
   };
-  const approveAll = async () => { if (!requirePaid()) return;
+  const approveAll = async () => { if (!gate('letter')) return;
     setBusy('approve'); try { const r = await outreachApproveAll(); alert(`${r.approved} messages approved. They send inside each campaign's window and daily cap.`); setQueue(null); await load(); }
     catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } finally { setBusy(''); loadCredits(); } };
-  const runNow = async () => { if (!requirePaid()) return; setBusy('run'); try { await outreachRun(); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
+  const runNow = async () => { if (!gate('letter')) return; setBusy('run'); try { await outreachRun(); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
 
   return (
     <>
@@ -1002,7 +1023,7 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
               {queue.map((t) => (
                 <div key={t.id} className="bg-gray-50 rounded-lg p-3 text-[12px]">
                   <div className="flex items-center gap-2 mb-1"><b className="text-gray-800">{t.company_name}</b><span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-500">{t.channel}</span>
-                    <button onClick={async () => { if (!requirePaid()) return; try { await outreachApprove([t.id]); setQueue((q) => q!.filter((x) => x.id !== t.id)); } catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } }} className="ml-auto text-emerald-600 hover:text-emerald-700 font-semibold">Approve</button></div>
+                    <button onClick={async () => { if (!gate(t.channel === 'letter' ? 'letter' : 'ai')) return; try { await outreachApprove([t.id]); setQueue((q) => q!.filter((x) => x.id !== t.id)); } catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } }} className="ml-auto text-emerald-600 hover:text-emerald-700 font-semibold">Approve</button></div>
                   {t.subject && <div className="text-gray-600 font-medium">{t.subject}</div>}
                   <div className="text-gray-500 line-clamp-2 whitespace-pre-wrap">{t.body}</div>
                 </div>

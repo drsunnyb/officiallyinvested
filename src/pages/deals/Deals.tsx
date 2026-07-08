@@ -18,16 +18,25 @@ import {
   buyboxList, sourceTaxonomy,
 } from '../../lib/acq';
 
-// ---- buy-box matching: surface what fits the viewer's own criteria first ----
-function buyboxMatcher(box: any | null, taxGroups: Record<string, string>) {
-  if (!box) return null;
-  const groups = new Set((box.industries ?? []).map((k: string) => (taxGroups[k] ?? '').toLowerCase()).filter(Boolean));
-  const locs = [box.location, ...(box.regions ?? [])].filter(Boolean).map((x: any) => String(x).toLowerCase());
+// ---- buy-box matching: every mandate the viewer runs, best match wins ----
+function buyboxMatcher(boxes: { name: string; criteria: any }[], taxGroups: Record<string, string>) {
+  if (!boxes.length) return null;
+  const prepared = boxes.map((b) => ({
+    name: b.name,
+    groups: new Set((b.criteria?.industries ?? []).map((k: string) => (taxGroups[k] ?? '').toLowerCase()).filter(Boolean)),
+    locs: [b.criteria?.location, ...(b.criteria?.regions ?? [])].filter(Boolean).map((x: any) => String(x).toLowerCase()),
+  }));
   return (l: any) => {
-    const sector = groups.size > 0 && !!l.sector_group && groups.has(String(l.sector_group).toLowerCase());
+    let best: any = { sector: false, region: false, score: 0, box: null };
+    const sg = String(l.sector_group ?? '').toLowerCase();
     const lr = String(l.region ?? '').toLowerCase();
-    const region = !!lr && locs.some((x: string) => lr.includes(x) || x.includes(lr));
-    return { sector, region, score: (sector ? 2 : 0) + (region ? 1 : 0) };
+    for (const b of prepared) {
+      const sector = b.groups.size > 0 && !!sg && b.groups.has(sg);
+      const region = !!lr && b.locs.some((x: string) => lr.includes(x) || x.includes(lr));
+      const score = (sector ? 2 : 0) + (region ? 1 : 0);
+      if (score > best.score) best = { sector, region, score, box: b.name };
+    }
+    return best;
   };
 }
 
@@ -221,8 +230,9 @@ export default function Deals() {
   const session = useMember();
   const [data, setData] = useState<any>(null);
   const [me, setMe] = useState<any>(null);
-  const [box, setBox] = useState<any | null>(null);
+  const [boxes, setBoxes] = useState<{ name: string; criteria: any }[]>([]);
   const [taxGroups, setTaxGroups] = useState<Record<string, string>>({});
+  const [flt, setFlt] = useState<{ q: string; sector: string; region: string; mine: boolean }>({ q: '', sector: '', region: '', mine: false });
   const [auth, setAuth] = useState(false);
   const [paywall, setPaywall] = useState(false);
   const [err, setErr] = useState('');
@@ -233,8 +243,7 @@ export default function Deals() {
       if (session) {
         try {
           const [bb, tx] = await Promise.all([buyboxList(), sourceTaxonomy()]);
-          const activeBox = (bb.boxes ?? []).find((b: any) => b.is_active) ?? (bb.boxes ?? [])[0] ?? null;
-          setBox(activeBox?.criteria ?? null);
+          setBoxes((bb.boxes ?? []).map((b: any) => ({ name: b.name, criteria: b.criteria })));
           setTaxGroups(Object.fromEntries((tx.taxonomy ?? []).map((t: any) => [t.key, t.group ?? ''])));
         } catch (_) { /* members without a workspace just get the default order */ }
       }
@@ -247,9 +256,18 @@ export default function Deals() {
     return () => window.removeEventListener('oi:deals-paywall', f);
   }, []);
   const active = (me?.deals ?? []).filter((x: any) => !['passed', 'declined', 'expired', 'revoked', 'completed'].includes(x.state));
-  const bbMatch = buyboxMatcher(box, taxGroups);
-  const sorted = data ? [...data.listings].map((l: any) => ({ l, bm: bbMatch ? bbMatch(l) : null })).sort((a: any, b: any) => (b.bm?.score ?? 0) - (a.bm?.score ?? 0)) : [];
-  const anyMatch = sorted.some((x: any) => (x.bm?.score ?? 0) > 0);
+  const bbMatch = buyboxMatcher(boxes, taxGroups);
+  const allSorted = data ? [...data.listings].map((l: any) => ({ l, bm: bbMatch ? bbMatch(l) : null })).sort((a: any, b: any) => (b.bm?.score ?? 0) - (a.bm?.score ?? 0)) : [];
+  const sectors = Array.from(new Set(allSorted.map((x: any) => x.l.sector_group).filter(Boolean))) as string[];
+  const regions = Array.from(new Set(allSorted.map((x: any) => x.l.region).filter(Boolean))) as string[];
+  const sorted = allSorted.filter(({ l, bm }: any) => {
+    if (flt.mine && !(bm?.score > 0)) return false;
+    if (flt.sector && l.sector_group !== flt.sector) return false;
+    if (flt.region && l.region !== flt.region) return false;
+    if (flt.q.trim() && !String(l.headline ?? '').toLowerCase().includes(flt.q.trim().toLowerCase())) return false;
+    return true;
+  });
+  const anyMatch = allSorted.some((x: any) => (x.bm?.score ?? 0) > 0);
 
   return (
     <div className="min-h-screen pb-24 pt-20" style={{ background: NAVY }}>
@@ -295,14 +313,41 @@ export default function Deals() {
         {!data ? <div className="text-white/50 text-center py-20"><Loader2 className="h-6 w-6 animate-spin inline" /></div> : (
           <>
             <h2 className="text-white font-serif font-bold text-lg mb-1">{me?.member ? 'Live deals' : 'Current deals'}</h2>
-            {anyMatch && <p className="text-white/40 text-[12px]">Ordered for you - deals matching your buy box come first.</p>}
-            <div className="mb-4" />
+            {anyMatch && <p className="text-white/40 text-[12px]">Ordered for you - deals matching your mandates come first.</p>}
+            <div className="flex flex-wrap items-center gap-2 mt-3 mb-5">
+              {boxes.length > 0 && (
+                <button onClick={() => setFlt((f) => ({ ...f, mine: !f.mine }))}
+                  className={'text-[12px] font-bold px-3.5 py-1.5 rounded-full border transition ' + (flt.mine ? 'bg-[#FFD700] text-[#0A2540] border-[#FFD700]' : 'bg-white/[0.06] text-white/70 border-white/20 hover:bg-white/10')}>
+                  My buy box only
+                </button>
+              )}
+              <select value={flt.sector} onChange={(e) => setFlt((f) => ({ ...f, sector: e.target.value }))}
+                className="bg-white/[0.06] border border-white/20 text-white/80 text-[12px] rounded-full px-3 py-1.5 outline-none [&>option]:text-gray-900">
+                <option value="">All sectors</option>
+                {sectors.map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>
+              <select value={flt.region} onChange={(e) => setFlt((f) => ({ ...f, region: e.target.value }))}
+                className="bg-white/[0.06] border border-white/20 text-white/80 text-[12px] rounded-full px-3 py-1.5 outline-none [&>option]:text-gray-900">
+                <option value="">All regions</option>
+                {regions.map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>
+              <input value={flt.q} onChange={(e) => setFlt((f) => ({ ...f, q: e.target.value }))} placeholder="Search deals…"
+                className="bg-white/[0.06] border border-white/20 text-white text-[12px] rounded-full px-3.5 py-1.5 outline-none placeholder:text-white/30 w-44" />
+              {(flt.mine || flt.sector || flt.region || flt.q) && (
+                <button onClick={() => setFlt({ q: '', sector: '', region: '', mine: false })} className="text-white/40 text-[12px] underline underline-offset-2 hover:text-white/70">Clear</button>
+              )}
+              <span className="text-white/30 text-[11.5px] ml-auto">{sorted.length} of {allSorted.length} deals</span>
+            </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {sorted.map(({ l, bm }: any) => (
                 <Link key={l.id} to={`/deals/${l.id}`} className={card + ' overflow-hidden hover:-translate-y-1 transition-transform block rounded-2xl'}>
                   <SectorHero sector={l.sector_group} status={l.status} />
                   <div className="p-5">
-                    {bm && bm.score > 0 && <div className="inline-flex items-center gap-1 bg-[#FFFDF2] border border-[#FFD700] text-[#7A6200] text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 uppercase tracking-wide"><Sparkles className="h-3 w-3" /> In your buy box{bm.sector && bm.region ? ' · your area' : ''}</div>}
+                    {bm && bm.score > 0 && (
+                      <div className={'inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 uppercase tracking-wide border ' + (bm.sector && bm.region ? 'bg-[#FFD700] text-[#0A2540] border-[#FFD700]' : 'bg-[#FFFDF2] text-[#7A6200] border-[#FFD700]')}>
+                        <Sparkles className="h-3 w-3" /> {bm.sector && bm.region ? 'Strong fit' : 'In your buy box'}{boxes.length > 1 && bm.box ? ' · ' + bm.box : ''}
+                      </div>
+                    )}
                     <div className="font-serif font-bold text-gray-900 leading-snug min-h-[44px]">{l.headline}</div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-gray-500 mt-2">
                       {l.region && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{l.region}</span>}
@@ -319,6 +364,7 @@ export default function Deals() {
                 </Link>
               ))}
               {!data.listings.length && <div className="text-white/50 text-sm col-span-3 text-center py-16">No live deals right now. New releases go to members by email first.</div>}
+              {data.listings.length > 0 && !sorted.length && <div className="text-white/50 text-sm col-span-3 text-center py-16">Nothing matches those filters. Clear them, or widen your buy box in your workspace.</div>}
             </div>
 
             {/* lead gen join panel for guests */}

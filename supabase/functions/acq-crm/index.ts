@@ -17,7 +17,7 @@ Deno.serve(async (req: Request) => {
   const sql = postgres(DB_URL, { prepare: false });
   try {
     const body = await req.json().catch(() => ({} as any));
-    const cfg = Object.fromEntries((await sql`select key, value from public.oi_config where key in ('acq_internal_secret','from_email')`).map((r: any) => [r.key, r.value]));
+    const cfg = Object.fromEntries((await sql`select key, value from public.oi_config where key in ('acq_internal_secret','from_email','anthropic_api_key')`).map((r: any) => [r.key, r.value]));
     const trusted = !!req.headers.get('x-acq-secret') && req.headers.get('x-acq-secret') === cfg.acq_internal_secret;
     let userId: string | null = null;
     if (!trusted) {
@@ -78,6 +78,57 @@ Deno.serve(async (req: Request) => {
           and (c.email is not null or ${body.allow_no_email ?? false})
         order by last_interaction desc nulls last, deal_count desc, c.created_at desc limit 50`;
       return json({ ok: true, suggestions: rows });
+    }
+
+    // AI chief of staff: reads the live workspace and writes prioritised tasks.
+    if (action === 'ai_tasks') {
+      const ANTHROPIC = Deno.env.get('ANTHROPIC_API_KEY') || cfg.anthropic_api_key;
+      if (!ANTHROPIC) { await sql.end({ timeout: 5 }); return json({ error: 'no anthropic key' }); }
+      const campaigns = await sql`select c.name, c.status,
+          (select count(*)::int from acq.campaign_members m where m.campaign_id=c.id) as enrolled,
+          (select count(*)::int from acq.campaign_members m where m.campaign_id=c.id and m.status='replied') as replied,
+          (select count(*)::int from acq.outreach_touches t where t.campaign_id=c.id and t.status='needs_approval') as awaiting_approval,
+          (select count(*)::int from acq.outreach_touches t where t.campaign_id=c.id and t.status='sent') as sent
+        from acq.campaigns c where c.org_id=${orgId} order by c.created_at desc limit 10`;
+      const credits = (await sql`select * from acq.credits where org_id=${orgId}`)[0] ?? null;
+      const org = (await sql`select settings->>'plan' as plan from acq.organizations where id=${orgId}`)[0];
+      const stages = await sql`select stage, count(*)::int as n from acq.prospects where org_id=${orgId} group by stage`;
+      const deals = await sql`select status, count(*)::int as n from acq.deals where org_id=${orgId} group by status`;
+      const openTasks = await sql`select title from acq.tasks where org_id=${orgId} and status='open' limit 50`;
+      const runs = await sql`select status, count(*)::int as n from acq.sourcing_runs where org_id=${orgId} group by status`;
+      const now = new Date(); const reset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const snapshot = {
+        plan: org?.plan ?? 'free',
+        credits: credits ? { ai: credits.ai_monthly + credits.ai_topup, letter: credits.letter_monthly + credits.letter_topup } : { ai: 0, letter: 0 },
+        monthly_allowance_resets: reset.toISOString().slice(0, 10),
+        campaigns, prospect_stages: Object.fromEntries(stages.map((x: any) => [x.stage, x.n])),
+        pipeline_deals: Object.fromEntries(deals.map((x: any) => [x.status, x.n])),
+        sourcing_runs: Object.fromEntries(runs.map((x: any) => [x.status, x.n])),
+        existing_open_tasks: openTasks.map((t: any) => t.title),
+      };
+      const ar = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST', headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6', max_tokens: 900,
+          system: 'You are the operations chief of staff for a UK acquisition entrepreneur using the Officially Invested Investor OS. From the workspace snapshot, write the 2-5 highest-leverage tasks for the next two weeks. Rules: concrete and imperative, one action each, plain UK English, no em dashes, no AI tells. Never duplicate or paraphrase an existing open task. Think about: approvals sitting unactioned (letters cannot post without approval and each uses a letter credit); credits running low versus the reset date (top up or upgrade BEFORE a live campaign stalls); replied prospects who should be moved into the pipeline as deals; qualified prospects not yet enrolled in any campaign; paused campaigns with enrolled prospects; no sourcing activity when the pipeline is thin. If credits are zero and a campaign is live, that is the top task. Due dates: urgent 0-2 days, normal 3-7, housekeeping 8-14.',
+          tools: [{ name: 'set_tasks', description: 'The task list', input_schema: { type: 'object', properties: { tasks: { type: 'array', items: { type: 'object', properties: { title: { type: 'string', description: 'max 80 chars, imperative' }, due_in_days: { type: 'number' }, why: { type: 'string', description: 'one short sentence' } }, required: ['title', 'due_in_days'] } } }, required: ['tasks'] } }],
+          tool_choice: { type: 'tool', name: 'set_tasks' },
+          messages: [{ role: 'user', content: 'Workspace snapshot: ' + JSON.stringify(snapshot) }],
+        }),
+      });
+      if (!ar.ok) { const t = await ar.text(); await sql.end({ timeout: 5 }); return json({ error: 'Suggestions are briefly unavailable, try again. (' + ar.status + ')', detail: t.slice(0, 120) }); }
+      const out: any = ((await ar.json()).content ?? []).find((b: any) => b.type === 'tool_use')?.input ?? { tasks: [] };
+      const existing = new Set(openTasks.map((t: any) => String(t.title).toLowerCase().replace(/[^a-z0-9]/g, '')));
+      const created: any[] = [];
+      for (const t of (out.tasks ?? []).slice(0, 5)) {
+        const key = String(t.title ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!t.title || key.length < 5 || existing.has(key)) continue;
+        const due = new Date(Date.now() + Math.max(0, Math.min(14, Number(t.due_in_days ?? 3))) * 86400000).toISOString().slice(0, 10);
+        const title = t.why ? `${String(t.title).slice(0, 90)} (${String(t.why).slice(0, 90)})` : String(t.title).slice(0, 120);
+        const row = (await sql`insert into acq.tasks (org_id, title, due_date, created_by) values (${orgId}, ${title}, ${due}, ${userId}) returning *`)[0];
+        created.push(row); existing.add(key);
+      }
+      return json({ ok: true, created: created.length, tasks: created });
     }
 
     if (action === 'contact_detail') {

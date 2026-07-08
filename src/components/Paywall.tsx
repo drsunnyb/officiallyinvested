@@ -35,7 +35,7 @@ export default function Paywall({ onClose, context }: { onClose: () => void; con
         </div>
         <div className="grid sm:grid-cols-3 gap-4 mt-6">
           {TIERS.map((t) => (
-            <div key={t.key} className={'rounded-2xl border p-5 flex flex-col ' + (t.featured ? 'border-[#FFD700] shadow-lg relative' : 'border-gray-200')}>
+            <div key={t.key} className={'rounded-2xl border p-5 flex flex-col ' + (t.featured ? 'border-[#FFD700] shadow-xl relative bg-gradient-to-b from-[#FFFDF2] to-white' : 'border-gray-200 bg-white')}>
               {t.featured && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#FFD700] text-[#0A2540] text-[10px] font-bold px-3 py-0.5 rounded-full">MOST POPULAR</span>}
               <div className="font-bold text-gray-900">{t.name}</div>
               <div className="mt-1"><span className="font-serif text-3xl font-bold text-gray-900">{t.price}</span><span className="text-gray-400 text-[12px]">/month</span></div>
@@ -50,7 +50,12 @@ export default function Paywall({ onClose, context }: { onClose: () => void; con
             </div>
           ))}
         </div>
-        {err && <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">{err}</div>}
+        {err && (
+          <div className="flex items-start gap-2.5 text-[12.5px] text-[#0A2540] bg-[#FFFDF2] border border-[#FFD700]/60 rounded-xl px-4 py-3 mt-4">
+            <Sparkles className="h-4 w-4 text-[#C9A227] shrink-0 mt-0.5" />
+            <span>{/not_configured/i.test(err) ? 'Card payments switch on this week. Email sandeep@officiallyinvested.com and we will set your plan up personally today, same price.' : err}</span>
+          </div>
+        )}
         <div className="text-[11px] text-gray-400 text-center mt-4">Monthly credits reset on the 1st; purchased top-ups roll over. Cancel any time. Annual (2 months free) available - ask us.</div>
       </div>
     </div>
@@ -125,3 +130,39 @@ export function CreditsTopUp({ onClose, focus }: { onClose: () => void; focus?: 
     </div>
   );
 }
+
+// ============ Unlock chooser: subscribe or pay as you go ============
+export function UnlockChoice({ onClose, context }: { onClose: () => void; context?: string }) {
+  const [path, setPath] = useState<'plans' | 'credits' | null>(null);
+  if (path === 'plans') return <Paywall context={context} onClose={onClose} />;
+  if (path === 'credits') return <CreditsTopUp focus="letter" onClose={onClose} />;
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#0A2540] bg-[#FFD700] px-2.5 py-1 rounded-full"><Sparkles className="h-3 w-3" /> Ready to reach owners</div>
+            <h2 className="font-serif text-2xl font-bold text-gray-900 mt-3">{context ?? 'Two ways to power your outreach'}</h2>
+            <p className="text-[13px] text-gray-500 mt-1">Letters cost one credit each. Pick whichever suits how you buy.</p>
+          </div>
+          <button onClick={onClose}><X className="h-5 w-5 text-gray-400" /></button>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4 mt-6">
+          <button onClick={() => setPath('plans')} className="text-left rounded-2xl border-2 border-[#FFD700] p-5 hover:shadow-lg transition relative">
+            <span className="absolute -top-2.5 left-5 bg-[#FFD700] text-[#0A2540] text-[10px] font-bold px-2.5 py-0.5 rounded-full">BEST VALUE</span>
+            <div className="font-bold text-gray-900 text-[15px]">Subscribe</div>
+            <div className="text-[12.5px] text-gray-500 mt-1 leading-relaxed">Monthly letter and AI credits included, plus automated sourcing across 1.1m companies, the AI analyst and member deal access. From £99 a month.</div>
+            <div className="text-[13px] font-bold text-[#0A2540] mt-3">See plans →</div>
+          </button>
+          <button onClick={() => setPath('credits')} className="text-left rounded-2xl border border-gray-200 p-5 hover:shadow-lg hover:border-gray-300 transition">
+            <div className="font-bold text-gray-900 text-[15px]">Buy credits as you go</div>
+            <div className="text-[12.5px] text-gray-500 mt-1 leading-relaxed">No subscription. Buy a pack of letter credits, they never expire, and your campaign posts letters until the pack runs out. From £70 for 50 letters.</div>
+            <div className="text-[13px] font-bold text-[#0A2540] mt-3">See credit packs →</div>
+          </button>
+        </div>
+        <div className="text-[11px] text-gray-400 text-center mt-5">Either way, nothing sends without your approval and every letter is drafted in your voice.</div>
+      </div>
+    </div>
+  );
+}
+
