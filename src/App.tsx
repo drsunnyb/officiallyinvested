@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import SubmitOpportunity from './pages/SubmitOpportunity';
 import SellerFunnel from './pages/SellerFunnel';
+import Deals, { DealPage } from './pages/deals/Deals';
 import Pipeline from './pages/admin/Pipeline';
 import Origination from './pages/admin/Origination';
 import Settings from './pages/admin/Settings';
@@ -37,6 +38,8 @@ function App() {
         <Route path="/sell" element={<SubmitOpportunity />} />
         <Route path="/f/:slug" element={<SellerFunnel />} />
         <Route path="/f" element={<SellerFunnel />} />
+        <Route path="/deals" element={<Deals />} />
+        <Route path="/deals/:id" element={<DealPage />} />
         <Route path="/admin" element={<Pipeline />} />
         <Route path="/admin/pipeline" element={<Pipeline />} />
         <Route path="/admin/origination" element={<Origination />} />

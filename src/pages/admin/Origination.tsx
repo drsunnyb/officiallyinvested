@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 import {
   Loader2, Search, Upload, Send, Globe, Users, ShieldCheck, Check, ArrowUpRight, ArrowLeft,
   LayoutDashboard, Target, Building2, PhoneCall, Mail, FileText, ChevronRight, X, Sparkles, Settings2, Copy, CreditCard,
@@ -11,6 +12,8 @@ import {
   outreachQueue, outreachApprove, outreachApproveAll, outreachRun, outreachMarkReplied,
   getOrgSettings, setOrgSettings, crmList, crmAddContact, crmAddTask, crmCompleteTask, crmContactDetail,
   buyboxList, buyboxChat, buyboxCreate, buyboxActivate, buyboxDelete,
+  dfAdminReleases, dfAdminReleaseUpsert, dfAdminPublish, dfAdminBoard, dfAdminDecide, dfAdminAdvance,
+  dfAdminExclusivity, dfAdminAnswer, dfAdminCountersign, dfAdminMembers, dfAdminMemberUpsert,
 } from '../../lib/acq';
 
 // ---------------------------------------------------------------------------
@@ -36,7 +39,7 @@ const PROV_LABEL: Record<string, string> = { platform: 'Sourced', uploaded: 'You
 const fitTint = (n: number | null) => n == null ? 'bg-gray-100 text-gray-400' : n >= 80 ? 'bg-emerald-100 text-emerald-800' : n >= 60 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500';
 const money = (n: any) => n == null ? '—' : '£' + Number(n).toLocaleString();
 
-type View = 'dashboard' | 'find' | 'prospects' | 'contacts' | 'campaigns' | 'funnel' | 'buybox' | 'about' | 'billing';
+type View = 'dashboard' | 'find' | 'prospects' | 'contacts' | 'campaigns' | 'dealflow' | 'members' | 'funnel' | 'buybox' | 'about' | 'billing';
 
 export default function Origination() {
   const [view, setView] = useState<View>('dashboard');
@@ -59,6 +62,8 @@ export default function Origination() {
     { key: 'prospects', label: 'Prospects', icon: Building2 },
     { key: 'contacts', label: 'Contacts & tasks', icon: Users },
     { key: 'campaigns', label: 'Campaigns', icon: Send },
+    { key: 'dealflow', label: 'Deal flow', icon: Sparkles },
+    { key: 'members', label: 'Members', icon: Users },
     { key: 'funnel', label: 'Funnel & Meta ads', icon: Globe },
     { key: 'buybox', label: 'Buy box', icon: Target },
     { key: 'about', label: 'About you', icon: Users },
@@ -98,6 +103,8 @@ export default function Origination() {
         {view === 'prospects' && <ProspectsView setErr={setErr} />}
         {view === 'contacts' && <ContactsView setErr={setErr} />}
         {view === 'campaigns' && <CampaignsView setErr={setErr} buyBox={settings.buy_box} />}
+        {view === 'dealflow' && <DealFlowView setErr={setErr} />}
+        {view === 'members' && <MembersView setErr={setErr} />}
         {view === 'funnel' && <FunnelView setErr={setErr} settings={settings} onSaved={reloadSettings} />}
         {view === 'buybox' && <BuyBoxView openWizard={() => setShowWizard(true)} setErr={setErr} onChanged={() => reloadSettings()} />}
         {view === 'about' && <AboutView settings={settings} onSaved={reloadSettings} setErr={setErr} />}
@@ -1210,5 +1217,291 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
         </div>
       </div>
     </>
+  );
+}
+
+// =============================== DEAL FLOW (member releases) ===============================
+const DF_STATES = ['applied', 'nda_pending', 'nda_signed', 'data_room', 'interest_expressed', 'intro_call_booked', 'offer_submitted', 'heads_of_terms', 'diligence'];
+const DF_LABEL: Record<string, string> = {
+  applied: 'Queue', nda_pending: 'NDA pending', nda_signed: 'Awaiting countersign', data_room: 'In data room',
+  interest_expressed: 'Interested', intro_call_booked: 'Intro call', offer_submitted: 'Offer', heads_of_terms: 'Heads of terms',
+  diligence: 'Diligence', completed: 'Completed', declined: 'Declined', passed: 'Passed', waitlisted: 'Waitlisted', revoked: 'Revoked', expired: 'Expired',
+};
+const READY_LABEL: Record<string, string> = { cash_ready: 'Cash ready', finance_agreed: 'Finance agreed', finance_not_arranged: 'Finance not arranged', exploring: 'Exploring' };
+
+function DealFlowView({ setErr }: { setErr: (m: string) => void }) {
+  const [releases, setReleases] = useState<any[] | null>(null);
+  const [open, setOpen] = useState<any | null>(null);       // release being managed
+  const [board, setBoard] = useState<any | null>(null);
+  const [creating, setCreating] = useState(false);
+  const load = () => dfAdminReleases().then((r) => setReleases(r.releases)).catch((e) => setErr(e.message || String(e)));
+  useEffect(() => { load(); }, []);
+  const openBoard = async (r: any) => {
+    setOpen(r); setBoard(null);
+    try { setBoard(await dfAdminBoard(r.id)); } catch (e: any) { setErr(e.message || String(e)); }
+  };
+  return (
+    <div className="p-6 max-w-6xl">
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="font-serif text-xl font-bold text-gray-900">Deal flow</h1>
+        <button className={btnGold} onClick={() => setCreating(true)}><Sparkles className="h-4 w-4" /> Release a deal</button>
+      </div>
+      <p className="text-[13px] text-gray-500 mb-5">Anonymised member releases. Members apply, sign the NDA in-app, then work the data room. Everything they touch is logged.</p>
+      {!releases ? <div className="text-gray-400 py-16 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></div> : (
+        <div className="space-y-3">
+          {releases.map((r) => (
+            <div key={r.id} className={card + ' p-4 cursor-pointer hover:border-[#0A2540]/40'} onClick={() => openBoard(r)}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (r.status === 'released' ? 'bg-emerald-100 text-emerald-700' : r.status === 'draft' ? 'bg-gray-100 text-gray-500' : r.status === 'under_offer' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')}>{r.status.replace('_', ' ').toUpperCase()}</span>
+                <span className="font-semibold text-gray-900 text-[14px]">{r.headline}</span>
+                {r.ownership_score != null && <span className="text-[11px] text-gray-500">Score {r.ownership_score}</span>}
+              </div>
+              <div className="flex gap-4 text-[12px] text-gray-500 mt-2">
+                <span><b className="text-gray-900">{r.n_applied}</b> applied</span>
+                <span><b className="text-gray-900">{r.n_nda}</b> NDA'd</span>
+                <span><b className="text-gray-900">{r.n_interested}</b> interested</span>
+                {r.n_queue > 0 && <span className="text-amber-700 font-semibold">{r.n_queue} in queue</span>}
+                {r.hottest_readiness && <span>Hottest: {['', 'Cash ready', 'Finance agreed', 'Finance not arranged', 'Exploring'][r.hottest_readiness]}</span>}
+                {r.status === 'draft' && (
+                  <button className="ml-auto text-[#0A2540] font-bold hover:underline" onClick={async (e) => { e.stopPropagation(); try { const x = await dfAdminPublish(r.id); setErr(''); load(); alert(`Released. ${x.notified} member(s) notified.`); } catch (er: any) { setErr(er.message || String(er)); } }}>Publish →</button>
+                )}
+              </div>
+            </div>
+          ))}
+          {!releases.length && <div className={card + ' p-10 text-center text-gray-400 text-sm'}>No releases yet. Release a pipeline deal to your members — anonymised until NDA.</div>}
+        </div>
+      )}
+      {creating && <ReleaseForm onClose={() => setCreating(false)} onSaved={() => { setCreating(false); load(); }} setErr={setErr} />}
+      {open && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={() => setOpen(null)}>
+          <div className="w-full max-w-2xl bg-white h-full overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="font-serif font-bold text-lg text-gray-900">{open.headline}</div>
+                <div className="text-[12px] text-gray-500">{open.status} · NDA cap {open.nda_max}</div>
+              </div>
+              <button onClick={() => setOpen(null)}><X className="h-5 w-5 text-gray-400" /></button>
+            </div>
+            {!board ? <div className="py-16 text-center text-gray-400"><Loader2 className="h-5 w-5 animate-spin inline" /></div> : (
+              <div className="mt-5 space-y-6">
+                {/* queue */}
+                {board.opportunities.filter((o: any) => o.state === 'applied').length > 0 && (
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wide text-amber-700 mb-2">Application queue · 24h SLA</div>
+                    {board.opportunities.filter((o: any) => o.state === 'applied').map((o: any) => (
+                      <div key={o.id} className="border border-amber-200 bg-amber-50 rounded-xl p-3.5 mb-2">
+                        <div className="flex items-center gap-2 text-[13px]"><b>{o.full_name}</b><span className="text-gray-500 capitalize">({o.tier})</span><span className="text-gray-500">· {READY_LABEL[o.funding_readiness] ?? o.funding_readiness}</span></div>
+                        {o.application?.motivation && <div className="text-[12px] text-gray-600 mt-1 italic">"{o.application.motivation}"</div>}
+                        <div className="flex gap-2 mt-2.5">
+                          <button className={btnPrimary + ' !py-1.5 !px-3 !text-[12px]'} onClick={async () => { await dfAdminDecide(o.id, 'approve').catch((e: any) => setErr(e.message)); openBoard(open); }}>Approve</button>
+                          {['deal oversubscribed', 'outside stated funding readiness', 'buy-box mismatch'].map((reason) => (
+                            <button key={reason} className={btnGhost + ' !py-1.5 !px-3 !text-[12px]'} onClick={async () => { await dfAdminDecide(o.id, 'decline', reason).catch((e: any) => setErr(e.message)); openBoard(open); }}>Decline: {reason.split(' ')[0]}…</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* live opportunities */}
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Member opportunities</div>
+                  {board.opportunities.filter((o: any) => o.state !== 'applied').map((o: any) => (
+                    <div key={o.id} className="border border-gray-200 rounded-xl p-3.5 mb-2">
+                      <div className="flex items-center gap-2 flex-wrap text-[13px]">
+                        <b>{o.full_name}</b><span className="text-gray-500 capitalize">({o.tier})</span>
+                        <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (['interest_expressed','intro_call_booked','offer_submitted','heads_of_terms','diligence'].includes(o.state) ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600')}>{DF_LABEL[o.state] ?? o.state}</span>
+                        {o.exclusivity && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FFD700] text-[#0A2540]">EXCLUSIVE</span>}
+                      </div>
+                      <div className="text-[11px] text-gray-500 mt-1">{READY_LABEL[o.funding_readiness] ?? o.funding_readiness} · {o.doc_activity} data-room opens · {o.questions} questions{o.nda_signed_at ? ` · NDA ${String(o.nda_signed_at).slice(0, 10)}` : ''}</div>
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {o.state === 'nda_signed' && <button className={btnPrimary + ' !py-1 !px-2.5 !text-[11px]'} onClick={async () => { await dfAdminCountersign(o.id).catch((e: any) => setErr(e.message)); openBoard(open); }}>Countersign NDA</button>}
+                        {['interest_expressed', 'intro_call_booked', 'offer_submitted', 'heads_of_terms'].includes(o.state) && (
+                          <>
+                            <select className={input__ + ' !py-1 !text-[11px]'} defaultValue="" onChange={async (e) => { if (!e.target.value) return; await dfAdminAdvance(o.id, e.target.value).catch((er: any) => setErr(er.message)); openBoard(open); }}>
+                              <option value="">Advance to…</option>
+                              {['intro_call_booked', 'offer_submitted', 'heads_of_terms', 'diligence', 'completed'].map((x) => <option key={x} value={x}>{DF_LABEL[x]}</option>)}
+                            </select>
+                            {!o.exclusivity && <button className={btnGold + ' !py-1 !px-2.5 !text-[11px]'} onClick={async () => { if (!confirm('Grant exclusivity? All other live members are waitlisted with the honest email.')) return; await dfAdminExclusivity(o.id).catch((e: any) => setErr(e.message)); openBoard(open); }}>Grant exclusivity</button>}
+                          </>
+                        )}
+                        {!['completed', 'declined', 'revoked', 'passed', 'expired'].includes(o.state) && <button className={btnGhost + ' !py-1 !px-2.5 !text-[11px] !text-red-600 !border-red-200'} onClick={async () => { const rs = prompt('Revoke reason'); if (rs === null) return; await dfAdminAdvance(o.id, 'revoked', rs).catch((e: any) => setErr(e.message)); openBoard(open); }}>Revoke</button>}
+                      </div>
+                    </div>
+                  ))}
+                  {!board.opportunities.length && <div className="text-[12px] text-gray-400">No member activity yet.</div>}
+                </div>
+                {/* Q&A */}
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Q&A</div>
+                  {board.qa.map((q: any) => <QARow key={q.id} q={q} onAnswered={() => openBoard(open)} setErr={setErr} />)}
+                  {!board.qa.length && <div className="text-[12px] text-gray-400">No questions yet.</div>}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QARow({ q, onAnswered, setErr }: { q: any; onAnswered: () => void; setErr: (m: string) => void }) {
+  const [a, setA] = useState(q.answer ?? '');
+  const [pub, setPub] = useState(q.published ?? true);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="border border-gray-200 rounded-xl p-3 mb-2">
+      <div className="text-[13px] text-gray-800"><b>{q.full_name ?? 'Member'}:</b> {q.question}</div>
+      <div className="flex gap-2 mt-2">
+        <input className={input__ + ' flex-1 !text-[12px]'} placeholder="Answer" value={a} onChange={(e) => setA(e.target.value)} />
+        <label className="flex items-center gap-1 text-[11px] text-gray-500"><input type="checkbox" checked={pub} onChange={(e) => setPub(e.target.checked)} /> publish to all</label>
+        <button className={btnPrimary + ' !py-1.5 !px-3 !text-[12px]'} disabled={busy || !a.trim()} onClick={async () => { setBusy(true); try { await dfAdminAnswer(q.id, a, pub); onAnswered(); } catch (e: any) { setErr(e.message || String(e)); } setBusy(false); }}>{q.answer ? 'Update' : 'Answer'}</button>
+      </div>
+    </div>
+  );
+}
+
+const TURNOVER_BANDS = ['£750k–1m', '£1–2m', '£2–5m', '£5–10m', '£10m+'];
+const EBITDA_BANDS = ['£180–300k', '£300–500k', '£500k–1m', '£1m+'];
+const UK_REGIONS = ['North West', 'North East', 'Yorkshire', 'Midlands', 'East of England', 'London', 'South East', 'South West', 'Wales', 'Scotland', 'Northern Ireland'];
+
+function ReleaseForm({ onClose, onSaved, setErr }: { onClose: () => void; onSaved: () => void; setErr: (m: string) => void }) {
+  const [subs, setSubs] = useState<any[]>([]);
+  const [f, setF] = useState<any>({ headline: '', sector_group: '', region: 'North West', turnover_band: TURNOVER_BANDS[1], ebitda_band: EBITDA_BANDS[1], guide_multiple: '', why_sourced: '', nda_max: 10, manual_review: false, countersign_mode: 'auto', submission_id: '', windows_academy: 7 });
+  const [si, setSi] = useState<any>({ oldest_director_age: '', revenue: '', ebitda: '', incorporated_on: '', accounts_current: true, seller_engaged: true, asset_backing: 'none' });
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.from('submissions').select('id,business_name,reference,status').order('created_at', { ascending: false }).limit(80).then(({ data }) => setSubs(data ?? []));
+  }, []);
+  const save = async () => {
+    setBusy(true);
+    try {
+      await dfAdminReleaseUpsert(
+        { submission_id: f.submission_id || null, headline: f.headline, sector_group: f.sector_group || null, region: f.region, turnover_band: f.turnover_band, ebitda_band: f.ebitda_band, guide_multiple: f.guide_multiple || null, why_sourced: f.why_sourced, nda_max: Number(f.nda_max) || 10, manual_review: f.manual_review, countersign_mode: f.countersign_mode, tier_windows: { circle: 0, accelerator: 0, academy: Number(f.windows_academy) || 7 } },
+        { oldest_director_age: Number(si.oldest_director_age) || 0, revenue: Number(si.revenue) || 0, ebitda: Number(si.ebitda) || 0, incorporated_on: si.incorporated_on || null, accounts_current: si.accounts_current, seller_engaged: si.seller_engaged, asset_backing: si.asset_backing },
+      );
+      onSaved();
+    } catch (e: any) { setErr(e.message || String(e)); }
+    setBusy(false);
+  };
+  const set = (k: string, v: any) => setF({ ...f, [k]: v });
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={onClose}>
+      <div className="w-full max-w-xl bg-white h-full overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-serif font-bold text-lg text-gray-900">Release a deal to members</div>
+          <button onClick={onClose}><X className="h-5 w-5 text-gray-400" /></button>
+        </div>
+        <div className="space-y-3.5">
+          <div>
+            <div className="text-[12px] font-semibold text-gray-700 mb-1">Pipeline deal (identity revealed only after NDA)</div>
+            <select className={input__ + ' w-full'} value={f.submission_id} onChange={(e) => set('submission_id', e.target.value)}>
+              <option value="">— none / off-pipeline —</option>
+              {subs.map((x) => <option key={x.id} value={x.id}>{x.reference} · {x.business_name}</option>)}
+            </select>
+          </div>
+          <input className={input__ + ' w-full'} placeholder="Anonymised headline, e.g. Established plumbing contractor, North West" value={f.headline} onChange={(e) => set('headline', e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <input className={input__} placeholder="Sector group (e.g. Trades & services)" value={f.sector_group} onChange={(e) => set('sector_group', e.target.value)} />
+            <select className={input__} value={f.region} onChange={(e) => set('region', e.target.value)}>{UK_REGIONS.map((x) => <option key={x}>{x}</option>)}</select>
+            <select className={input__} value={f.turnover_band} onChange={(e) => set('turnover_band', e.target.value)}>{TURNOVER_BANDS.map((x) => <option key={x}>{x}</option>)}</select>
+            <select className={input__} value={f.ebitda_band} onChange={(e) => set('ebitda_band', e.target.value)}>{EBITDA_BANDS.map((x) => <option key={x}>{x}</option>)}</select>
+          </div>
+          <input className={input__ + ' w-full'} placeholder="Guide multiple, e.g. 4.2× adj. EBITDA" value={f.guide_multiple} onChange={(e) => set('guide_multiple', e.target.value)} />
+          <div>
+            <div className="text-[12px] font-semibold text-gray-700 mb-1">"Why I sourced this" — 3–4 sentences, in your voice. The highest-converting element on the page.</div>
+            <textarea className={input__ + ' w-full'} rows={4} value={f.why_sourced} onChange={(e) => set('why_sourced', e.target.value)} />
+          </div>
+          <div className="bg-gray-50 rounded-xl p-3.5">
+            <div className="text-[12px] font-bold text-gray-900 mb-2">Ownership Score inputs (auto-scored, explainable)</div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <input className={input__} placeholder="Oldest director age" value={si.oldest_director_age} onChange={(e) => setSi({ ...si, oldest_director_age: e.target.value })} />
+              <input className={input__} placeholder="Incorporated (YYYY-MM-DD)" value={si.incorporated_on} onChange={(e) => setSi({ ...si, incorporated_on: e.target.value })} />
+              <input className={input__} placeholder="Revenue £" value={si.revenue} onChange={(e) => setSi({ ...si, revenue: e.target.value })} />
+              <input className={input__} placeholder="Adj EBITDA £" value={si.ebitda} onChange={(e) => setSi({ ...si, ebitda: e.target.value })} />
+              <select className={input__} value={si.asset_backing} onChange={(e) => setSi({ ...si, asset_backing: e.target.value })}>
+                <option value="none">No asset backing</option><option value="partial">Partial (some property/plant)</option><option value="full">Freehold / asset-rich</option>
+              </select>
+              <div className="flex flex-col gap-1 text-[12px] text-gray-600">
+                <label className="flex items-center gap-1.5"><input type="checkbox" checked={si.accounts_current} onChange={(e) => setSi({ ...si, accounts_current: e.target.checked })} /> Accounts current</label>
+                <label className="flex items-center gap-1.5"><input type="checkbox" checked={si.seller_engaged} onChange={(e) => setSi({ ...si, seller_engaged: e.target.checked })} /> Seller engaged</label>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div><div className="text-[11px] text-gray-500 mb-1">NDA cap</div><input className={input__ + ' w-full'} value={f.nda_max} onChange={(e) => set('nda_max', e.target.value)} /></div>
+            <div><div className="text-[11px] text-gray-500 mb-1">Academy opens after (days)</div><input className={input__ + ' w-full'} value={f.windows_academy} onChange={(e) => set('windows_academy', e.target.value)} /></div>
+            <div><div className="text-[11px] text-gray-500 mb-1">Countersign</div>
+              <select className={input__ + ' w-full'} value={f.countersign_mode} onChange={(e) => set('countersign_mode', e.target.value)}><option value="auto">Automatic</option><option value="admin">I countersign</option></select>
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-[13px] text-gray-700"><input type="checkbox" checked={f.manual_review} onChange={(e) => set('manual_review', e.target.checked)} /> Manual review for Accelerator too (Academy is always reviewed)</label>
+          <button className={btnGold + ' w-full'} disabled={busy || !f.headline.trim() || !f.why_sourced.trim()} onClick={save}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save as draft'}</button>
+          <div className="text-[11px] text-gray-400 text-center">Saved as draft — publish from the Deal flow list when you're ready. Publishing emails eligible members.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================== MEMBERS ===============================
+function MembersView({ setErr }: { setErr: (m: string) => void }) {
+  const [members, setMembers] = useState<any[] | null>(null);
+  const [nm, setNm] = useState({ email: '', full_name: '', tier: 'academy' });
+  const [busy, setBusy] = useState(false);
+  const load = () => dfAdminMembers().then((r) => setMembers(r.members)).catch((e) => setErr(e.message || String(e)));
+  useEffect(() => { load(); }, []);
+  const add = async () => {
+    setBusy(true);
+    try { await dfAdminMemberUpsert(nm); setNm({ email: '', full_name: '', tier: 'academy' }); load(); } catch (e: any) { setErr(e.message || String(e)); }
+    setBusy(false);
+  };
+  return (
+    <div className="p-6 max-w-4xl">
+      <h1 className="font-serif text-xl font-bold text-gray-900 mb-1">Members</h1>
+      <p className="text-[13px] text-gray-500 mb-5">Deal-flow membership and tiers. Circle sees deals instantly with unlimited NDA slots; Accelerator has 3 slots; Academy has 1 and applications are reviewed.</p>
+      <div className={card + ' p-4 mb-4'}>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+          <input className={input__} placeholder="Email" value={nm.email} onChange={(e) => setNm({ ...nm, email: e.target.value })} />
+          <input className={input__} placeholder="Full name" value={nm.full_name} onChange={(e) => setNm({ ...nm, full_name: e.target.value })} />
+          <select className={input__} value={nm.tier} onChange={(e) => setNm({ ...nm, tier: e.target.value })}>
+            <option value="circle">Circle</option><option value="accelerator">Accelerator</option><option value="academy">Academy</option>
+          </select>
+          <button className={btnPrimary} disabled={busy || !nm.email.includes('@')} onClick={add}>Add member</button>
+        </div>
+        <div className="text-[11px] text-gray-400 mt-2">They sign in (or sign up) at /deals with this email and are linked automatically.</div>
+      </div>
+      {!members ? <div className="text-gray-400 py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></div> : (
+        <div className={card + ' overflow-hidden'}>
+          <table className="w-full text-[13px]">
+            <thead><tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+              <th className="px-4 py-2.5">Member</th><th className="px-4 py-2.5">Tier</th><th className="px-4 py-2.5">Slots</th><th className="px-4 py-2.5">Deals</th><th className="px-4 py-2.5">Status</th>
+            </tr></thead>
+            <tbody>
+              {members.map((m) => (
+                <tr key={m.id} className="border-b border-gray-50">
+                  <td className="px-4 py-2.5"><div className="font-semibold text-gray-900">{m.full_name || '—'}</div><div className="text-[11px] text-gray-500">{m.email}</div></td>
+                  <td className="px-4 py-2.5">
+                    <select className={input__ + ' !py-1 !text-[12px]'} value={m.tier} onChange={async (e) => { await dfAdminMemberUpsert({ id: m.id, full_name: m.full_name, tier: e.target.value, status: m.status }).catch((er: any) => setErr(er.message)); load(); }}>
+                      <option value="circle">Circle</option><option value="accelerator">Accelerator</option><option value="academy">Academy</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-2.5 text-gray-600">{m.slots_used}{m.tier === 'circle' ? '' : `/${m.tier === 'accelerator' ? 3 : 1}`}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{m.deal_count}</td>
+                  <td className="px-4 py-2.5">
+                    <button className={'text-[11px] font-bold px-2 py-0.5 rounded-full ' + (m.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700')}
+                      onClick={async () => { await dfAdminMemberUpsert({ id: m.id, full_name: m.full_name, tier: m.tier, status: m.status === 'active' ? 'suspended' : 'active' }).catch((er: any) => setErr(er.message)); load(); }}>
+                      {m.status}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!members.length && <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400">No members yet — add your first above.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }

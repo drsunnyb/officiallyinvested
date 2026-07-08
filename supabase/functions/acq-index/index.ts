@@ -1,9 +1,12 @@
 // =============================================================================
-// acq-index v2 — bulk ingestion + geocoding for the local Companies House index.
+// acq-index v4 — bulk ingestion + geocoding for the local Companies House index.
 // Guarded by oi_config.acq_index_token (narrow scope: public registry data only).
-// Monthly refresh: download BasicCompanyDataAsOneFile-YYYY-MM-01.zip, filter to
-// taxonomy SICs + active + non-dormant + non-micro + 3yrs+, ingest_rows in
-// chunks, geocode_outcodes until remaining=0, apply_geo, then wipe_month.
+// v3: rows carry `status` (active | administration | receivership | liquidation |
+// voluntary_arrangement) so distressed-deal searches work locally.
+// v4: rows carry `sic_primary` (first code of SICCode.SicText_1 — the company's
+// primary classification) so acq-source can offer "primary industry only" matching.
+// Monthly refresh: download BasicCompanyDataAsOneFile-YYYY-MM-01.zip, filter,
+// ingest_rows in chunks, geocode_outcodes until remaining=0, apply_geo, wipe_month.
 // Actions: ingest_rows | stats | wipe_month | geocode_outcodes | apply_geo
 // =============================================================================
 import postgres from 'npm:postgres@3.4.5';
@@ -20,10 +23,9 @@ Deno.serve(async (req: Request) => {
     if (!token || req.headers.get('x-index-token') !== token) { await sql.end({ timeout: 5 }); return json({ error: 'unauthorised' }, 401); }
 
     if (body.action === 'stats') {
-      const r = (await sql`select count(*)::int as rows, count(distinct outcode)::int as outcodes, count(lat)::int as geocoded, pg_size_pretty(pg_total_relation_size('acq.companies_index')) as size from acq.companies_index`)[0];
-      const g = (await sql`select count(*)::int as outcode_geo_rows from acq.outcode_geo`)[0];
+      const r = (await sql`select count(*)::int as rows, count(*) filter (where status <> 'active')::int as distressed, count(lat)::int as geocoded, count(sic_primary)::int as sic_primary_n, max(snapshot_month) as snapshot, pg_size_pretty(pg_total_relation_size('acq.companies_index')) as size from acq.companies_index`)[0];
       await sql.end({ timeout: 5 });
-      return json({ ok: true, ...r, ...g });
+      return json({ ok: true, ...r });
     }
 
     if (body.action === 'ingest_rows') {
@@ -31,12 +33,12 @@ Deno.serve(async (req: Request) => {
       if (!Array.isArray(rows) || !rows.length) { await sql.end({ timeout: 5 }); return json({ error: 'rows required' }, 400); }
       const month = body.snapshot_month ?? null;
       const r = await sql`
-        insert into acq.companies_index (company_number, name, sic, incorporated, accounts_category, address1, town, postcode, outcode, lat, lon, snapshot_month)
-        select x.company_number, x.name, x.sic, x.incorporated::date, x.accounts_category, x.address1, x.town, x.postcode, x.outcode, x.lat, x.lon, ${month}::date
-        from jsonb_to_recordset(${rows}) as x(company_number text, name text, sic text[], incorporated text, accounts_category text, address1 text, town text, postcode text, outcode text, lat double precision, lon double precision)
-        on conflict (company_number) do update set name=excluded.name, sic=excluded.sic, incorporated=excluded.incorporated,
+        insert into acq.companies_index (company_number, name, sic, sic_primary, incorporated, accounts_category, address1, town, postcode, outcode, lat, lon, status, snapshot_month)
+        select x.company_number, x.name, x.sic, x.sic_primary, x.incorporated::date, x.accounts_category, x.address1, x.town, x.postcode, x.outcode, x.lat, x.lon, coalesce(x.status, 'active'), ${month}::date
+        from jsonb_to_recordset(${rows}) as x(company_number text, name text, sic text[], sic_primary text, incorporated text, accounts_category text, address1 text, town text, postcode text, outcode text, lat double precision, lon double precision, status text)
+        on conflict (company_number) do update set name=excluded.name, sic=excluded.sic, sic_primary=excluded.sic_primary, incorporated=excluded.incorporated,
           accounts_category=excluded.accounts_category, address1=excluded.address1, town=excluded.town, postcode=excluded.postcode,
-          outcode=excluded.outcode, snapshot_month=excluded.snapshot_month
+          outcode=excluded.outcode, status=excluded.status, snapshot_month=excluded.snapshot_month
         returning company_number`;
       await sql.end({ timeout: 5 });
       return json({ ok: true, upserted: r.length });

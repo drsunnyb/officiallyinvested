@@ -130,3 +130,28 @@ export const sourceStartRun = (p: Record<string, unknown>) => invoke<{ ok: boole
 export const sourceRuns = () => invoke<{ ok: boolean; runs: any[] }>('acq-source', { action: 'runs' });
 export const sourceCancelRun = (run_id: string) => invoke('acq-source', { action: 'cancel_run', run_id });
 export const crmContactDetail = (contact_id: string) => invoke<{ ok: boolean; contact: any; deals: any[]; communications: any[]; documents: any[]; tasks: any[] }>('acq-crm', { action: 'contact_detail', contact_id });
+
+// ---------------- Deal flow (member deal journey: releases, NDA, data room) ----------------
+export const dfListings = () => invoke<{ listings: any[]; tier: string | null }>('acq-dealflow', { action: 'listings' });
+export const dfDetail = (release_id: string) => invoke<{ release: any; ndas_active: number; access: string; my: any | null; qa_published: number; tier: string | null }>('acq-dealflow', { action: 'detail', release_id });
+export const dfMe = () => invoke<{ member: any | null; deals?: any[]; slots_used?: number; slots_cap?: number | null; is_admin?: boolean }>('acq-dealflow', { action: 'me' });
+export const dfApply = (release_id: string, application: Record<string, unknown>, ack: boolean) => invoke<{ ok: boolean; member_deal: any; next: string }>('acq-dealflow', { action: 'apply', release_id, application, ack });
+export const dfSignNda = (release_id: string, typed_name: string, agree: boolean) => invoke<{ ok: boolean; state: string }>('acq-dealflow', { action: 'sign_nda', release_id, typed_name, agree });
+export const dfDataRoom = (release_id: string) => invoke<any>('acq-dealflow', { action: 'data_room', release_id });
+export const dfLogOpen = (release_id: string, document_id?: string, name?: string) => invoke('acq-dealflow', { action: 'log_open', release_id, document_id, name });
+export const dfAsk = (release_id: string, question: string) => invoke('acq-dealflow', { action: 'ask', release_id, question });
+export const dfInterest = (release_id: string) => invoke<{ ok: boolean; calendly: string | null }>('acq-dealflow', { action: 'express_interest', release_id });
+export const dfBookConfirm = (release_id: string) => invoke('acq-dealflow', { action: 'book_confirm', release_id });
+export const dfPass = (release_id: string, reason: string, feedback?: string) => invoke('acq-dealflow', { action: 'pass', release_id, reason, feedback });
+// admin
+export const dfAdminReleases = () => invoke<{ ok: boolean; releases: any[] }>('acq-dealflow', { action: 'admin_releases' });
+export const dfAdminReleaseUpsert = (release: Record<string, unknown>, score_inputs?: Record<string, unknown>) => invoke<{ ok: boolean; release: any }>('acq-dealflow', { action: 'admin_release_upsert', release, ...(score_inputs ? { score_inputs } : {}) });
+export const dfAdminPublish = (release_id: string) => invoke<{ ok: boolean; release: any; notified: number }>('acq-dealflow', { action: 'admin_release_publish', release_id });
+export const dfAdminBoard = (release_id: string, member_deal_id?: string) => invoke<{ ok: boolean; opportunities: any[]; events: any[]; qa: any[] }>('acq-dealflow', { action: 'admin_board', release_id, ...(member_deal_id ? { member_deal_id } : {}) });
+export const dfAdminDecide = (member_deal_id: string, decision: 'approve' | 'decline', reason?: string) => invoke('acq-dealflow', { action: 'admin_decide', member_deal_id, decision, ...(reason ? { reason } : {}) });
+export const dfAdminAdvance = (member_deal_id: string, state: string, reason?: string) => invoke('acq-dealflow', { action: 'admin_advance', member_deal_id, state, ...(reason ? { reason } : {}) });
+export const dfAdminExclusivity = (member_deal_id: string) => invoke<{ ok: boolean; waitlisted: number }>('acq-dealflow', { action: 'admin_exclusivity', member_deal_id });
+export const dfAdminAnswer = (qa_id: string, answer: string, published: boolean) => invoke('acq-dealflow', { action: 'admin_answer', qa_id, answer, published });
+export const dfAdminCountersign = (member_deal_id: string) => invoke('acq-dealflow', { action: 'admin_countersign', member_deal_id });
+export const dfAdminMembers = () => invoke<{ ok: boolean; members: any[] }>('acq-dealflow', { action: 'admin_members' });
+export const dfAdminMemberUpsert = (member: Record<string, unknown>) => invoke<{ ok: boolean; member: any }>('acq-dealflow', { action: 'admin_member_upsert', member });
