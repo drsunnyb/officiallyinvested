@@ -1,5 +1,5 @@
 // =============================================================================
-// Officially Invested — Deterministic Financial Engine
+// Officially Invested - Deterministic Financial Engine
 // -----------------------------------------------------------------------------
 // Encodes Dr Sandeep Bansal's acquisition methodology as PURE, AUDITABLE code:
 //   • Adjusted EBITDA build-up (value off this, never reported profit)
@@ -12,7 +12,7 @@
 //   • The RED Framework (60-second filter)
 //   • Property metrics (NOI, yields, LTV, DSCR, GDV)
 //
-// Every number is computed here, in code — the LLM layers narrative on top but
+// Every number is computed here, in code - the LLM layers narrative on top but
 // NEVER invents the figures. No external dependencies; runs in Deno (edge
 // functions) and Node. All money in GBP.
 // =============================================================================
@@ -57,8 +57,8 @@ interface SectorRow {
 }
 
 export const SECTOR_MULTIPLES: Record<SectorKey, SectorRow> = {
-  care_residential:   { label: 'Care — residential', sde: [2.5, 4], ebitda: [4, 8] },
-  care_domiciliary:   { label: 'Care — domiciliary', sde: [2.5, 4], ebitda: [3, 5] },
+  care_residential:   { label: 'Care - residential', sde: [2.5, 4], ebitda: [4, 8] },
+  care_domiciliary:   { label: 'Care - domiciliary', sde: [2.5, 4], ebitda: [3, 5] },
   dental:             { label: 'Dental practice', ebitda: [4, 8] },
   childcare:          { label: 'Childcare / nursery', ebitda: [3, 6] },
   funeral:            { label: 'Funeral directors', ebitda: [4, 8] },
@@ -157,7 +157,7 @@ export interface FourMultipleResult {
   range: SectorRange;
 }
 
-/** §2.2 — the 30-minute valuation cross-check. */
+/** §2.2 - the 30-minute valuation cross-check. */
 export function fourMultipleMethod(i: FourMultipleInputs): FourMultipleResult {
   const range = sectorRange(i.sector, i.adjustedEbitda);
   const q = Math.max(-1, Math.min(1, safe(i.qualityScore)));
@@ -188,7 +188,7 @@ export interface ValuationResult {
   enterpriseValue: { floor: number; mid: number; ceiling: number };
   equityValue: { floor: number; mid: number; ceiling: number };
   openingOffer: number;       // 10–15% below ceiling, not below floor (§2.6)
-  walkAway: number;           // the justified ceiling — never exceed
+  walkAway: number;           // the justified ceiling - never exceed
   assetFloorApplied: boolean;
   askingVsCeiling: number | null; // asking ÷ ceiling (>1 = priced above the zone)
 }
@@ -262,10 +262,10 @@ export function recommendedFundingStack(price: number, adjustedEbitda: number, p
   const equity = Math.max(0, price - senior - vendor);
 
   const eqPct = price > 0 ? equity / price : 0;
-  if (eqPct > 0.20) warnings.push(`Equity is ${pct(eqPct)}% of price — above the 10–20% range; consider more vendor finance.`);
-  if (eqPct < 0.10 && price > 0) warnings.push(`Equity is only ${pct(eqPct)}% — below the 10% lender minimum; deal may be under-capitalised.`);
+  if (eqPct > 0.20) warnings.push(`Equity is ${pct(eqPct)}% of price - above the 10–20% range; consider more vendor finance.`);
+  if (eqPct < 0.10 && price > 0) warnings.push(`Equity is only ${pct(eqPct)}% - below the 10% lender minimum; deal may be under-capitalised.`);
   if (senior < price * 0.50 && adjustedEbitda * maxMult < price * 0.50)
-    warnings.push('Senior debt is constrained by the 3× EBITDA cap, not LTV — EBITDA may be too thin to fund this price.');
+    warnings.push('Senior debt is constrained by the 3× EBITDA cap, not LTV - EBITDA may be too thin to fund this price.');
 
   const svc = (amt: number, rate: number, term: number) => round(debtServiceAnnual(amt, rate, term));
   const seniorSvc = svc(senior, seniorRate, seniorTerm);
@@ -303,43 +303,43 @@ export interface SevenNumberInputs {
   sectorCategory?: 'services' | 'trade' | 'waste';
 }
 
-/** §2.7 — the deal-economics gate. Run before any offer. */
+/** §2.7 - the deal-economics gate. Run before any offer. */
 export function sevenNumberTest(i: SevenNumberInputs): SevenNumberResult {
   const e = safe(i.adjustedEbitda), ds = safe(i.totalAnnualDebtService);
   const results: NumberResult[] = [];
 
-  // 1 — DSCR
+  // 1 - DSCR
   const dscr = ds > 0 ? e / ds : Infinity;
   results.push({ n: 1, name: 'DSCR', value: isFinite(dscr) ? round(dscr, 2) : null, unit: '×',
     benchmark: '≥1.5 safe; 1.2–1.5 monitor; <1.2 danger',
     status: dscr >= 1.5 ? 'pass' : dscr >= 1.2 ? 'monitor' : 'fail' });
 
-  // 2 — Buyer's annual cash return (£ above a market salary)
+  // 2 - Buyer's annual cash return (£ above a market salary)
   const cashReturn = e - ds - safe(i.buyerMarketSalary);
   results.push({ n: 2, name: 'Annual cash return', value: round(cashReturn), unit: '£',
     benchmark: '>£50k of surplus after debt service + a market salary',
     status: cashReturn >= 50_000 ? 'pass' : cashReturn >= 0 ? 'monitor' : 'fail' });
 
-  // 3 — Cash-on-cash
+  // 3 - Cash-on-cash
   const coc = i.equityIn > 0 ? cashReturn / i.equityIn : null;
   results.push({ n: 3, name: 'Cash-on-cash', value: coc != null ? pct(coc) : null, unit: '%',
     benchmark: '>25% excellent; 15–25% good; <15% rethink',
     status: coc == null ? 'monitor' : coc >= 0.25 ? 'pass' : coc >= 0.15 ? 'monitor' : 'fail' });
 
-  // 4 — Purchase-multiple sanity vs sector range
+  // 4 - Purchase-multiple sanity vs sector range
   const m = safe(i.purchaseMultiple), r = i.sectorRange;
   results.push({ n: 4, name: 'Purchase multiple', value: round(m, 2), unit: '×',
     benchmark: `within sector ${r.low}–${r.high}×`,
     status: m <= r.high ? (m >= r.low ? 'pass' : 'monitor') : (m > r.high * 2 ? 'fail' : 'monitor'),
-    note: m > r.high * 2 ? 'Asking >2× the market comparable — Severity-1 red flag.' : undefined });
+    note: m > r.high * 2 ? 'Asking >2× the market comparable - Severity-1 red flag.' : undefined });
 
-  // 5 — Payback on equity
+  // 5 - Payback on equity
   const payback = cashReturn > 0 ? i.equityIn / cashReturn : null;
   results.push({ n: 5, name: 'Equity payback', value: payback != null ? round(payback, 1) : null, unit: 'yrs',
     benchmark: '<4 years',
     status: payback == null ? 'fail' : payback < 4 ? 'pass' : payback <= 6 ? 'monitor' : 'fail' });
 
-  // 6 — Revenue per FTE
+  // 6 - Revenue per FTE
   const rpf = i.fteCount > 0 ? i.revenue / i.fteCount : null;
   const cat = i.sectorCategory ?? 'services';
   const bench = cat === 'waste' ? 100_000 : cat === 'trade' ? 80_000 : 60_000;
@@ -347,7 +347,7 @@ export function sevenNumberTest(i: SevenNumberInputs): SevenNumberResult {
     benchmark: `${cat}: >£${(bench / 1000)}k`,
     status: rpf == null ? 'monitor' : rpf >= bench ? 'pass' : rpf >= bench * 0.75 ? 'monitor' : 'fail' });
 
-  // 7 — Vendor-finance affordability
+  // 7 - Vendor-finance affordability
   const vf = e > 0 ? safe(i.vendorAnnualDebtService) / e : 0;
   results.push({ n: 7, name: 'VF affordability', value: pct(vf), unit: '%',
     benchmark: 'vendor repayment <50% of EBITDA',
@@ -373,27 +373,27 @@ export interface RedInputs {
 }
 export interface RedResult { R: RedStatus; E: RedStatus; D: RedStatus; overall: 'Proceed' | 'Park'; rationale: string[]; }
 
-/** §1.4 — the 60-second filter. Computes what's computable; flags the rest. */
+/** §1.4 - the 60-second filter. Computes what's computable; flags the rest. */
 export function redFramework(i: RedInputs): RedResult {
   const rationale: string[] = [];
 
-  // R — Revenue: real, recurring, growing?
+  // R - Revenue: real, recurring, growing?
   let R: RedStatus = 'pass';
   const t = i.revenueTrend ?? [];
   if (t.length >= 2) {
     const declining = t.every((v, idx) => idx === 0 || v <= t[idx - 1]);
     const firstLast = t[t.length - 1] < t[0];
     if (t.length >= 3 && declining && firstLast) { R = 'fail'; rationale.push('R: revenue declining across 3 years without a provable reversal plan.'); }
-    else if (firstLast) { R = 'investigate'; rationale.push('R: revenue lower than the start of the window — probe the cause.'); }
+    else if (firstLast) { R = 'investigate'; rationale.push('R: revenue lower than the start of the window - probe the cause.'); }
   }
-  if ((i.recurringPct ?? 0) < 0.40 && R === 'pass') { R = 'investigate'; rationale.push('R: recurring revenue below 40% — quality of revenue uncertain.'); }
+  if ((i.recurringPct ?? 0) < 0.40 && R === 'pass') { R = 'investigate'; rationale.push('R: recurring revenue below 40% - quality of revenue uncertain.'); }
 
-  // E — Exit credibility (needs human judgement)
+  // E - Exit credibility (needs human judgement)
   const E: RedStatus = i.sellerReason ?? 'investigate';
   if (E === 'investigate' && !i.sellerReason) rationale.push("E: seller's reason for sale not yet assessed.");
   if (E === 'fail') rationale.push('E: seller exit reason not credible / evasive.');
 
-  // D — Dependencies
+  // D - Dependencies
   let D: RedStatus = 'pass';
   const cc = i.largestCustomerPct ?? 0;
   if (cc > 0.30) { D = 'fail'; rationale.push(`D: largest customer ${pct(cc)}% of revenue (>30%).`); }

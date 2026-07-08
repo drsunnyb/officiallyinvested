@@ -63,7 +63,7 @@ export default function AddDealModal({ onClose, onCreated }: { onClose: () => vo
           </button>
           <button onClick={onClose} className="px-4 py-2.5 rounded-full text-sm font-semibold text-white/75 border border-white/25">Cancel</button>
         </div>
-        <p className="text-white/35 text-[11px] mt-3">Added as an internal origination — no email is sent to any seller. Upload accounts in the deal to get verified figures.</p>
+        <p className="text-white/35 text-[11px] mt-3">Added as an internal origination - no email is sent to any seller. Upload accounts in the deal to get verified figures.</p>
       </div>
     </div>
   );

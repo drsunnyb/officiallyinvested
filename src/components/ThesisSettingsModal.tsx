@@ -3,7 +3,7 @@ import { Loader2, X, Plus, Trash2 } from 'lucide-react';
 import { getOrgSettings, setOrgSettings } from '../lib/acq';
 
 // The firm's thesis / buy box. The analyst scores fit against this; deals outside
-// it aren't auto-killed — they're flagged with how far out, and Explore relaxes it.
+// it aren't auto-killed - they're flagged with how far out, and Explore relaxes it.
 export default function ThesisSettingsModal({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -38,14 +38,14 @@ export default function ThesisSettingsModal({ onClose }: { onClose: () => void }
         {loading ? <div className="flex items-center gap-2 text-white/60 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div> : (
           <div className="flex flex-col gap-4">
             <div>
-              <span className={lbl}>Trading business — minimums</span>
+              <span className={lbl}>Trading business - minimums</span>
               <div className="grid grid-cols-2 gap-2.5">
                 <input className={input} placeholder="Min revenue £" inputMode="numeric" value={biz.min_revenue ?? ''} onChange={(e) => setPath((d) => { d.buy_box = d.buy_box || {}; d.buy_box.business = { ...(d.buy_box.business || {}), min_revenue: Number(e.target.value) || null }; })} />
                 <input className={input} placeholder="Min net profit £" inputMode="numeric" value={biz.min_net_profit ?? ''} onChange={(e) => setPath((d) => { d.buy_box = d.buy_box || {}; d.buy_box.business = { ...(d.buy_box.business || {}), min_net_profit: Number(e.target.value) || null }; })} />
               </div>
             </div>
             <div>
-              <span className={lbl}>Property — minimums</span>
+              <span className={lbl}>Property - minimums</span>
               <div className="grid grid-cols-2 gap-2.5 items-center">
                 <input className={input} placeholder="Min value £" inputMode="numeric" value={prop.min_value ?? ''} onChange={(e) => setPath((d) => { d.buy_box = d.buy_box || {}; d.buy_box.property = { ...(d.buy_box.property || {}), min_value: Number(e.target.value) || null }; })} />
                 <label className="flex items-center gap-2 text-xs text-white/80"><input type="checkbox" className="h-4 w-4 accent-[#FFD700]" checked={!!prop.require_spv} onChange={(e) => setPath((d) => { d.buy_box = d.buy_box || {}; d.buy_box.property = { ...(d.buy_box.property || {}), require_spv: e.target.checked }; })} /> Require SPV / share purchase</label>
@@ -84,7 +84,7 @@ export default function ThesisSettingsModal({ onClose }: { onClose: () => void }
               </button>
               <button onClick={onClose} className="px-4 py-2.5 rounded-full text-sm font-semibold text-white/75 border border-white/25">Close</button>
             </div>
-            <p className="text-white/35 text-[11px]">The analyst scores each deal's fit against this. Deals outside the box aren't auto-rejected — they're flagged with how far out, so you can still pursue opportunistically.</p>
+            <p className="text-white/35 text-[11px]">The analyst scores each deal's fit against this. Deals outside the box aren't auto-rejected - they're flagged with how far out, so you can still pursue opportunistically.</p>
           </div>
         )}
       </div>

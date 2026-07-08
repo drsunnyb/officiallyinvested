@@ -11,7 +11,7 @@ export default function Footer() {
           <div className="col-span-1 md:col-span-2">
             <h3 className="text-4xl font-serif font-bold text-[#FFD700] mb-6">Dr. Sandeep Bansal</h3>
             <p className="text-white/80 max-w-md font-sans">
-              Join me in building wealth through smart investing, business acquisitions, and exclusive deal flow—while giving back to our community.
+              Join me in building wealth through smart investing, business acquisitions, and exclusive deal flow-while giving back to our community.
             </p>
           </div>
 

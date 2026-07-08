@@ -28,7 +28,7 @@ export default function AlertsModal({ onClose }: { onClose: () => void }) {
           <h3 className="text-lg font-serif font-bold text-[#FFD700] flex items-center gap-2"><Bell className="h-4 w-4" /> Monitoring &amp; alerts</h3>
           <button onClick={onClose} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
         </div>
-        <p className="text-white/45 text-[12px] mb-4">Watches your deals on Companies House — status, charges, insolvency, overdue accounts — and flags the refinance window.</p>
+        <p className="text-white/45 text-[12px] mb-4">Watches your deals on Companies House - status, charges, insolvency, overdue accounts - and flags the refinance window.</p>
 
         <div className="flex items-center gap-2 mb-4">
           <button onClick={run} disabled={running} className="inline-flex items-center gap-1.5 bg-[#FFD700] text-[#0A2540] px-3.5 py-2 rounded-full text-xs font-semibold hover:bg-opacity-90 disabled:opacity-50">
@@ -39,7 +39,7 @@ export default function AlertsModal({ onClose }: { onClose: () => void }) {
         {err && <p className="text-red-300 text-xs mb-2">{err}</p>}
 
         {loading ? <div className="flex items-center gap-2 text-white/60 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div> : (
-          alerts.length === 0 ? <p className="text-white/45 text-sm">All clear — nothing flagged across your deals.</p> : (
+          alerts.length === 0 ? <p className="text-white/45 text-sm">All clear - nothing flagged across your deals.</p> : (
             <div className="flex flex-col gap-2">
               {alerts.map((a) => { const s = SEV[a.severity] || SEV.info; const Icon = s.icon; return (
                 <div key={a.id} className={'flex items-start gap-2.5 rounded-lg border p-3 ' + s.c}>

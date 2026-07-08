@@ -43,7 +43,7 @@ export default function CRMModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-2xl bg-[#0E3257] rounded-2xl p-6 border border-white/10 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-serif font-bold text-[#FFD700]">CRM — contacts &amp; follow-ups</h3>
+          <h3 className="text-lg font-serif font-bold text-[#FFD700]">CRM - contacts &amp; follow-ups</h3>
           <button onClick={onClose} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
         </div>
 
@@ -56,7 +56,7 @@ export default function CRMModal({ onClose }: { onClose: () => void }) {
               {tasks.map((t) => { const d = due(t.due_date); return (
                 <div key={t.id} className="flex items-center gap-2.5 bg-white/5 rounded-lg p-2.5">
                   <button onClick={() => done(t.id)} className="text-white/40 hover:text-emerald-300" title="Mark done"><Check className="h-4 w-4" /></button>
-                  <div className="flex-1 min-w-0"><div className="text-[13px] text-white truncate">{t.title}</div><div className="text-[11px] text-white/50 truncate">{[t.deal_name, t.contact_name].filter(Boolean).join(' · ') || '—'}</div></div>
+                  <div className="flex-1 min-w-0"><div className="text-[13px] text-white truncate">{t.title}</div><div className="text-[11px] text-white/50 truncate">{[t.deal_name, t.contact_name].filter(Boolean).join(' · ') || '-'}</div></div>
                   <span className={'text-[10px] font-semibold px-2 py-0.5 rounded-full ' + d.c}>{d.t}</span>
                 </div>
               ); })}

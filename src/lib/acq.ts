@@ -21,7 +21,19 @@ export interface AcqBundle {
 async function invoke<T = any>(fn: string, body: Record<string, unknown>): Promise<T> {
   if (!supabase) throw new Error('Supabase not configured');
   const { data, error } = await supabase.functions.invoke(fn, { body });
-  if (error) throw error;
+  if (error) {
+    // supabase-js hides the response body behind error.context; surface the
+    // real server message (insufficient_credits, needs_upgrade, ...) so the
+    // UI can react properly instead of showing a generic non-2xx line.
+    try {
+      const ctx: any = (error as any).context;
+      if (ctx && typeof ctx.json === 'function') {
+        const j = await ctx.json();
+        if (j?.error) { const err: any = new Error(j.error); err.needs_upgrade = !!j.needs_upgrade; err.needs_topup = !!j.needs_topup; throw err; }
+      }
+    } catch (inner: any) { if (inner instanceof Error && inner.message && !/body stream|json/i.test(inner.message)) throw inner; }
+    throw error;
+  }
   if (data && data.error) throw new Error(data.error);
   return data as T;
 }

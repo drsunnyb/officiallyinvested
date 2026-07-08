@@ -122,7 +122,7 @@ export default function Settings() {
             {/* Brand */}
             <Section icon={<Palette className="h-4 w-4" />} title="Brand" sub="Brands the documents you generate: letterhead, colour, font and footer on every PDF.">
               <div className="flex gap-2 mb-2">
-                <input className={input + ' flex-1'} value={brandUrl} onChange={(e) => setBrandUrl(e.target.value)} placeholder="yourcompany.com — pull brand from your website" />
+                <input className={input + ' flex-1'} value={brandUrl} onChange={(e) => setBrandUrl(e.target.value)} placeholder="yourcompany.com - pull brand from your website" />
                 <button onClick={pullBrand} disabled={pulling} className="inline-flex items-center gap-2 bg-white/10 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-white/20 disabled:opacity-50 shrink-0">{pulling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Pull from website</button>
               </div>
               <p className="text-white/35 text-[11px] mb-3">Defaults to Officially Invested branding. Pull your name, colour and logo from your site, or set them by hand below, then adjust.</p>

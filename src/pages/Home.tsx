@@ -24,7 +24,7 @@ export default function Home() {
               </h1>
 
               <p className="text-xl md:text-2xl text-white/90 max-w-3xl mb-12 leading-relaxed">
-                Wealth-building shouldn't be a secret. I built £60M+ in wealth through smart investing, business acquisitions, and exclusive deal flow—without shortcuts. Now, I'm helping investors like you do the same, while reinvesting every pound from this community back into its people.
+                Wealth-building shouldn't be a secret. I built £60M+ in wealth through smart investing, business acquisitions, and exclusive deal flow-without shortcuts. Now, I'm helping investors like you do the same, while reinvesting every pound from this community back into its people.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
@@ -91,7 +91,7 @@ export default function Home() {
               <span className="block text-2xl mt-4 text-gray-600">(That No One Taught Us)</span>
             </h2>
             <p className="text-xl text-gray-600 leading-relaxed">
-              I didn't grow up in a world where wealth-building was taught. I had to learn the hard way—through failures, wins, and uncovering the investment strategies of the ultra-wealthy. Now, I'm giving others access to this knowledge and the opportunities that were once kept behind closed doors.
+              I didn't grow up in a world where wealth-building was taught. I had to learn the hard way-through failures, wins, and uncovering the investment strategies of the ultra-wealthy. Now, I'm giving others access to this knowledge and the opportunities that were once kept behind closed doors.
             </p>
           </div>
 
@@ -132,7 +132,7 @@ export default function Home() {
               <span className="block text-[#FFD700] mt-2">We Acquire. Directly. Discreetly.</span>
             </h2>
             <p className="text-xl text-gray-600 leading-relaxed mb-6">
-              We acquire UK trading businesses with £1M+ revenue and £200k+ profit, and property portfolios of £1M+ held in a company or SPV. Owner or broker—tell us what you have, and every submission gets a considered review.
+              We acquire UK trading businesses with £1M+ revenue and £200k+ profit, and property portfolios of £1M+ held in a company or SPV. Owner or broker-tell us what you have, and every submission gets a considered review.
             </p>
             <p className="text-gray-500 mb-10">Everything you share is treated in strict confidence.</p>
             <Link
@@ -278,7 +278,7 @@ export default function Home() {
         <div className="container mx-auto px-6">
           <div className="max-w-4xl mx-auto text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-serif font-bold text-[#0A2540] mb-6">
-              For the First Time Ever—Invest Alongside Me
+              For the First Time Ever-Invest Alongside Me
               <span className="block text-[#FFD700] mt-2">in High-Growth Opportunities</span>
             </h2>
             <p className="text-xl text-gray-600 leading-relaxed">
@@ -337,7 +337,7 @@ export default function Home() {
               <span className="block text-[#FFD700] mt-2">Join a Movement That Gives Back</span>
             </h2>
             <p className="text-xl text-white/80 leading-relaxed mb-12">
-              Every investment in knowledge fuels something bigger. By joining Officially Invested, you're not just learning—you're contributing to a growing ecosystem that reinvests in the next generation of investors and business leaders.
+              Every investment in knowledge fuels something bigger. By joining Officially Invested, you're not just learning-you're contributing to a growing ecosystem that reinvests in the next generation of investors and business leaders.
             </p>
             <div className="flex flex-col md:flex-row gap-6 justify-center">
               <a href="#" className="group inline-flex items-center bg-[#FFD700] text-[#0A2540] px-8 py-4 rounded-full font-semibold hover:bg-opacity-90 transition-all">

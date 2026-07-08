@@ -9,7 +9,7 @@ export const CRITERIA = {
 // Community links (used on the below-threshold redirect screen)
 export const INSTAGRAM_URL = 'https://instagram.com/officially.invested';
 export const INSTAGRAM_HANDLE = '@officially.invested';
-export const SKOOL_URL = 'https://www.skool.com/officially-invested-first-deal/about?ref=73116af56dcb4565aeed94334b69ea4d';
+export const SKOOL_URL = '#'; // TODO: replace with the real Skool community link before launch
 
 // Videos from Sandeep (YouTube/Vimeo embed URLs). Leave '' to hide the slot.
 // While empty and SHOW_VIDEO_PLACEHOLDERS is true, an elegant "coming soon" slot is shown.
@@ -49,7 +49,7 @@ export const YEAR_OPTIONS = (() => {
 export type SubmissionType = 'business' | 'property';
 
 export interface IntakeForm {
-  // step 1 — about you
+  // step 1 - about you
   submitter_name: string;
   email: string;
   phone: string;

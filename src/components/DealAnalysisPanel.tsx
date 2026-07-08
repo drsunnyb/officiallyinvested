@@ -7,14 +7,14 @@ import { STAGES } from '../lib/stages';
 
 function gbp(v: unknown): string {
   const n = Number(v);
-  if (!isFinite(n) || v == null || v === '') return '—';
+  if (!isFinite(n) || v == null || v === '') return '-';
   if (Math.abs(n) >= 1e6) return '£' + (n / 1e6).toFixed(n % 1e6 === 0 ? 0 : 2) + 'M';
   if (Math.abs(n) >= 1e3) return '£' + Math.round(n / 1e3) + 'k';
   return '£' + n.toLocaleString('en-GB');
 }
 
 // strip em/en dashes so nothing the agent wrote reads as AI
-const human = (t: string) => (t || '').replace(/\s*[—–]\s*/g, ', ');
+const human = (t: string) => (t || '').replace(/\s*[-–]\s*/g, ', ');
 // also strip markdown remnants so drafts read clean (no **, ##, * bullets, backticks)
 const clean = (t: string) => human(t)
   .replace(/^#{1,6}\s+/gm, '')
@@ -232,7 +232,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
       </div>
       {err && <p className="text-red-300 text-xs mb-2">{err}</p>}
 
-      {/* verdict hero — score, verdict, one-line headline */}
+      {/* verdict hero - score, verdict, one-line headline */}
       <div className="bg-[#0E2A47] border border-white/10 rounded-2xl p-4 mb-3">
         <div className="flex items-center gap-4">
           {isFinite(fit) ? <ScoreRing value={fit} color={look.ring} numClass={look.num} /> : (
@@ -274,15 +274,15 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
               <>
                 <Kpi label="Adj EBITDA" value={gbp(b.valuation.adjusted_ebitda)} gold />
                 <Kpi label="Opening offer" value={gbp(res?.valuation?.openingOffer)} />
-                <Kpi label="DSCR" value={seven?.results?.[0]?.value != null ? seven.results[0].value + '×' : '—'} good />
-                <Kpi label="7-Number" value={seven ? `${seven.passes}/7` : '—'} good />
+                <Kpi label="DSCR" value={seven?.results?.[0]?.value != null ? seven.results[0].value + '×' : '-'} good />
+                <Kpi label="7-Number" value={seven ? `${seven.passes}/7` : '-'} good />
               </>
             ) : (
               <>
-                <Kpi label="Asset" value={cap(b?.deal?.asset_type) || '—'} />
+                <Kpi label="Asset" value={cap(b?.deal?.asset_type) || '-'} />
                 <Kpi label="Stage" value={stageLabel} />
                 <Kpi label="Asking" value={gbp(b?.deal?.asking_price)} gold />
-                <Kpi label="Fit score" value={isFinite(fit) ? String(fit) : '—'} />
+                <Kpi label="Fit score" value={isFinite(fit) ? String(fit) : '-'} />
               </>
             )}
           </div>
@@ -300,7 +300,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
             </div>
           )}
 
-          {/* needs your input — the structured checklist of gaps */}
+          {/* needs your input - the structured checklist of gaps */}
           {need.length > 0 && (
             <div className="mb-3 bg-amber-500/10 border border-amber-400/40 rounded-xl p-3">
               <div className="flex items-center gap-2 mb-1.5">
@@ -321,7 +321,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
                         const key = `${doc.id}::${i}`;
                         return (
                           <div key={i}>
-                            <div className="text-[11.5px] text-white/85"><b className="text-white">{human(r.field)}</b>{r.why ? <span className="text-white/50"> — {human(r.why)}</span> : null}</div>
+                            <div className="text-[11.5px] text-white/85"><b className="text-white">{human(r.field)}</b>{r.why ? <span className="text-white/50"> - {human(r.why)}</span> : null}</div>
                             <input value={ans[key] ?? r.suggested ?? ''} onChange={(e) => setAns((p) => ({ ...p, [key]: e.target.value }))} placeholder="Your answer…" className="mt-1 w-full bg-white/5 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 outline-none focus:border-amber-400/60" />
                             {r.suggested ? <div className="text-[10px] text-amber-200/70 mt-0.5">Pre-filled from what the deal already knows, edit if needed.</div> : null}
                           </div>
@@ -335,7 +335,7 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
             </div>
           )}
 
-          {/* upload — drag & drop or click to select */}
+          {/* upload - drag & drop or click to select */}
           <div
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
