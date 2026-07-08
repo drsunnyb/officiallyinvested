@@ -10,7 +10,7 @@ import {
   sourceTaxonomy, sourceSearch, sourceStartRun, sourceRuns, sourceCancelRun, ingestPropose, ingestCommit,
   outreachList, outreachCreate, outreachUpdate, outreachDraftTemplates, outreachEnrol,
   outreachQueue, outreachApprove, outreachApproveAll, outreachRun, outreachMarkReplied,
-  getOrgSettings, setOrgSettings, crmList, crmAddContact, crmAddTask, crmCompleteTask, crmContactDetail,
+  getOrgSettings, setOrgSettings, crmList, crmAddTask, crmCompleteTask,
   buyboxList, buyboxChat, buyboxCreate, buyboxActivate, buyboxDelete,
   dfAdminReleases, dfAdminReleaseUpsert, dfAdminPublish, dfAdminBoard, dfAdminDecide, dfAdminAdvance,
   dfAdminExclusivity, dfAdminAnswer, dfAdminCountersign, dfAdminMembers, dfAdminMemberUpsert,
@@ -98,7 +98,7 @@ export default function Origination() {
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { key: 'find', label: 'Find companies', icon: Search },
     { key: 'prospects', label: 'Prospects', icon: Building2 },
-    { key: 'contacts', label: 'Contacts & tasks', icon: Users },
+    { key: 'contacts', label: 'Tasks', icon: Users },
     { key: 'campaigns', label: 'Campaigns', icon: Send },
     { key: 'dealflow', label: 'Deal flow', icon: Sparkles },
     { key: 'members', label: 'Members', icon: Users },
@@ -734,7 +734,8 @@ function UploadModal({ onClose, setErr }: { onClose: () => void; setErr: (s: str
     const text = await f.text(); setCsv(text); setFileName(f.name); setBusy('propose');
     try { const r = await ingestPropose(text, f.name); setProposal(r); setMapping(r.mapping); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
-  const commit = async () => { setBusy('commit'); try { setReport(await ingestCommit(csv, mapping, proposal?.job_id ?? null, fileName)); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
+  const [gdprOk, setGdprOk] = useState(false);
+  const commit = async () => { setBusy('commit'); try { setReport(await ingestCommit(csv, mapping, proposal?.job_id ?? null, fileName, true)); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
   return (
     <div className="fixed inset-0 z-[65] bg-black/40 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl p-6">
@@ -759,12 +760,17 @@ function UploadModal({ onClose, setErr }: { onClose: () => void; setErr: (s: str
                 </div>
               ))}
             </div>
-            <button onClick={commit} disabled={busy === 'commit'} className={btnGold}>{busy === 'commit' && <Loader2 className="h-4 w-4 animate-spin" />}Import {proposal.rows_total} rows</button>
+            <label className="flex items-start gap-2.5 text-[12.5px] text-gray-600 bg-amber-50/60 border border-amber-200 rounded-lg px-3 py-2.5 mb-3 cursor-pointer">
+              <input type="checkbox" className="mt-0.5" checked={gdprOk} onChange={(e) => setGdprOk(e.target.checked)} />
+              <span>I confirm this list comes from a GDPR-compliant source and I have a lawful basis to contact these businesses. Rows matching companies already in your pipeline or active on the platform will be removed automatically, and the rest are enriched from the official register.</span>
+            </label>
+            <button onClick={commit} disabled={busy === 'commit' || !gdprOk} className={btnGold}>{busy === 'commit' && <Loader2 className="h-4 w-4 animate-spin" />}Import {proposal.rows_total} rows</button>
           </>
         )}
         {report && (
           <div className="bg-gray-50 rounded-xl p-4 text-[13px] text-gray-700">
             <b>{report.created}</b> new prospects · <b>{report.merged}</b> merged into existing records · {report.skipped} skipped.
+            {report.enriched > 0 && <div className="text-emerald-700 mt-1"><b>{report.enriched}</b> matched to the official register and enriched with company number, SIC, address and age.</div>}
             {(report.excluded_pipeline > 0 || report.excluded_platform > 0) && (
               <div className="text-gray-500 mt-1">
                 {report.excluded_pipeline > 0 && <span><b>{report.excluded_pipeline}</b> removed: already in your pipeline. </span>}
@@ -780,158 +786,129 @@ function UploadModal({ onClose, setErr }: { onClose: () => void; setErr: (s: str
   );
 }
 
-// ============================ CONTACTS (CRM) ============================
-const STAGE_LABEL: Record<string, string> = { new: 'New', reviewing: 'Screening', shortlisted: 'Shortlisted', discovery_call: 'Discovery call', hots: 'Heads of Terms', structuring: 'Structuring', funding: 'Funding', pre_completion: 'Pre-completion', completed: 'Completed', passed: 'Passed', ineligible: 'Ineligible' };
+// ============================ TASKS (origination) ============================
 function ContactsView({ setErr }: { setErr: (s: string) => void }) {
-  const [contacts, setContacts] = useState<any[]>([]); const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true); const [cf, setCf] = useState<Record<string, string>>({}); const [tf, setTf] = useState<Record<string, string>>({});
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true); const [tf, setTf] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [openContact, setOpenContact] = useState<string | null>(null); const [cd, setCd] = useState<any>(null);
-  const roles = ['all', ...Array.from(new Set(contacts.map((c) => c.role || 'other')))];
-  const shown = roleFilter === 'all' ? contacts : contacts.filter((c) => (c.role || 'other') === roleFilter);
-  const openDetail = async (id: string) => { setOpenContact(id); setCd(null); try { setCd(await crmContactDetail(id)); } catch (e: any) { setErr(e.message || String(e)); } };
-  const load = async () => { setLoading(true); try { const r = await crmList(); setContacts(r.contacts || []); setTasks((r.tasks || []).filter((t: any) => !t.deal_id)); } catch (e: any) { setErr(e.message || String(e)); } finally { setLoading(false); } };
+  const load = async () => { setLoading(true); try { const r = await crmList(); setTasks((r.tasks || []).filter((t: any) => !t.deal_id)); } catch (e: any) { setErr(e.message || String(e)); } finally { setLoading(false); } };
   useEffect(() => { load(); }, []);
-  const addContact = async () => { if (!cf.name?.trim()) return; setBusy('c'); try { await crmAddContact({ name: cf.name, role: cf.role || 'other', company: cf.company, email: cf.email }); setCf({}); await load(); } finally { setBusy(''); } };
   const addTask = async () => { if (!tf.title?.trim()) return; setBusy('t'); try { await crmAddTask({ title: tf.title, due_date: tf.due || null }); setTf({}); await load(); } finally { setBusy(''); } };
   const done = async (id: string) => { await crmCompleteTask(id); setTasks((t) => t.filter((x) => x.id !== id)); };
+  const overdue = (t: any) => t.due_date && new Date(t.due_date) < new Date();
   return (
     <>
-      <Header title="Contacts & tasks" sub="Everyone your deals touch - vendors, agents, accountants, solicitors, lenders - and what needs doing next. Call tasks from campaigns land here too." />
-      <div className="px-8 pb-8 grid lg:grid-cols-5 gap-5">
-        <div className={card + ' lg:col-span-2 p-5 h-fit'}>
+      <Header title="Tasks" sub="What needs a human: call tasks from your campaigns land here with their brief, plus anything you add yourself. Contacts for the people around your deals live in the pipeline, on each deal." />
+      <div className="px-8 pb-8 max-w-3xl">
+        <div className={card + ' p-5'}>
           <div className="font-semibold text-gray-900 mb-3">Needs you <span className="text-gray-400 font-normal">· {tasks.length} open · origination only</span></div>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin text-gray-300" /> : tasks.length === 0 ? <div className="text-[13px] text-gray-400">Nothing outstanding.</div> : tasks.map((t) => (
+          {loading ? <Loader2 className="h-4 w-4 animate-spin text-gray-300" /> : tasks.length === 0 ? (
+            <div className="text-[13px] text-gray-400 bg-gray-50 rounded-lg px-4 py-3">Nothing outstanding. Call tasks appear here automatically when a campaign reaches its call step.</div>
+          ) : tasks.map((t) => (
             <div key={t.id} className="flex items-start gap-2.5 py-2.5 border-b border-gray-50 last:border-0">
               <button onClick={() => done(t.id)} className="mt-0.5 text-gray-300 hover:text-emerald-500" title="Mark done"><Check className="h-4 w-4" /></button>
-              <div className="min-w-0"><div className="text-[13px] text-gray-800">{t.title}</div><div className="text-[11px] text-gray-400">{[t.deal_name, t.contact_name, t.due_date ? 'due ' + String(t.due_date).slice(0, 10) : null].filter(Boolean).join(' · ') || '-'}</div></div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] text-gray-800">{t.title}</div>
+                <div className={'text-[11px] ' + (overdue(t) ? 'text-red-500 font-semibold' : 'text-gray-400')}>{[t.contact_name, t.due_date ? (overdue(t) ? 'overdue · was due ' : 'due ') + String(t.due_date).slice(0, 10) : null].filter(Boolean).join(' · ') || 'no due date'}</div>
+              </div>
             </div>
           ))}
-          <div className="flex gap-2 mt-3">
-            <input className={input__ + ' flex-1'} placeholder="Add a task…" value={tf.title ?? ''} onChange={(e) => setTf((f) => ({ ...f, title: e.target.value }))} />
+          <div className="flex gap-2 mt-4">
+            <input className={input__ + ' flex-1'} placeholder="Add a task…" value={tf.title ?? ''} onChange={(e) => setTf((f) => ({ ...f, title: e.target.value }))} onKeyDown={(e) => e.key === 'Enter' && addTask()} />
             <input type="date" className={input__} value={tf.due ?? ''} onChange={(e) => setTf((f) => ({ ...f, due: e.target.value }))} />
             <button onClick={addTask} disabled={busy === 't'} className={btnPrimary}>Add</button>
           </div>
         </div>
-        <div className={card + ' lg:col-span-3 p-5'}>
-          <div className="font-semibold text-gray-900 mb-2">Contacts <span className="text-gray-400 font-normal">· {shown.length}</span></div>
-          <div className="flex flex-wrap gap-1.5 mb-3">{roles.map((r) => <button key={r} onClick={() => setRoleFilter(r)} className={chip(roleFilter === r)}>{r === 'all' ? 'All' : r}</button>)}</div>
-          <div className="max-h-[420px] overflow-y-auto">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin text-gray-300" /> : shown.map((c) => (
-              <div key={c.id} onClick={() => openDetail(c.id)} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded-lg px-1">
-                <div className="h-8 w-8 rounded-full bg-[#0A2540] text-[#FFD700] text-[11px] font-bold flex items-center justify-center shrink-0">{(c.name || '?').split(/\s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join('')}</div>
-                <div className="min-w-0 flex-1"><div className="text-[13px] font-medium text-gray-800 truncate">{c.name}</div><div className="text-[11px] text-gray-400 truncate">{[c.company, c.email].filter(Boolean).join(' · ')}</div></div>
-                {c.role && <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">{c.role}</span>}
-                {c.deal_count > 0 && <span className="text-[10px] text-gray-400 shrink-0">{c.deal_count} deal{c.deal_count > 1 ? 's' : ''}</span>}
-                {c.interaction_count > 0 && <span className="text-[10px] text-gray-400 shrink-0">{c.interaction_count} touches</span>}
-                {c.last_interaction && <span className="text-[10px] text-gray-300 shrink-0">{new Date(c.last_interaction).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-4 gap-2 mt-3">
-            <input className={input__} placeholder="Name" value={cf.name ?? ''} onChange={(e) => setCf((f) => ({ ...f, name: e.target.value }))} />
-            <input className={input__} placeholder="Company" value={cf.company ?? ''} onChange={(e) => setCf((f) => ({ ...f, company: e.target.value }))} />
-            <input className={input__} placeholder="Email" value={cf.email ?? ''} onChange={(e) => setCf((f) => ({ ...f, email: e.target.value }))} />
-            <button onClick={addContact} disabled={busy === 'c'} className={btnPrimary + ' justify-center'}>Add</button>
-          </div>
-        </div>
       </div>
-
-      {openContact && (
-        <div className="fixed inset-0 z-[65] bg-black/40 flex justify-end" onClick={(e) => e.target === e.currentTarget && setOpenContact(null)}>
-          <div className="w-full max-w-md bg-white h-full overflow-y-auto shadow-2xl">
-            {!cd ? <div className="p-8 text-gray-400"><Loader2 className="h-5 w-5 animate-spin" /></div> : (
-              <>
-                <div className="px-6 pt-6 pb-4 flex items-start justify-between" style={{ background: NAVY }}>
-                  <div>
-                    <div className="text-white font-bold text-[16px]">{cd.contact.name}</div>
-                    <div className="text-white/50 text-[12px] mt-0.5">{[cd.contact.company, cd.contact.email, cd.contact.phone].filter(Boolean).join(' · ')}</div>
-                    {cd.contact.role && <span className="inline-block mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FFD700]/20 text-[#FFD700] uppercase">{cd.contact.role}</span>}
-                  </div>
-                  <button onClick={() => setOpenContact(null)} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
-                </div>
-                <div className="px-6 py-5 text-[13px] text-gray-700 flex flex-col gap-5">
-                  <div>
-                    <div className="text-[11px] text-gray-400 mb-1.5">Deals & pipeline stage</div>
-                    {cd.deals.length === 0 ? <div className="text-[12px] text-gray-400">Not on any deals yet.</div> : cd.deals.map((d: any) => (
-                      <a key={d.id} href="/admin/pipeline" className="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded px-1">
-                        <div className="min-w-0 flex-1"><div className="text-[13px] font-medium text-gray-800 truncate">{d.reference ? d.reference + ' · ' : ''}{d.name}</div><div className="text-[11px] text-gray-400">{d.role ?? 'contact'}</div></div>
-                        {d.status && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#0A2540] text-[#FFD700] shrink-0">{STAGE_LABEL[d.status] ?? d.status}</span>}
-                        <ArrowUpRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
-                      </a>
-                    ))}
-                  </div>
-                  <div>
-                    <div className="text-[11px] text-gray-400 mb-1.5">Timeline · emails, calls & notes</div>
-                    {cd.communications.length === 0 ? <div className="text-[12px] text-gray-400 bg-gray-50 rounded-lg p-2.5">No recorded interactions yet.</div> : cd.communications.slice(0, 30).map((m: any) => (
-                      <div key={m.id} className="flex gap-2.5 py-2 border-b border-gray-50 last:border-0">
-                        {m.kind === 'call' ? <PhoneCall className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" /> : m.kind === 'note' ? <FileText className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" /> : <Mail className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" />}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2"><span className="text-[12px] font-medium text-gray-800 truncate">{m.subject || (m.kind === 'call' ? 'Call' : m.kind === 'note' ? 'Note' : 'Email')}</span><span className={'text-[9px] px-1.5 rounded-full shrink-0 ' + (m.direction === 'in' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500')}>{m.direction === 'in' ? 'received' : 'sent'}</span></div>
-                          {m.body && <div className="text-[11px] text-gray-500 line-clamp-2">{m.body}</div>}
-                          <div className="text-[10px] text-gray-300 mt-0.5">{new Date(m.happened_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}{m.deal_name ? ' · ' + m.deal_name : ''}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {cd.documents.length > 0 && (
-                    <div>
-                      <div className="text-[11px] text-gray-400 mb-1.5">Files on their deals</div>
-                      {cd.documents.map((f: any) => <div key={f.id} className="flex items-center gap-2 py-1.5 border-b border-gray-50 last:border-0 text-[12px] text-gray-700"><FileText className="h-3.5 w-3.5 text-gray-400" /><span className="truncate flex-1">{f.file_name}</span><span className="text-[10px] text-gray-300">{new Date(f.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span></div>)}
-                    </div>
-                  )}
-                  {cd.tasks.length > 0 && (
-                    <div>
-                      <div className="text-[11px] text-gray-400 mb-1.5">Tasks</div>
-                      {cd.tasks.map((t: any) => <div key={t.id} className="flex items-center gap-2 py-1.5 text-[12px]"><span className={'h-1.5 w-1.5 rounded-full ' + (t.status === 'open' ? 'bg-amber-400' : 'bg-emerald-400')} /><span className={'flex-1 truncate ' + (t.status === 'done' ? 'text-gray-300 line-through' : 'text-gray-700')}>{t.title}</span>{t.due_date && <span className="text-[10px] text-gray-400">{new Date(t.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}</div>)}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </>
   );
 }
 
-// ============================ CAMPAIGNS ============================
+// Enrolment: show exactly who will enter the sequence before anything happens.
+function EnrolPanel({ campaign, credits, busy, onEnrol, setErr }: { campaign: any; credits: any; busy: boolean; onEnrol: (ids: string[]) => void; setErr: (s: string) => void }) {
+  const [f, setF] = useState<{ min_fit: string; region: string; provenance: string }>({ min_fit: '60', region: '', provenance: '' });
+  const [cands, setCands] = useState<any[] | null>(null);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let live = true;
+    setCands(null);
+    prospectsList({ per: 100, min_fit: f.min_fit ? Number(f.min_fit) : undefined }).then((r) => {
+      if (!live) return;
+      let list = r.prospects.filter((x: any) => !['suppressed', 'disqualified', 'in_campaign'].includes(x.stage));
+      if (f.region.trim()) { const q = f.region.trim().toLowerCase(); list = list.filter((x: any) => String(x.region ?? '').toLowerCase().includes(q) || String(x.postcode ?? '').toLowerCase().startsWith(q)); }
+      if (f.provenance) list = list.filter((x: any) => x.provenance === f.provenance);
+      setCands(list); setSel(new Set(list.map((x: any) => x.id)));
+    }).catch((e) => { setErr(e.message || String(e)); setCands([]); });
+    return () => { live = false; };
+  }, [f.min_fit, f.region, f.provenance]);
+  const toggle = (id: string, on: boolean) => setSel((s_) => { const n = new Set(s_); on ? n.add(id) : n.delete(id); return n; });
+  const firstIsLetter = true; // register-sourced sequences open with a letter
+  return (
+    <div className="mt-3 bg-gray-50 rounded-xl p-4">
+      <div className="flex gap-2 items-center flex-wrap">
+        <select className={input__} value={f.min_fit} onChange={(e) => setF((x) => ({ ...x, min_fit: e.target.value }))}><option value="">Any fit</option><option value="60">Fit 60+</option><option value="80">Fit 80+</option></select>
+        <input className={input__ + ' w-40'} placeholder="Region or postcode" value={f.region} onChange={(e) => setF((x) => ({ ...x, region: e.target.value }))} />
+        <select className={input__} value={f.provenance} onChange={(e) => setF((x) => ({ ...x, provenance: e.target.value }))}>
+          <option value="">Any source</option><option value="platform">Register-sourced</option><option value="funnel">Seller funnel</option><option value="uploaded">Your uploads</option><option value="meta">Meta leads</option>
+        </select>
+        <div className="ml-auto flex items-center gap-3">
+          {cands && <span className="text-[12px] text-gray-500"><b className="text-gray-800">{sel.size}</b> of {cands.length} selected</span>}
+          <button onClick={() => onEnrol([...sel])} disabled={busy || sel.size === 0} className={btnGold}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}Enrol {sel.size || ''} into {campaign.name}</button>
+        </div>
+      </div>
+      {!cands ? <div className="p-6 text-gray-400"><Loader2 className="h-4 w-4 animate-spin" /></div> : cands.length === 0 ? (
+        <div className="p-5 text-[12.5px] text-gray-500">No available prospects match. Loosen the fit filter, or source more from Find companies.</div>
+      ) : (
+        <div className="mt-3 max-h-72 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
+          <label className="flex items-center gap-3 px-3 py-2 text-[12px] font-semibold text-gray-500 bg-gray-50 cursor-pointer">
+            <input type="checkbox" checked={sel.size === cands.length} onChange={(e) => setSel(e.target.checked ? new Set(cands.map((x: any) => x.id)) : new Set())} />
+            Select all shown
+          </label>
+          {cands.map((pr: any) => (
+            <label key={pr.id} className="flex items-center gap-3 px-3 py-2 text-[12.5px] cursor-pointer hover:bg-gray-50">
+              <input type="checkbox" checked={sel.has(pr.id)} onChange={(e) => toggle(pr.id, e.target.checked)} />
+              <span className="font-semibold text-gray-800">{pr.company_name}</span>
+              <span className="text-gray-400">{pr.region ?? pr.postcode ?? ''}</span>
+              <span className="text-gray-400">{pr.provenance === 'platform' ? 'register' : pr.provenance}</span>
+              {pr.fit_score != null && <span className="ml-auto text-[11px] font-bold bg-[#0A2540] text-white px-2 py-0.5 rounded-full">fit {pr.fit_score}</span>}
+            </label>
+          ))}
+        </div>
+      )}
+      <div className="text-[11.5px] text-gray-400 mt-2.5">
+        Enrolling queues their first step for your approval. Nothing posts until you approve it{firstIsLetter ? ', and each approved letter uses one letter credit' : ''}{credits ? ` (you have ${credits.letter} left)` : ''}. Prospects already in a campaign are not shown.
+      </div>
+    </div>
+  );
+}
+
 function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox: any }) {
   const [camps, setCamps] = useState<any[]>([]); const [steps, setSteps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); const [busy, setBusy] = useState('');
   const [creating, setCreating] = useState(false); const [name, setName] = useState('');
   const [draftSteps, setDraftSteps] = useState<any[]>([]); const [queue, setQueue] = useState<any[] | null>(null);
-  const [enrolFor, setEnrolFor] = useState<string | null>(null); const [ef, setEf] = useState<Record<string, string>>({ min_fit: '60', limit: '50', provenance: '' });
-  const [picking, setPicking] = useState(false); const [pickList, setPickList] = useState<any[] | null>(null); const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [enrolFor, setEnrolFor] = useState<string | null>(null);
+  const [credits, setCredits] = useState<any>(null);
+  const loadCredits = () => creditsBalance().then(setCredits).catch(() => {});
   const [showMethod, setShowMethod] = useState(() => { try { return localStorage.getItem('oi_method_seen') !== '1'; } catch { return true; } });
   const dismissMethod = () => { setShowMethod(false); try { localStorage.setItem('oi_method_seen', '1'); } catch (_) {} };
-  const openPicker = async () => {
-    setPicking(true); setPickList(null); setPicked(new Set());
-    try { const r = await prospectsList({ per: 50, min_fit: ef.min_fit ? Number(ef.min_fit) : undefined }); setPickList(r.prospects.filter((x: any) => !['suppressed', 'disqualified', 'in_campaign'].includes(x.stage))); }
-    catch (e: any) { setErr(e.message || String(e)); setPicking(false); }
-  };
   const CHANNEL_LABEL: Record<string, string> = { letter: 'Letter (posted)', email: 'Email', call_task: 'Call task (human)' };
   const CHANNEL_ICON: Record<string, any> = { letter: FileText, email: Mail, call_task: PhoneCall };
 
   const load = async () => { setLoading(true); try { const r = await outreachList(); setCamps(r.campaigns); setSteps(r.steps); } catch (e: any) { setErr(e.message || String(e)); } finally { setLoading(false); } };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadCredits(); }, []);
   const aiDraft = async () => { if (!requirePaid()) return; setBusy('draft'); setErr(''); try { const r = await outreachDraftTemplates(buyBox ? { buy_box: buyBox } : undefined); setDraftSteps(r.steps); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
   const create = async () => {
     if (!name.trim() || !draftSteps.length) { setErr('Name the campaign and draft the sequence first'); return; }
     setBusy('create'); try { await outreachCreate({ name, steps: draftSteps }); setCreating(false); setName(''); setDraftSteps([]); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
   const setStatus = async (id: string, status: string) => { if (status === 'active' && !requirePaid()) return; setBusy(id); try { await outreachUpdate(id, { status }); await load(); } finally { setBusy(''); } };
-  const enrol = async (id: string) => {
+  const enrol = async (id: string, ids: string[]) => {
     if (!requirePaid()) return;
     setBusy('enrol'); try {
-      const filter: any = { min_fit: ef.min_fit ? Number(ef.min_fit) : undefined, region: ef.region || undefined, limit: Number(ef.limit || 50) };
-      if (ef.provenance) filter.provenance = ef.provenance;
-      if (picking && picked.size) { filter.prospect_ids = [...picked]; filter.limit = picked.size; }
-      const r = await outreachEnrol(id, filter);
-      alert(`${r.enrolled} prospects enrolled (${r.suppressed} suppressed).`);
-      setEnrolFor(null); setPicking(false); await load();
+      const r = await outreachEnrol(id, { prospect_ids: ids, limit: ids.length });
+      alert(`${r.enrolled} prospects enrolled (${r.suppressed} suppressed). Their first step now sits in your approval queue.`);
+      setEnrolFor(null); await load(); loadCredits();
     } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
   const showQueue = async () => { setBusy('queue'); try { const r = await outreachQueue('needs_approval'); setQueue(r.touches); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
@@ -942,7 +919,7 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
   };
   const approveAll = async () => { if (!requirePaid()) return;
     setBusy('approve'); try { const r = await outreachApproveAll(); alert(`${r.approved} messages approved. They send inside each campaign's window and daily cap.`); setQueue(null); await load(); }
-    catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } finally { setBusy(''); } };
+    catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } finally { setBusy(''); loadCredits(); } };
   const runNow = async () => { if (!requirePaid()) return; setBusy('run'); try { await outreachRun(); await load(); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
 
   return (
@@ -953,6 +930,19 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
         <button onClick={() => setCreating((c) => !c)} className={btnGold}><Send className="h-4 w-4" />New campaign</button>
       </Header>
       <div className="px-8 pb-8">
+        {credits && (
+          <div className="flex items-center gap-3 flex-wrap mb-4 text-[12.5px]">
+            <span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold border ' + (credits.letter <= 5 ? 'bg-red-50 border-red-200 text-red-700' : credits.letter <= 20 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-gray-200 text-gray-700')}>
+              <Mail className="h-3.5 w-3.5" /> {credits.letter} letter credits left
+            </span>
+            <span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold border ' + (credits.ai <= 5 ? 'bg-red-50 border-red-200 text-red-700' : credits.ai <= 20 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-gray-200 text-gray-700')}>
+              <Sparkles className="h-3.5 w-3.5" /> {credits.ai} AI credits left
+            </span>
+            <span className="text-gray-400">One letter credit per letter posted. Monthly allowance resets on the 1st.</span>
+            <button className="font-bold text-[#0A2540] underline underline-offset-2" onClick={() => window.dispatchEvent(new CustomEvent('oi:topup', { detail: { kind: 'letter' } }))}>Top up</button>
+            <button className="font-bold text-[#0A2540] underline underline-offset-2" onClick={() => window.dispatchEvent(new Event('oi:paywall'))}>Upgrade plan</button>
+          </div>
+        )}
         {showMethod && (
           <div className="rounded-2xl p-6 mb-5 text-white" style={{ background: 'linear-gradient(120deg,#0A2540,#0E3257)' }}>
             <div className="flex items-start justify-between gap-4">
@@ -998,10 +988,16 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
         )}
         {queue && (
           <div className={card + ' p-5 mb-5'}>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-1">
               <div className="font-semibold text-gray-900">{queue.length} messages waiting for approval</div>
               <div className="flex gap-2"><button onClick={approveAll} disabled={!queue.length || !!busy} className={btnGold}><Check className="h-4 w-4" />Approve all</button><button onClick={() => setQueue(null)} className={btnGhost}>Close</button></div>
             </div>
+            {credits && (() => { const letters = queue.filter((t: any) => t.channel === 'letter').length; if (!letters) return null; const short = letters > credits.letter; return (
+              <div className={'text-[12px] rounded-lg px-3 py-2 mb-3 ' + (short ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-600')}>
+                {letters} of these are letters. You have <b>{credits.letter}</b> letter credits.
+                {short && <span> Approving all will stop at {credits.letter}. <button className="font-bold underline" onClick={() => window.dispatchEvent(new CustomEvent('oi:topup', { detail: { kind: 'letter' } }))}>Top up</button> or <button className="font-bold underline" onClick={() => window.dispatchEvent(new Event('oi:paywall'))}>upgrade</button> to send the rest.</span>}
+              </div>
+            ); })()}
             <div className="max-h-72 overflow-y-auto flex flex-col gap-2">
               {queue.map((t) => (
                 <div key={t.id} className="bg-gray-50 rounded-lg p-3 text-[12px]">
@@ -1040,30 +1036,7 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
               })}
             </div>
             {enrolFor === c.id && (
-              <div className="mt-3 bg-gray-50 rounded-lg p-3">
-                <div className="flex gap-2 items-center flex-wrap">
-                  <select className={input__} value={ef.min_fit} onChange={(e) => setEf((f) => ({ ...f, min_fit: e.target.value }))}><option value="">Any fit</option><option value="60">Fit 60+</option><option value="80">Fit 80+</option></select>
-                  <input className={input__ + ' w-40'} placeholder="Region (optional)" value={ef.region ?? ''} onChange={(e) => setEf((f) => ({ ...f, region: e.target.value }))} />
-                  <select className={input__} value={ef.provenance} onChange={(e) => setEf((f) => ({ ...f, provenance: e.target.value }))}>
-                    <option value="">Any source</option><option value="platform">Register-sourced</option><option value="funnel">Seller funnel</option><option value="upload">Your uploads</option><option value="meta">Meta leads</option>
-                  </select>
-                  {!picking && <select className={input__} value={ef.limit} onChange={(e) => setEf((f) => ({ ...f, limit: e.target.value }))}><option value="25">Up to 25</option><option value="50">Up to 50</option><option value="100">Up to 100</option></select>}
-                  <button onClick={() => (picking ? setPicking(false) : openPicker())} className={btnGhost}>{picking ? 'Back to filters' : 'Choose individually'}</button>
-                  <button onClick={() => enrol(c.id)} disabled={busy === 'enrol' || (picking && picked.size === 0)} className={btnGold}>{busy === 'enrol' && <Loader2 className="h-4 w-4 animate-spin" />}{picking ? `Enrol ${picked.size} selected` : 'Enrol'}</button>
-                </div>
-                {picking && (
-                  <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
-                    {!pickList ? <div className="p-4 text-gray-400"><Loader2 className="h-4 w-4 animate-spin" /></div> : pickList.length === 0 ? <div className="p-4 text-[12px] text-gray-400">No available prospects match - loosen the fit filter or source more.</div> : pickList.map((pr: any) => (
-                      <label key={pr.id} className="flex items-center gap-3 px-3 py-2 text-[12.5px] cursor-pointer hover:bg-gray-50">
-                        <input type="checkbox" checked={picked.has(pr.id)} onChange={(e) => setPicked((old_) => { const n = new Set(old_); e.target.checked ? n.add(pr.id) : n.delete(pr.id); return n; })} />
-                        <span className="font-semibold text-gray-800">{pr.company_name}</span>
-                        <span className="text-gray-400">{pr.region ?? pr.postcode ?? ''}</span>
-                        {pr.fit_score != null && <span className="ml-auto text-[11px] font-bold bg-[#0A2540] text-white px-2 py-0.5 rounded-full">fit {pr.fit_score}</span>}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <EnrolPanel campaign={c} credits={credits} busy={busy === 'enrol'} onEnrol={(ids) => enrol(c.id, ids)} setErr={setErr} />
             )}
           </div>
         ))}

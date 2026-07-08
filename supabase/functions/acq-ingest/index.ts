@@ -116,6 +116,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'commit') {
+      if (body.gdpr_confirmed !== true) { await sql.end({ timeout: 5 }); return json({ error: 'Please confirm the list was obtained from a GDPR-compliant source before importing.', gdpr_required: true }, 400); }
       const mapping: Record<string, string | null> = body.mapping ?? {};
       const idx: Record<string, number> = {};
       headers.forEach((h, i) => { const f = mapping[h]; if (f && (FIELDS as readonly string[]).includes(f) && idx[f] === undefined) idx[f] = i; });
@@ -131,6 +132,23 @@ Deno.serve(async (req: Request) => {
       for (const d of ownDeals) { if (d.company_number) ownNum.add(String(d.company_number).replace(/\s/g, '').toUpperCase()); const k = nameKey(String(d.name ?? '')); if (k.length > 3) ownName.add(k); }
       const platNum = new Set<string>(); const platName = new Set<string>();
       for (const d of platformRows) { if (d.company_number) platNum.add(String(d.company_number).replace(/\s/g, '').toUpperCase()); const k = nameKey(String(d.name ?? '')); if (k.length > 3) platName.add(k); }
+
+      // Auto-enrichment: match each row against the Companies House index and
+      // fill registry facts the upload is missing (number, SIC, address, age, status).
+      let enriched = 0;
+      const chMatch = async (company_number: string | null, name: string, postcode: string | null) => {
+        if (company_number) {
+          const hit = (await sql`select * from acq.companies_index where company_number=${company_number} limit 1`)[0];
+          if (hit) return hit;
+        }
+        if (postcode) {
+          const key = nameKey(name);
+          const cands = await sql`select * from acq.companies_index where postcode=${postcode} limit 50`;
+          const hit = cands.find((c: any) => nameKey(c.name) === key);
+          if (hit) return hit;
+        }
+        return null;
+      };
 
       for (const r of rows.slice(1)) {
         try {
@@ -149,6 +167,14 @@ Deno.serve(async (req: Request) => {
           if ((company_number && ownNum.has(company_number)) || (nk.length > 3 && ownName.has(nk))) { excluded_pipeline++; continue; }
           if ((company_number && platNum.has(company_number)) || (nk.length > 3 && platName.has(nk))) { excluded_platform++; continue; }
 
+          const ch = await chMatch(company_number, company_name, postcode);
+          if (ch) enriched++;
+          const chNumber = company_number ?? (ch ? String(ch.company_number) : null);
+          const chSics: string[] = ch && ch.sic ? (Array.isArray(ch.sic) ? ch.sic : String(ch.sic).split(/[,;\s]+/).filter(Boolean)) : [];
+          const chAddress = ch ? [ch.address1, ch.town].filter(Boolean).join(', ') : null;
+          const chRegion = ch?.town ?? null;
+          const chPostcode = ch?.postcode ?? null;
+
           // dedupe: company_number > domain > email > fuzzy name+postcode
           let existing: any = null;
           if (company_number) existing = (await sql`select id from acq.prospects where org_id=${orgId} and company_number=${company_number} limit 1`)[0];
@@ -162,13 +188,15 @@ Deno.serve(async (req: Request) => {
 
           if (existing) {
             await sql`update acq.prospects set
-              company_number = coalesce(company_number, ${company_number}),
+              company_number = coalesce(company_number, ${chNumber}),
               website = coalesce(website, ${website}), domain = coalesce(domain, ${domain}),
               owner_name = coalesce(owner_name, ${g('owner_name') || null}),
               owner_email = coalesce(owner_email, ${owner_email}),
               owner_phone = coalesce(owner_phone, ${g('owner_phone') || null}),
-              address = coalesce(address, ${g('address') || null}), postcode = coalesce(postcode, ${postcode}),
-              region = coalesce(region, ${g('region') || null}),
+              address = coalesce(address, ${g('address') || null}, ${chAddress}), postcode = coalesce(postcode, ${postcode}, ${chPostcode}),
+              region = coalesce(region, ${g('region') || null}, ${chRegion}),
+              sic_codes = case when coalesce(array_length(sic_codes, 1), 0) = 0 and ${chSics.length > 0} then ${chSics} else sic_codes end,
+              incorporated_on = coalesce(incorporated_on, ${ch?.incorporated ?? null}),
               revenue_estimate = coalesce(revenue_estimate, ${revenue}), revenue_basis = case when revenue_estimate is null and ${revenue}::numeric is not null then 'uploaded' else revenue_basis end,
               staff_band = coalesce(staff_band, ${g('staff') || null}),
               notes = case when ${g('notes') || null}::text is not null then coalesce(notes || E'\n', '') || ${g('notes')} else notes end,
@@ -177,18 +205,18 @@ Deno.serve(async (req: Request) => {
             merged++;
           } else {
             await sql`insert into acq.prospects (org_id, company_name, company_number, website, domain, owner_name, owner_email, owner_phone,
-                address, postcode, region, sic_codes, revenue_estimate, revenue_basis, staff_band, notes, provenance, exportable, source, stage)
-              values (${orgId}, ${company_name}, ${company_number}, ${website}, ${domain}, ${g('owner_name') || null}, ${owner_email}, ${g('owner_phone') || null},
-                ${g('address') || null}, ${postcode}, ${g('region') || null}, ${g('sic_code') ? [g('sic_code')] : []}, ${revenue}, ${revenue ? 'uploaded' : null}, ${g('staff') || null}, ${g('notes') || null},
-                'uploaded', true, ${{ kind: 'upload', file: body.file_name ?? 'upload.csv', job_id: body.job_id ?? null }}, 'new')`;
+                address, postcode, region, sic_codes, incorporated_on, revenue_estimate, revenue_basis, staff_band, notes, provenance, exportable, source, stage)
+              values (${orgId}, ${company_name}, ${chNumber}, ${website}, ${domain}, ${g('owner_name') || null}, ${owner_email}, ${g('owner_phone') || null},
+                ${g('address') || chAddress}, ${postcode ?? chPostcode}, ${g('region') || chRegion}, ${g('sic_code') ? [g('sic_code')] : chSics}, ${ch?.incorporated ?? null}, ${revenue}, ${revenue ? 'uploaded' : null}, ${g('staff') || null}, ${g('notes') || null},
+                'uploaded', true, ${{ kind: 'upload', file: body.file_name ?? 'upload.csv', job_id: body.job_id ?? null, ch_matched: !!ch, ch_status: ch?.status ?? null }}, ${ch ? 'enriched' : 'new'})`;
             created++;
           }
         } catch (e) { skipped++; if (errors.length < 10) errors.push(String(e).slice(0, 200)); }
       }
 
-      if (body.job_id) await sql`update acq.ingest_jobs set status='committed', mapping=${mapping}, rows_created=${created}, rows_merged=${merged}, rows_skipped=${skipped + excluded_pipeline + excluded_platform}, errors=${errors} where id=${body.job_id} and org_id=${orgId}`;
+      if (body.job_id) await sql`update acq.ingest_jobs set status='committed', gdpr_confirmed=true, mapping=${mapping}, rows_created=${created}, rows_merged=${merged}, rows_skipped=${skipped + excluded_pipeline + excluded_platform}, errors=${errors} where id=${body.job_id} and org_id=${orgId}`;
       await sql.end({ timeout: 5 });
-      return json({ ok: true, created, merged, skipped, excluded_pipeline, excluded_platform, errors });
+      return json({ ok: true, created, merged, skipped, enriched, excluded_pipeline, excluded_platform, errors });
     }
 
     await sql.end({ timeout: 5 });
