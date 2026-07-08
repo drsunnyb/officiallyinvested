@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -11,15 +11,23 @@ import Pipeline from './pages/admin/Pipeline';
 import Origination from './pages/admin/Origination';
 import Settings from './pages/admin/Settings';
 
+const AUTH_HASH = /access_token=|error_code=|error=|type=recovery/;
+
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
+  const nav = useNavigate();
   useEffect(() => {
+    // Supabase auth callbacks land on the site root with tokens/errors in the
+    // hash. Send them to the signup wizard, which resumes the journey.
+    if (hash && AUTH_HASH.test(hash)) {
+      if (pathname === '/' || pathname === '') nav('/signup' + hash, { replace: true });
+      return;
+    }
     if (hash) {
-      const el = document.querySelector(hash);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' });
-        return;
-      }
+      try {
+        const el = document.querySelector(hash);
+        if (el) { el.scrollIntoView({ behavior: 'smooth' }); return; }
+      } catch (_) { /* not a valid anchor - ignore */ }
     }
     window.scrollTo(0, 0);
   }, [pathname, hash]);

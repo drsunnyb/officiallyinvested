@@ -49,6 +49,15 @@ export default function Signup() {
       else setStep(1);
     } catch (_) { setStep(1); }
   };
+  // Surface auth-callback errors (expired/invalid links) instead of failing silently
+  useEffect(() => {
+    const h = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const desc = h.get('error_description');
+    if (desc) {
+      setErr(desc.replace(/\+/g, ' ') + ' - sign in below or create your account again.');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => { if (data.session) resume(); });
@@ -68,9 +77,11 @@ export default function Signup() {
     setBusy(true); setErr('');
     try {
       if (mode === 'up') {
-        const { data, error } = await supabase.auth.signUp({ email, password: pw });
+        const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: window.location.origin + '/signup' } });
         if (error) throw error;
-        if (!data.session) { setErr('Check your inbox to confirm your email, then sign in here.'); setMode('in'); setBusy(false); return; }
+        // Supabase returns a user with no identities when the email is already registered
+        if (data.user && (data.user.identities?.length ?? 0) === 0) { setErr('You already have an account with this email. Sign in below, or use Continue with Google.'); setMode('in'); setBusy(false); return; }
+        if (!data.session) { setErr('Almost there. We have sent a confirmation link to ' + email + ' - click it, then sign in here.'); setMode('in'); setBusy(false); return; }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
         if (error) throw error;
