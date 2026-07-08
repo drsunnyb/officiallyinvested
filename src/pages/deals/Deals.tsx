@@ -1,13 +1,15 @@
 // =============================================================================
-// Member deal journey — /deals (listing) and /deals/:id (detail → application →
-// NDA e-sign → data room → interest). Teasers are anonymised; identity unlocks
-// after NDA. Every open is logged; the data room carries a per-member watermark.
+// Member deal journey — /deals (listing + member dashboard) and /deals/:id
+// (detail → application → NDA e-sign → data room → interest).
+// Public teasers double as lead gen; identity unlocks after NDA. Every open is
+// logged; the data room carries a per-member watermark.
 // =============================================================================
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   Loader2, Lock, ShieldCheck, CheckCircle2, Clock, MapPin, FileText, MessageSquareText,
-  ChevronLeft, Sparkles, Building2, HelpCircle, X, CalendarClock, ThumbsDown,
+  ChevronLeft, Sparkles, Building2, HelpCircle, X, CalendarClock, ThumbsDown, LogOut, User,
+  Wrench, Home as HomeIcon, Truck, Factory, HeartPulse, UtensilsCrossed, Store, Laptop, Leaf, Briefcase,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
@@ -16,7 +18,7 @@ import {
 
 const NAVY = '#0A2540';
 const GOLD = '#FFD700';
-const card = 'bg-white rounded-2xl shadow-lg';
+const card = 'bg-white rounded-2xl shadow-xl';
 const input = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#0A2540] focus:ring-1 focus:ring-[#0A2540]/30 bg-white';
 const btnGold = 'inline-flex items-center justify-center gap-2 bg-[#FFD700] text-[#0A2540] px-5 py-3 rounded-xl text-sm font-bold hover:brightness-95 disabled:opacity-40 transition';
 const btnGhost = 'inline-flex items-center justify-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 disabled:opacity-40';
@@ -43,7 +45,48 @@ Between: the Disclosing Party (the business owner, represented by Officially Inv
 
 By typing your full legal name and clicking Sign, you agree these terms form a binding agreement, executed electronically.`;
 
-// -------------------------------- shared bits --------------------------------
+// ------------------------------ sector artwork ------------------------------
+function sectorArt(sector: string | null): { Icon: any; hue: string } {
+  const s = (sector ?? '').toLowerCase();
+  if (/trade|plumb|electric|hvac|roof|build|construct|clean|landscap|maint/.test(s)) return { Icon: Wrench, hue: '#1B4B7A' };
+  if (/propert|land|real estate|cre|lettings|estate/.test(s)) return { Icon: HomeIcon, hue: '#14456E' };
+  if (/transport|logistic|haulage|courier|freight|storage/.test(s)) return { Icon: Truck, hue: '#0F3E63' };
+  if (/manufactur|engineer|metal|machin|chemic|fabricat|quarry/.test(s)) return { Icon: Factory, hue: '#173F66' };
+  if (/health|care|dental|pharma|gp|clinic|vet/.test(s)) return { Icon: HeartPulse, hue: '#1A4C72' };
+  if (/food|hospitality|restaurant|pub|brewer|catering|takeaway/.test(s)) return { Icon: UtensilsCrossed, hue: '#153F69' };
+  if (/retail|shop|store|convenience|salon|personal/.test(s)) return { Icon: Store, hue: '#12456B' };
+  if (/tech|digital|software|it |saas|data|media|game/.test(s)) return { Icon: Laptop, hue: '#0E3C60' };
+  if (/agri|farm|forest|fish|renewab|energy/.test(s)) return { Icon: Leaf, hue: '#174A6B' };
+  return { Icon: Briefcase, hue: '#123F66' };
+}
+
+function SectorHero({ sector, status, big }: { sector: string | null; status: string; big?: boolean }) {
+  const { Icon, hue } = sectorArt(sector);
+  return (
+    <div className={'relative overflow-hidden flex items-end ' + (big ? 'h-52 sm:h-64' : 'h-44')}
+      style={{ background: `radial-gradient(120% 160% at 85% -20%, ${hue} 0%, ${NAVY} 55%, #081D33 100%)` }}>
+      {/* faint icon lattice */}
+      <div className="absolute inset-0 opacity-[0.05]" style={{
+        backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72'><circle cx='36' cy='36' r='1.6' fill='white'/></svg>`)}")`,
+      }} />
+      {/* gold arc */}
+      <svg className="absolute -right-10 -top-14" width={big ? 300 : 230} height={big ? 300 : 230} viewBox="0 0 200 200" fill="none">
+        <circle cx="100" cy="100" r="86" stroke={GOLD} strokeOpacity="0.16" strokeWidth="1.5" />
+        <circle cx="100" cy="100" r="62" stroke={GOLD} strokeOpacity="0.10" strokeWidth="1.5" />
+        <circle cx="100" cy="100" r="40" fill="white" fillOpacity="0.045" />
+      </svg>
+      <Icon className={'absolute text-[#FFD700]/80 ' + (big ? 'right-12 top-12 h-20 w-20' : 'right-10 top-9 h-16 w-16')} strokeWidth={1.25} />
+      <div className="relative p-5 flex items-center gap-2">
+        <span className="bg-[#FFD700] text-[#0A2540] text-[11px] font-bold px-2.5 py-1 rounded-full">{sector ?? 'Private business'}</span>
+        {status === 'under_offer' && <span className="bg-amber-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full">Under offer</span>}
+        {status === 'completed' && <span className="bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full">Completed</span>}
+        {status === 'released' && <span className="bg-white/15 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur">Live</span>}
+        <span className="text-white/40 text-[10px] font-semibold tracking-wide uppercase ml-1">Identity revealed after NDA</span>
+      </div>
+    </div>
+  );
+}
+
 function ScoreBadge({ score, breakdown }: { score: number | null; breakdown?: any[] }) {
   const [open, setOpen] = useState(false);
   if (score == null) return null;
@@ -68,22 +111,9 @@ function ScoreBadge({ score, breakdown }: { score: number | null; breakdown?: an
   );
 }
 
-function SectorHero({ sector, status }: { sector: string | null; status: string }) {
-  return (
-    <div className="relative h-44 sm:h-56 rounded-2xl overflow-hidden flex items-end" style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #123458 60%, #0A2540 100%)` }}>
-      <Building2 className="absolute right-6 top-6 h-24 w-24 text-white/10" />
-      <div className="p-5 flex items-center gap-2">
-        <span className="bg-[#FFD700] text-[#0A2540] text-[11px] font-bold px-2.5 py-1 rounded-full">{sector ?? 'Private business'}</span>
-        {status === 'under_offer' && <span className="bg-amber-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full">Under offer</span>}
-        {status === 'completed' && <span className="bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full">Completed</span>}
-        {status === 'released' && <span className="bg-white/15 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full">Live</span>}
-      </div>
-    </div>
-  );
-}
-
+// ------------------------------ auth ------------------------------
 function useMember() {
-  const [session, setSession] = useState<any>(undefined); // undefined = loading
+  const [session, setSession] = useState<any>(undefined);
   useEffect(() => {
     if (!supabase) { setSession(null); return; }
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
@@ -93,7 +123,7 @@ function useMember() {
   return session;
 }
 
-function AuthPanel({ onDone }: { onDone: () => void }) {
+function AuthModal({ onDone, onClose }: { onDone: () => void; onClose: () => void }) {
   const [mode, setMode] = useState<'in' | 'up'>('in');
   const [email, setEmail] = useState(''); const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
@@ -115,104 +145,200 @@ function AuthPanel({ onDone }: { onDone: () => void }) {
     setBusy(false);
   };
   return (
-    <div className={card + ' p-6 max-w-sm mx-auto'}>
-      <div className="font-serif font-bold text-lg text-gray-900">{mode === 'in' ? 'Member sign in' : 'Create your account'}</div>
-      <p className="text-[13px] text-gray-500 mt-1">Deal access is for Officially Invested members. Your membership tier is assigned by the OI team.</p>
-      <input className={input + ' mt-4'} placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <input className={input + ' mt-2'} placeholder="Password" type="password" value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} />
-      {msg && <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">{msg}</div>}
-      <button className={btnGold + ' w-full mt-4'} disabled={busy || !email || !pw} onClick={go}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : (mode === 'in' ? 'Sign in' : 'Create account')}</button>
-      <button className="text-[12px] text-gray-500 hover:text-gray-800 mt-3 w-full text-center" onClick={() => setMode(mode === 'in' ? 'up' : 'in')}>
-        {mode === 'in' ? "First time here? Create an account" : 'Already have an account? Sign in'}
-      </button>
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className={card + ' p-6 max-w-sm w-full'} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="font-serif font-bold text-lg text-gray-900">{mode === 'in' ? 'Member sign in' : 'Create your account'}</div>
+          <button onClick={onClose}><X className="h-5 w-5 text-gray-400" /></button>
+        </div>
+        <p className="text-[13px] text-gray-500 mt-1">Deal access is for Officially Invested members. Your tier is assigned by the OI team.</p>
+        <input className={input + ' mt-4'} placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input className={input + ' mt-2'} placeholder="Password" type="password" value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} />
+        {msg && <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">{msg}</div>}
+        <button className={btnGold + ' w-full mt-4'} disabled={busy || !email || !pw} onClick={go}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : (mode === 'in' ? 'Sign in' : 'Create account')}</button>
+        <button className="text-[12px] text-gray-500 hover:text-gray-800 mt-3 w-full text-center" onClick={() => setMode(mode === 'in' ? 'up' : 'in')}>
+          {mode === 'in' ? 'First time here? Create an account' : 'Already have an account? Sign in'}
+        </button>
+      </div>
     </div>
   );
 }
 
-// -------------------------------- LISTING --------------------------------
-export default function Deals() {
-  const session = useMember();
-  const [data, setData] = useState<any>(null);
-  const [err, setErr] = useState('');
-  const load = () => dfListings().then(setData).catch((e) => setErr(e.message || String(e)));
-  useEffect(() => { if (session !== undefined) load(); }, [session]);
-
+// ------------------------------ deal flow top bar ------------------------------
+function TopBar({ me, onSignIn, onChanged }: { me: any; onSignIn: () => void; onChanged: () => void }) {
   return (
-    <div className="min-h-screen pb-24" style={{ background: NAVY }}>
-      <div className="max-w-5xl mx-auto px-4 pt-28">
-        <div className="text-center mb-10">
-          <div className="text-[#FFD700] text-[12px] font-bold tracking-[0.18em] uppercase">Member deal flow</div>
-          <h1 className="font-serif text-white text-3xl sm:text-4xl font-bold mt-2">Off-market deals, sourced for members</h1>
-          <p className="text-white/60 text-sm mt-3 max-w-xl mx-auto">Every listing is anonymised until you sign an NDA. Businesses sourced directly from owners — no brokers, no bidding wars.</p>
-        </div>
-        {err && <div className="bg-red-50 text-red-700 text-sm rounded-lg px-4 py-2.5 mb-6 max-w-lg mx-auto">{err}</div>}
-        {!data ? <div className="text-white/50 text-center py-20"><Loader2 className="h-6 w-6 animate-spin inline" /></div> : (
-          <>
-            {session === null && (
-              <div className="mb-8 text-center">
-                <span className="text-white/70 text-[13px]">Browsing as a guest — <span className="text-[#FFD700]">sign in below to request access</span>.</span>
-              </div>
-            )}
-            <div className="grid sm:grid-cols-2 gap-5">
-              {data.listings.map((l: any) => (
-                <Link key={l.id} to={`/deals/${l.id}`} className={card + ' overflow-hidden hover:-translate-y-0.5 transition-transform block'}>
-                  <SectorHero sector={l.sector_group} status={l.status} />
-                  <div className="p-5">
-                    <div className="font-serif font-bold text-gray-900 leading-snug">{l.headline}</div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-gray-500 mt-2">
-                      {l.region && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{l.region}</span>}
-                      {l.turnover_band && <span>Turnover {l.turnover_band}</span>}
-                      {l.ebitda_band && <span>Adj EBITDA {l.ebitda_band}</span>}
-                    </div>
-                    <div className="mt-3 flex items-center justify-between">
-                      <ScoreBadge score={l.ownership_score} />
-                      <span className="text-[12px] font-semibold" style={{ color: NAVY }}>
-                        {l.my_state ? (BAND_LABEL[l.my_state] ?? l.my_state) : l.access === 'open' ? 'Open to you →' : l.access?.startsWith('opens:') ? `Opens ${l.access.slice(6)}` : l.access === 'waitlist' ? 'Waitlist' : l.access === 'join' ? 'Members only' : ''}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-              {!data.listings.length && <div className="text-white/50 text-sm col-span-2 text-center py-16">No live deals right now. New releases go to members by email first.</div>}
-            </div>
-            {session === null && <div className="mt-12"><AuthPanel onDone={load} /></div>}
-          </>
+    <div className="border-b border-white/10 bg-white/[0.03] backdrop-blur-sm">
+      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+        <Link to="/deals" className="flex items-center gap-2.5">
+          <span className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ background: GOLD }}><Sparkles className="h-4 w-4" style={{ color: NAVY }} /></span>
+          <span className="text-white font-serif font-bold">Deal Flow</span>
+          <span className="text-white/35 text-[11px] font-semibold uppercase tracking-wider hidden sm:inline">Officially Invested</span>
+        </Link>
+        {me?.member ? (
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:flex items-center gap-2 text-white/70 text-[12px]">
+              <User className="h-3.5 w-3.5" /> {me.member.full_name || me.member.email}
+              <span className="bg-[#FFD700] text-[#0A2540] text-[10px] font-bold px-2 py-0.5 rounded-full capitalize">{me.member.tier}</span>
+              <span className="text-white/40">NDA slots {me.slots_used}{me.slots_cap != null ? `/${me.slots_cap}` : ' · unlimited'}</span>
+            </span>
+            <button className="text-white/50 hover:text-white text-[12px] inline-flex items-center gap-1" onClick={async () => { await supabase?.auth.signOut(); onChanged(); }}><LogOut className="h-3.5 w-3.5" /> Sign out</button>
+          </div>
+        ) : me?.is_admin ? (
+          <Link to="/admin/origination" className="text-[#FFD700] text-[12px] font-bold">You're the admin → Deal flow console</Link>
+        ) : (
+          <button className="bg-[#FFD700] text-[#0A2540] text-[12px] font-bold px-4 py-2 rounded-lg hover:brightness-95" onClick={onSignIn}>Member sign in</button>
         )}
       </div>
     </div>
   );
 }
 
-// -------------------------------- DETAIL / JOURNEY --------------------------------
+// ------------------------------ LISTING PAGE ------------------------------
+export default function Deals() {
+  const session = useMember();
+  const [data, setData] = useState<any>(null);
+  const [me, setMe] = useState<any>(null);
+  const [auth, setAuth] = useState(false);
+  const [err, setErr] = useState('');
+  const load = async () => {
+    try {
+      const [l, m] = await Promise.all([dfListings(), session ? dfMe() : Promise.resolve(null)]);
+      setData(l); setMe(m);
+    } catch (e: any) { setErr(e.message || String(e)); }
+  };
+  useEffect(() => { if (session !== undefined) load(); }, [session]);
+  const active = (me?.deals ?? []).filter((x: any) => !['passed', 'declined', 'expired', 'revoked', 'completed'].includes(x.state));
+
+  return (
+    <div className="min-h-screen pb-24 pt-20" style={{ background: NAVY }}>
+      <TopBar me={me ?? (session ? undefined : { member: null })} onSignIn={() => setAuth(true)} onChanged={load} />
+      <div className="max-w-6xl mx-auto px-4">
+        {/* hero */}
+        <div className="text-center pt-12 pb-10">
+          <div className="text-[#FFD700] text-[12px] font-bold tracking-[0.2em] uppercase">Member deal flow</div>
+          <h1 className="font-serif text-white text-3xl sm:text-5xl font-bold mt-3">Off-market deals,<br className="sm:hidden" /> sourced for members</h1>
+          <p className="text-white/55 text-[15px] mt-4 max-w-xl mx-auto leading-relaxed">Businesses approached directly, before any broker or listing site. Anonymised until you sign an NDA. One buyer gets exclusivity.</p>
+          <div className="flex justify-center gap-8 mt-7 text-center">
+            {[['900k+', 'UK companies scanned'], ['Direct', 'to owners, no brokers'], ['NDA-gated', 'confidential data rooms']].map(([a, b]) => (
+              <div key={a as string}><div className="text-[#FFD700] font-serif font-bold text-xl">{a}</div><div className="text-white/40 text-[11px] mt-0.5">{b}</div></div>
+            ))}
+          </div>
+        </div>
+        {err && <div className="bg-red-50 text-red-700 text-sm rounded-lg px-4 py-2.5 mb-6 max-w-lg mx-auto">{err}</div>}
+
+        {/* member dashboard */}
+        {me?.member && (
+          <div className="mb-10">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-white font-serif font-bold text-lg">My deals</h2>
+              <span className="text-white/40 text-[12px]">NDA slots used: {me.slots_used}{me.slots_cap != null ? ` of ${me.slots_cap}` : ' (unlimited)'}</span>
+            </div>
+            {active.length ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {active.map((x: any) => (
+                  <Link key={x.id} to={`/deals/${x.release_id}`} className="bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 rounded-xl p-4 transition">
+                    <div className="text-white text-[13px] font-semibold leading-snug">{x.headline}</div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (['data_room', 'interest_expressed', 'intro_call_booked'].includes(x.state) ? 'bg-emerald-400/20 text-emerald-300' : x.state === 'nda_pending' ? 'bg-[#FFD700]/20 text-[#FFD700]' : 'bg-white/10 text-white/60')}>{BAND_LABEL[x.state] ?? x.state}</span>
+                      <span className="text-white/30 text-[11px]">Open →</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : <div className="text-white/40 text-[13px] bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3">Nothing live yet — pick a deal below to start.</div>}
+          </div>
+        )}
+
+        {/* listings */}
+        {!data ? <div className="text-white/50 text-center py-20"><Loader2 className="h-6 w-6 animate-spin inline" /></div> : (
+          <>
+            <h2 className="text-white font-serif font-bold text-lg mb-4">{me?.member ? 'Live deals' : 'Current deals'}</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {data.listings.map((l: any) => (
+                <Link key={l.id} to={`/deals/${l.id}`} className={card + ' overflow-hidden hover:-translate-y-1 transition-transform block rounded-2xl'}>
+                  <SectorHero sector={l.sector_group} status={l.status} />
+                  <div className="p-5">
+                    <div className="font-serif font-bold text-gray-900 leading-snug min-h-[44px]">{l.headline}</div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-gray-500 mt-2">
+                      {l.region && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{l.region}</span>}
+                      {l.turnover_band && <span>Turnover {l.turnover_band}</span>}
+                      {l.ebitda_band && <span>Adj EBITDA {l.ebitda_band}</span>}
+                    </div>
+                    <div className="mt-3.5 pt-3.5 border-t border-gray-100 flex items-center justify-between">
+                      <ScoreBadge score={l.ownership_score} />
+                      <span className="text-[12px] font-bold" style={{ color: NAVY }}>
+                        {l.my_state ? (BAND_LABEL[l.my_state] ?? l.my_state) : l.access === 'open' ? 'Open to you →' : l.access?.startsWith('opens:') ? `Opens ${l.access.slice(6)}` : l.access === 'waitlist' ? 'Waitlist' : l.access === 'join' ? 'Sign in to view →' : ''}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+              {!data.listings.length && <div className="text-white/50 text-sm col-span-3 text-center py-16">No live deals right now. New releases go to members by email first.</div>}
+            </div>
+
+            {/* lead gen join panel for guests */}
+            {!me?.member && !me?.is_admin && (
+              <div className="mt-14 rounded-3xl overflow-hidden border border-white/10" style={{ background: 'linear-gradient(120deg, rgba(255,215,0,0.08), rgba(255,255,255,0.03))' }}>
+                <div className="p-8 sm:p-10 grid sm:grid-cols-2 gap-8 items-center">
+                  <div>
+                    <h3 className="font-serif text-white text-2xl font-bold">Want access to these deals?</h3>
+                    <p className="text-white/60 text-[14px] mt-3 leading-relaxed">Membership gets you the full journey: apply in two minutes, sign the NDA in-app, open the data room, and speak to the owner through us. Circle members see every deal on day one.</p>
+                    <ul className="mt-4 space-y-2">
+                      {['Off-market businesses approached directly', 'Anonymised teasers, full data room after NDA', 'One buyer gets exclusivity — no bidding wars', 'Deals matched to your buy box'].map((x) => (
+                        <li key={x} className="flex items-center gap-2 text-white/75 text-[13px]"><CheckCircle2 className="h-4 w-4 text-[#FFD700] shrink-0" />{x}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="text-center sm:text-right">
+                    <a href="mailto:sandeep@officiallyinvested.com?subject=Deal%20Flow%20membership" className={btnGold + ' w-full sm:w-auto'}>Request membership</a>
+                    <div className="mt-3"><button className="text-white/50 hover:text-white text-[13px] underline underline-offset-4" onClick={() => setAuth(true)}>Already a member? Sign in</button></div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      {auth && <AuthModal onClose={() => setAuth(false)} onDone={() => { setAuth(false); load(); }} />}
+    </div>
+  );
+}
+
+// ------------------------------ DETAIL / JOURNEY ------------------------------
 export function DealPage() {
   const { id } = useParams();
   const session = useMember();
   const [d, setD] = useState<any>(null);
+  const [me, setMe] = useState<any>(null);
   const [room, setRoom] = useState<any>(null);
+  const [auth, setAuth] = useState(false);
   const [err, setErr] = useState('');
   const [applying, setApplying] = useState(false);
   const [passing, setPassing] = useState(false);
-  const load = () => dfDetail(id!).then(async (r) => {
-    setD(r);
-    if (r.my && ['data_room', 'interest_expressed', 'intro_call_booked', 'offer_submitted', 'heads_of_terms', 'diligence'].includes(r.my.state)) {
-      try { setRoom(await dfDataRoom(id!)); } catch (_) { /* room may be locked */ }
-    }
-  }).catch((e) => setErr(e.message || String(e)));
+  const load = async () => {
+    try {
+      const [r, m] = await Promise.all([dfDetail(id!), session ? dfMe() : Promise.resolve(null)]);
+      setD(r); setMe(m);
+      if (r.my && ['data_room', 'interest_expressed', 'intro_call_booked', 'offer_submitted', 'heads_of_terms', 'diligence'].includes(r.my.state)) {
+        try { setRoom(await dfDataRoom(id!)); } catch (_) { /* locked */ }
+      } else setRoom(null);
+    } catch (e: any) { setErr(e.message || String(e)); }
+  };
   useEffect(() => { if (session !== undefined) load(); }, [session, id]);
 
   if (!d) return <div className="min-h-screen flex items-center justify-center" style={{ background: NAVY }}>{err ? <div className="text-red-300 text-sm">{err}</div> : <Loader2 className="h-6 w-6 animate-spin text-white/50" />}</div>;
   const r = d.release; const my = d.my; const state = my?.state ?? null;
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: NAVY }}>
-      <div className="max-w-3xl mx-auto px-4 pt-24">
+    <div className="min-h-screen pb-24 pt-20" style={{ background: NAVY }}>
+      <TopBar me={me ?? (session ? undefined : { member: null })} onSignIn={() => setAuth(true)} onChanged={load} />
+      <div className="max-w-3xl mx-auto px-4 pt-8">
         <Link to="/deals" className="inline-flex items-center gap-1 text-white/60 hover:text-white text-[13px] mb-4"><ChevronLeft className="h-4 w-4" /> All deals</Link>
         {err && <div className="bg-red-50 text-red-700 text-sm rounded-lg px-4 py-2.5 mb-4">{err}</div>}
         <div className={card + ' overflow-hidden'}>
-          <SectorHero sector={r.sector_group} status={r.status} />
+          <SectorHero sector={r.sector_group} status={r.status} big />
           <div className="p-6 sm:p-8">
             <h1 className="font-serif text-2xl font-bold text-gray-900 leading-snug">{r.headline}</h1>
-            {/* metric strip */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
               {[['Turnover', r.turnover_band], ['Adj EBITDA', r.ebitda_band], ['Guide', r.guide_multiple], ['Region', r.region]].map(([k, v]) => (
                 <div key={k as string} className="bg-gray-50 rounded-xl p-3">
@@ -223,7 +349,6 @@ export function DealPage() {
             </div>
             <div className="mt-4"><ScoreBadge score={r.ownership_score} breakdown={r.score_breakdown} /></div>
 
-            {/* why sourced */}
             {r.why_sourced && (
               <div className="mt-6 border-l-4 pl-4 py-1" style={{ borderColor: GOLD }}>
                 <div className="text-[11px] uppercase tracking-wide text-gray-400 font-bold mb-1">Why I sourced this</div>
@@ -232,7 +357,6 @@ export function DealPage() {
               </div>
             )}
 
-            {/* unlocks + transparency */}
             {!room && (
               <div className="mt-6 bg-gray-50 rounded-xl p-4">
                 <div className="text-[12px] font-bold text-gray-900 mb-2 flex items-center gap-1.5"><Lock className="h-3.5 w-3.5" /> What unlocks after NDA</div>
@@ -247,10 +371,14 @@ export function DealPage() {
               {d.tier && <span>Your tier: <span className="font-semibold text-gray-600 capitalize">{d.tier}</span></span>}
             </div>
 
-            {/* ------- journey CTA area ------- */}
             <div className="mt-7">
-              {session === null && <AuthPanel onDone={load} />}
-              {session && !d.tier && !my && (
+              {session === null && (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button className={btnGold + ' flex-1'} onClick={() => setAuth(true)}>Member sign in to request access</button>
+                  <a href="mailto:sandeep@officiallyinvested.com?subject=Deal%20Flow%20membership" className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'}>Not a member? Request membership</a>
+                </div>
+              )}
+              {session && me && !me.member && !me.is_admin && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-[13px] text-amber-800">
                   Your account isn't linked to a membership yet. Deal access is for Officially Invested members — email <a className="underline font-semibold" href="mailto:sandeep@officiallyinvested.com">sandeep@officiallyinvested.com</a> to join.
                 </div>
@@ -281,6 +409,7 @@ export function DealPage() {
           </div>
         </div>
       </div>
+      {auth && <AuthModal onClose={() => setAuth(false)} onDone={() => { setAuth(false); load(); }} />}
     </div>
   );
 }
@@ -426,7 +555,6 @@ function DataRoom({ releaseId, room, myState, onChanged, onPass }: { releaseId: 
           )) : <div className="text-[12px] text-gray-400">Documents are being prepared — ask below and the team will load them for you.</div>}
         </div>
 
-        {/* Q&A */}
         <div className="mt-6">
           <div className="text-[12px] font-bold text-gray-900 mb-2 flex items-center gap-1.5"><MessageSquareText className="h-3.5 w-3.5" /> Q&A with the seller</div>
           {(room.qa ?? []).map((x: any) => (
