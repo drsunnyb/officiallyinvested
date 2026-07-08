@@ -13,10 +13,12 @@ const TIERS: { key: 'analyst' | 'originator' | 'team'; name: string; price: stri
 export default function Paywall({ onClose, context }: { onClose: () => void; context?: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState('');
+  const [annual, setAnnual] = useState(false);
+  const ANNUAL_PRICE: Record<string, string> = { analyst: '£990', originator: '£2,990', team: '£7,490' };
   const go = async (plan: 'analyst' | 'originator' | 'team') => {
     setBusy(plan); setErr('');
     try {
-      const r = await billingCheckout(plan);
+      const r = await billingCheckout(plan, annual ? 'annual' : 'monthly');
       if (r.url) { window.location.href = r.url; return; }
       setErr(r.message || r.error || 'Checkout unavailable - email sandeep@officiallyinvested.com');
     } catch (e: any) { setErr(e.message || String(e)); }
@@ -33,12 +35,20 @@ export default function Paywall({ onClose, context }: { onClose: () => void; con
           </div>
           <button onClick={onClose}><X className="h-5 w-5 text-gray-400" /></button>
         </div>
-        <div className="grid sm:grid-cols-3 gap-4 mt-6">
+        <div className="flex items-center gap-1.5 mt-5 bg-gray-100 rounded-full p-1 w-fit">
+          <button onClick={() => setAnnual(false)} className={'text-[12.5px] font-bold px-4 py-1.5 rounded-full transition ' + (!annual ? 'bg-white shadow text-gray-900' : 'text-gray-500')}>Monthly</button>
+          <button onClick={() => setAnnual(true)} className={'text-[12.5px] font-bold px-4 py-1.5 rounded-full transition ' + (annual ? 'bg-white shadow text-gray-900' : 'text-gray-500')}>Annual <span className="text-[#A67C00]">2 months free</span></button>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-4 mt-4">
           {TIERS.map((t) => (
             <div key={t.key} className={'rounded-2xl border p-5 flex flex-col ' + (t.featured ? 'border-[#FFD700] shadow-xl relative bg-gradient-to-b from-[#FFFDF2] to-white' : 'border-gray-200 bg-white')}>
               {t.featured && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#FFD700] text-[#0A2540] text-[10px] font-bold px-3 py-0.5 rounded-full">MOST POPULAR</span>}
               <div className="font-bold text-gray-900">{t.name}</div>
-              <div className="mt-1"><span className="font-serif text-3xl font-bold text-gray-900">{t.price}</span><span className="text-gray-400 text-[12px]">/month</span></div>
+              <div className="mt-1">
+                <span className="font-serif text-3xl font-bold text-gray-900">{annual ? ANNUAL_PRICE[t.key] : t.price}</span>
+                <span className="text-gray-400 text-[12px]">{annual ? '/year' : '/month'}</span>
+                {annual && <div className="text-[11px] font-bold text-[#A67C00] mt-0.5">Pay for 10 months, get 12</div>}
+              </div>
               <div className="text-[12px] text-gray-500 mt-0.5">{t.blurb}</div>
               <ul className="mt-3 space-y-1.5 flex-1">
                 {t.feats.map((f) => <li key={f} className="flex items-start gap-1.5 text-[12px] text-gray-600"><Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-px" />{f}</li>)}
@@ -56,7 +66,7 @@ export default function Paywall({ onClose, context }: { onClose: () => void; con
             <span>{/not_configured/i.test(err) ? 'Card payments switch on this week. Email sandeep@officiallyinvested.com and we will set your plan up personally today, same price.' : err}</span>
           </div>
         )}
-        <div className="text-[11px] text-gray-400 text-center mt-4">Monthly credits reset on the 1st; purchased top-ups roll over. Cancel any time. Annual (2 months free) available - ask us.</div>
+        <div className="text-[11px] text-gray-400 text-center mt-4">Monthly credits reset on the 1st; purchased top-ups roll over. Cancel any time. Annual plans pay for 10 months and get 12.</div>
       </div>
     </div>
   );
@@ -85,11 +95,14 @@ export function CreditsTopUp({ onClose, focus }: { onClose: () => void; focus?: 
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
   const [plans, setPlans] = useState(false);
+  const [basket, setBasket] = useState<Set<string>>(new Set());
   useEffect(() => { creditsBalance().then(setData).catch((e) => setErr(e.message || String(e))); }, []);
-  const buy = async (pack: string) => {
-    setBusy(pack); setErr('');
+  const toggle = (pack: string) => setBasket((b) => { const n = new Set(b); n.has(pack) ? n.delete(pack) : n.add(pack); return n; });
+  const checkout = async () => {
+    if (!basket.size) return;
+    setBusy('checkout'); setErr('');
     try {
-      const r = await creditsTopup(pack);
+      const r = await creditsTopup([...basket]);
       if (r.url) { window.location.href = r.url; return; }
       setErr(r.message || r.error || 'Checkout unavailable');
     } catch (e: any) { setErr(e.message || String(e)); }
@@ -115,17 +128,24 @@ export function CreditsTopUp({ onClose, focus }: { onClose: () => void; focus?: 
               <div className="font-bold text-gray-900 flex items-center gap-1.5"><Icon className="h-4 w-4 text-[#0A2540]" /> {label}</div>
               <div className="text-[11px] text-gray-400 mt-0.5 mb-3">{sub}</div>
               {group(k).map(([key, p]) => (
-                <button key={key} onClick={() => buy(key)} disabled={!!busy}
-                  className="w-full flex items-center justify-between border border-gray-200 hover:border-[#0A2540] rounded-xl px-3.5 py-2.5 mb-2 text-left transition">
-                  <span className="text-[13px] font-semibold text-gray-800">{p.label}</span>
-                  <span className="text-[13px] font-bold text-[#0A2540]">{busy === key ? <Loader2 className="h-4 w-4 animate-spin" /> : `£${(p.amount / 100).toLocaleString()}`}</span>
+                <button key={key} onClick={() => toggle(key)} disabled={!!busy}
+                  className={'w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 mb-2 text-left transition border ' + (basket.has(key) ? 'border-[#0A2540] bg-[#0A2540]/[0.04] ring-1 ring-[#0A2540]' : 'border-gray-200 hover:border-gray-400')}>
+                  <span className="flex items-center gap-2 text-[13px] font-semibold text-gray-800">
+                    <span className={'h-4 w-4 rounded border flex items-center justify-center ' + (basket.has(key) ? 'bg-[#0A2540] border-[#0A2540]' : 'border-gray-300')}>{basket.has(key) && <Check className="h-3 w-3 text-[#FFD700]" />}</span>
+                    {p.label}
+                  </span>
+                  <span className="text-[13px] font-bold text-[#0A2540]">{`£${(p.amount / 100).toLocaleString()}`}</span>
                 </button>
               ))}
             </div>
           ))}
         </div>
         {err && <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">{err}</div>}
-        <button className="w-full mt-5 text-[13px] font-bold text-[#0A2540] underline underline-offset-4" onClick={() => setPlans(true)}>Using these every month? Upgrading your plan is better value →</button>
+        <button onClick={checkout} disabled={!basket.size || !!busy}
+          className="w-full mt-5 rounded-xl py-3 text-sm font-bold bg-[#FFD700] text-[#0A2540] hover:brightness-95 disabled:opacity-40 transition">
+          {busy === 'checkout' ? <Loader2 className="h-4 w-4 animate-spin inline" /> : basket.size === 0 ? 'Pick your packs - mix AI and letters freely' : `Checkout ${basket.size} pack${basket.size > 1 ? 's' : ''} · £${([...basket].reduce((t, k) => t + ((packs as any)[k]?.amount ?? 0), 0) / 100).toLocaleString()}`}
+        </button>
+        <button className="w-full mt-3 text-[13px] font-bold text-[#0A2540] underline underline-offset-4" onClick={() => setPlans(true)}>Using these every month? Upgrading your plan is better value →</button>
       </div>
     </div>
   );

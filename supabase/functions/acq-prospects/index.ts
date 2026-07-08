@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
 
     if (action === 'list') {
       const page = Math.max(1, Number(body.page ?? 1));
-      const per = Math.min(50, Math.max(5, Number(body.per ?? 25)));
+      const per = Math.min(300, Math.max(5, Number(body.per ?? 25)));
       const stage = body.stage ?? null; const minFit = body.min_fit != null ? Number(body.min_fit) : null;
       const q = (body.q ?? '').toString().trim(); const provenance = body.provenance ?? null;
       const rows = await sql`

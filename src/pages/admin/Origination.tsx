@@ -839,38 +839,47 @@ function ContactsView({ setErr }: { setErr: (s: string) => void }) {
 
 // Enrolment: show exactly who will enter the sequence before anything happens.
 function EnrolPanel({ campaign, credits, busy, onEnrol, setErr }: { campaign: any; credits: any; busy: boolean; onEnrol: (ids: string[]) => void; setErr: (s: string) => void }) {
-  const [f, setF] = useState<{ min_fit: string; region: string; provenance: string }>({ min_fit: '60', region: '', provenance: '' });
-  const [cands, setCands] = useState<any[] | null>(null);
+  const [f, setF] = useState<{ min_fit: string; region: string; provenance: string }>({ min_fit: '', region: '', provenance: '' });
+  const [raw, setRaw] = useState<any[] | null>(null);
+  const [inCampaign, setInCampaign] = useState(0);
   const [sel, setSel] = useState<Set<string>>(new Set());
   useEffect(() => {
     let live = true;
-    setCands(null);
-    prospectsList({ per: 100, min_fit: f.min_fit ? Number(f.min_fit) : undefined }).then((r) => {
+    prospectsList({ per: 200 }).then((r) => {
       if (!live) return;
-      let list = r.prospects.filter((x: any) => !['suppressed', 'disqualified', 'in_campaign'].includes(x.stage));
-      if (f.region.trim()) { const q = f.region.trim().toLowerCase(); list = list.filter((x: any) => String(x.region ?? '').toLowerCase().includes(q) || String(x.postcode ?? '').toLowerCase().startsWith(q)); }
-      if (f.provenance) list = list.filter((x: any) => x.provenance === f.provenance);
-      setCands(list); setSel(new Set(list.map((x: any) => x.id)));
-    }).catch((e) => { setErr(e.message || String(e)); setCands([]); });
+      const avail = r.prospects.filter((x: any) => !['suppressed', 'disqualified', 'in_campaign'].includes(x.stage));
+      setInCampaign(r.prospects.filter((x: any) => x.stage === 'in_campaign').length);
+      setRaw(avail); setSel(new Set(avail.map((x: any) => x.id)));
+    }).catch((e) => { setErr(e.message || String(e)); setRaw([]); });
     return () => { live = false; };
-  }, [f.min_fit, f.region, f.provenance]);
+  }, []);
+  const cands = raw === null ? null : raw.filter((x: any) => {
+    if (f.min_fit && !(Number(x.fit_score ?? -1) >= Number(f.min_fit))) return false;
+    if (f.region.trim()) { const q = f.region.trim().toLowerCase(); if (!(String(x.region ?? '').toLowerCase().includes(q) || String(x.postcode ?? '').toLowerCase().startsWith(q))) return false; }
+    if (f.provenance && x.provenance !== f.provenance) return false;
+    return true;
+  });
+  const hidden = raw && cands ? raw.length - cands.length : 0;
+  useEffect(() => { if (cands) setSel(new Set(cands.map((x: any) => x.id))); }, [f.min_fit, f.region, f.provenance]);
   const toggle = (id: string, on: boolean) => setSel((s_) => { const n = new Set(s_); on ? n.add(id) : n.delete(id); return n; });
   const firstIsLetter = true; // register-sourced sequences open with a letter
   return (
     <div className="mt-3 bg-gray-50 rounded-xl p-4">
       <div className="flex gap-2 items-center flex-wrap">
-        <select className={input__} value={f.min_fit} onChange={(e) => setF((x) => ({ ...x, min_fit: e.target.value }))}><option value="">Any fit</option><option value="60">Fit 60+</option><option value="80">Fit 80+</option></select>
+        <select className={input__} value={f.min_fit} onChange={(e) => setF((x) => ({ ...x, min_fit: e.target.value }))}><option value="">Any fit score</option><option value="60">Fit 60+</option><option value="80">Fit 80+</option></select>
         <input className={input__ + ' w-40'} placeholder="Region or postcode" value={f.region} onChange={(e) => setF((x) => ({ ...x, region: e.target.value }))} />
         <select className={input__} value={f.provenance} onChange={(e) => setF((x) => ({ ...x, provenance: e.target.value }))}>
           <option value="">Any source</option><option value="platform">Register-sourced</option><option value="funnel">Seller funnel</option><option value="uploaded">Your uploads</option><option value="meta">Meta leads</option>
         </select>
         <div className="ml-auto flex items-center gap-3">
-          {cands && <span className="text-[12px] text-gray-500"><b className="text-gray-800">{sel.size}</b> of {cands.length} selected</span>}
+          {cands && <span className="text-[12px] text-gray-500"><b className="text-gray-800">{sel.size}</b> of {cands.length} selected{hidden > 0 ? ' · ' + hidden + ' hidden by filters' : ''}{inCampaign > 0 ? ' · ' + inCampaign + ' already in campaigns' : ''}</span>}
           <button onClick={() => onEnrol([...sel])} disabled={busy || sel.size === 0} className={btnGold}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}Enrol {sel.size || ''} into {campaign.name}</button>
         </div>
       </div>
       {!cands ? <div className="p-6 text-gray-400"><Loader2 className="h-4 w-4 animate-spin" /></div> : cands.length === 0 ? (
-        <div className="p-5 text-[12.5px] text-gray-500">No available prospects match. Loosen the fit filter, or source more from Find companies.</div>
+        <div className="p-5 text-[12.5px] text-gray-500">
+          {hidden > 0 ? hidden + ' available prospects are hidden by your filters - clear them above.' : inCampaign > 0 ? 'All ' + inCampaign + ' of your prospects are already in a campaign. Source more from Find companies or upload a list.' : 'No available prospects yet. Source from Find companies or upload a list.'}
+        </div>
       ) : (
         <div className="mt-3 max-h-72 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
           <label className="flex items-center gap-3 px-3 py-2 text-[12px] font-semibold text-gray-500 bg-gray-50 cursor-pointer">
