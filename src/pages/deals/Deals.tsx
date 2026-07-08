@@ -1,5 +1,5 @@
 // =============================================================================
-// Member deal journey — /deals (listing + member dashboard) and /deals/:id
+// Member deal journey - /deals (listing + member dashboard) and /deals/:id
 // (detail → application → NDA e-sign → data room → interest).
 // Public teasers double as lead gen; identity unlocks after NDA. Every open is
 // logged; the data room carries a per-member watermark.
@@ -39,7 +39,7 @@ const btnGold = 'inline-flex items-center justify-center gap-2 bg-[#FFD700] text
 const btnGhost = 'inline-flex items-center justify-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 disabled:opacity-40';
 
 const BAND_LABEL: Record<string, string> = {
-  applied: 'Application in review', nda_pending: 'Approved — sign the NDA', data_room: 'Data room open',
+  applied: 'Application in review', nda_pending: 'Approved - sign the NDA', data_room: 'Data room open',
   interest_expressed: 'Interest expressed', intro_call_booked: 'Intro call booked', offer_submitted: 'Offer submitted',
   heads_of_terms: 'Heads of terms', diligence: 'In diligence', completed: 'Completed', declined: 'Not approved',
   passed: 'You passed', waitlisted: 'On the waitlist', revoked: 'Access revoked', expired: 'Access expired', nda_signed: 'Awaiting countersignature',
@@ -287,7 +287,7 @@ export default function Deals() {
                   </Link>
                 ))}
               </div>
-            ) : <div className="text-white/40 text-[13px] bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3">Nothing live yet — pick a deal below to start.</div>}
+            ) : <div className="text-white/40 text-[13px] bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3">Nothing live yet - pick a deal below to start.</div>}
           </div>
         )}
 
@@ -295,7 +295,7 @@ export default function Deals() {
         {!data ? <div className="text-white/50 text-center py-20"><Loader2 className="h-6 w-6 animate-spin inline" /></div> : (
           <>
             <h2 className="text-white font-serif font-bold text-lg mb-1">{me?.member ? 'Live deals' : 'Current deals'}</h2>
-            {anyMatch && <p className="text-white/40 text-[12px]">Ordered for you — deals matching your buy box come first.</p>}
+            {anyMatch && <p className="text-white/40 text-[12px]">Ordered for you - deals matching your buy box come first.</p>}
             <div className="mb-4" />
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {sorted.map(({ l, bm }: any) => (
@@ -329,7 +329,7 @@ export default function Deals() {
                     <h3 className="font-serif text-white text-2xl font-bold">Want access to these deals?</h3>
                     <p className="text-white/60 text-[14px] mt-3 leading-relaxed">Membership gets you the full journey: apply in two minutes, sign the NDA in-app, open the data room, and speak to the owner through us. Circle members see every deal on day one.</p>
                     <ul className="mt-4 space-y-2">
-                      {['Off-market businesses approached directly', 'Anonymised teasers, full data room after NDA', 'One buyer gets exclusivity — no bidding wars', 'Deals matched to your buy box'].map((x) => (
+                      {['Off-market businesses approached directly', 'Anonymised teasers, full data room after NDA', 'One buyer gets exclusivity - no bidding wars', 'Deals matched to your buy box'].map((x) => (
                         <li key={x} className="flex items-center gap-2 text-white/75 text-[13px]"><CheckCircle2 className="h-4 w-4 text-[#FFD700] shrink-0" />{x}</li>
                       ))}
                     </ul>
@@ -347,7 +347,7 @@ export default function Deals() {
         )}
       </div>
       {auth && <AuthModal onClose={() => setAuth(false)} onDone={() => { setAuth(false); load(); }} />}
-      {paywall && <Paywall context="Deal access is a member benefit — pick your tier" onClose={() => setPaywall(false)} />}
+      {paywall && <Paywall context="Deal access is a member benefit - pick your tier" onClose={() => setPaywall(false)} />}
     </div>
   );
 }
@@ -392,7 +392,7 @@ export function DealPage() {
               {[['Turnover', r.turnover_band], ['Adj EBITDA', r.ebitda_band], ['Guide', r.guide_multiple], ['Region', r.region]].map(([k, v]) => (
                 <div key={k as string} className="bg-gray-50 rounded-xl p-3">
                   <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold">{k}</div>
-                  <div className="text-[13px] font-semibold text-gray-900 mt-0.5">{v ?? '—'}</div>
+                  <div className="text-[13px] font-semibold text-gray-900 mt-0.5">{v ?? '-'}</div>
                 </div>
               ))}
             </div>
@@ -402,7 +402,7 @@ export function DealPage() {
               <div className="mt-6 border-l-4 pl-4 py-1" style={{ borderColor: GOLD }}>
                 <div className="text-[11px] uppercase tracking-wide text-gray-400 font-bold mb-1">Why I sourced this</div>
                 <p className="text-[14px] text-gray-700 leading-relaxed italic">"{r.why_sourced}"</p>
-                <div className="text-[12px] text-gray-500 mt-1.5 font-semibold">— Sandeep, Officially Invested</div>
+                <div className="text-[12px] text-gray-500 mt-1.5 font-semibold">- Sandeep, Officially Invested</div>
               </div>
             )}
 
@@ -441,18 +441,18 @@ export function DealPage() {
                 </div>
               )}
               {session && d.tier && !state && d.access?.startsWith('opens:') && (
-                <div className="bg-gray-50 rounded-xl p-4 text-[13px] text-gray-600 flex items-center gap-2"><Clock className="h-4 w-4" /> Opens for your tier on <b>{d.access.slice(6)}</b>. Higher tiers see deals first — ask about upgrading.</div>
+                <div className="bg-gray-50 rounded-xl p-4 text-[13px] text-gray-600 flex items-center gap-2"><Clock className="h-4 w-4" /> Opens for your tier on <b>{d.access.slice(6)}</b>. Higher tiers see deals first - ask about upgrading.</div>
               )}
               {session && d.tier && !state && d.access === 'waitlist' && !applying && (
                 <button className={btnGold + ' w-full'} onClick={() => setApplying(true)}>Join the waitlist</button>
               )}
               {applying && <ApplicationForm releaseId={r.id} onDone={() => { setApplying(false); load(); }} onCancel={() => setApplying(false)} />}
-              {state === 'applied' && <Banner icon={Clock} text="Your application is in review — you'll hear back within 24 hours, with a reason either way." />}
+              {state === 'applied' && <Banner icon={Clock} text="Your application is in review - you'll hear back within 24 hours, with a reason either way." />}
               {state === 'declined' && <Banner icon={X} text={`Not approved this time${my.state_reason ? `: ${my.state_reason}` : ''}. This doesn't affect future applications.`} tone="red" />}
               {state === 'nda_pending' && <NdaSign releaseId={r.id} onDone={load} />}
-              {state === 'nda_signed' && <Banner icon={Clock} text="NDA signed — awaiting countersignature. The data room opens the moment it's countersigned." />}
+              {state === 'nda_signed' && <Banner icon={Clock} text="NDA signed - awaiting countersignature. The data room opens the moment it's countersigned." />}
               {state === 'waitlisted' && <Banner icon={Clock} text="You're on the waitlist. If this deal reopens you'll be notified in join order." />}
-              {state === 'expired' && <Banner icon={Clock} text="Your access expired after 30 days of inactivity. Re-apply any time — your NDA obligations continue." tone="red" />}
+              {state === 'expired' && <Banner icon={Clock} text="Your access expired after 30 days of inactivity. Re-apply any time - your NDA obligations continue." tone="red" />}
               {state === 'passed' && <Banner icon={ThumbsDown} text="You passed on this deal. Changed your mind? You can re-apply while it's live." />}
               {room && <DataRoom releaseId={r.id} room={room} myState={state!} onChanged={load} onPass={() => setPassing(true)} />}
               {passing && <PassModal releaseId={r.id} onDone={() => { setPassing(false); setRoom(null); load(); }} onCancel={() => setPassing(false)} />}
@@ -461,7 +461,7 @@ export function DealPage() {
         </div>
       </div>
       {auth && <AuthModal onClose={() => setAuth(false)} onDone={() => { setAuth(false); load(); }} />}
-      {paywall && <Paywall context="Deal access is a member benefit — pick your tier" onClose={() => setPaywall(false)} />}
+      {paywall && <Paywall context="Deal access is a member benefit - pick your tier" onClose={() => setPaywall(false)} />}
     </div>
   );
 }
@@ -494,7 +494,7 @@ function ApplicationForm({ releaseId, onDone, onCancel }: { releaseId: string; o
         <input type="checkbox" className="mt-0.5" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
         This deal fits my buy box
       </label>
-      {!confirm && <input className={input + ' mt-2'} placeholder="It differs from your buy box — tell us why this one" value={mismatch} onChange={(e) => setMismatch(e.target.value)} />}
+      {!confirm && <input className={input + ' mt-2'} placeholder="It differs from your buy box - tell us why this one" value={mismatch} onChange={(e) => setMismatch(e.target.value)} />}
       <div className="mt-4">
         <div className="text-[12px] font-semibold text-gray-700 mb-1">Funding readiness</div>
         <select className={input} value={readiness} onChange={(e) => setReadiness(e.target.value)}>
@@ -503,7 +503,7 @@ function ApplicationForm({ releaseId, onDone, onCancel }: { releaseId: string; o
           <option value="finance_not_arranged">Finance not yet arranged</option>
           <option value="exploring">Exploring</option>
         </select>
-        <div className="text-[11px] text-gray-400 mt-1">Shown to the OI team — it never auto-blocks you.</div>
+        <div className="text-[11px] text-gray-400 mt-1">Shown to the OI team - it never auto-blocks you.</div>
       </div>
       <div className="mt-4">
         <div className="text-[12px] font-semibold text-gray-700 mb-1">Why this deal? (2–3 lines)</div>
@@ -536,7 +536,7 @@ function NdaSign({ releaseId, onDone }: { releaseId: string; onDone: () => void 
   };
   return (
     <div className="border-2 rounded-2xl p-5" style={{ borderColor: GOLD, background: '#FFFDF2' }}>
-      <div className="font-bold text-gray-900 text-[15px] flex items-center gap-2"><ShieldCheck className="h-4 w-4" style={{ color: NAVY }} /> You're approved — sign the NDA to open the data room</div>
+      <div className="font-bold text-gray-900 text-[15px] flex items-center gap-2"><ShieldCheck className="h-4 w-4" style={{ color: NAVY }} /> You're approved - sign the NDA to open the data room</div>
       <div className="mt-3 bg-white border border-gray-200 rounded-xl p-4 h-56 overflow-y-auto text-[12px] text-gray-600 whitespace-pre-wrap"
         onScroll={(e) => { const t = e.currentTarget; if (t.scrollTop + t.clientHeight >= t.scrollHeight - 30) setScrolled(true); }}>
         {NDA_TEXT}
@@ -577,13 +577,13 @@ function DataRoom({ releaseId, room, myState, onChanged, onPass }: { releaseId: 
   return (
     <div className="relative rounded-2xl border border-gray-200 overflow-hidden" style={{ backgroundImage: `url("data:image/svg+xml,${wm}")` }}>
       <div className="bg-emerald-50/95 border-b border-emerald-100 px-5 py-3 flex items-center gap-2 text-[13px] text-emerald-800 font-semibold">
-        <ShieldCheck className="h-4 w-4" /> Data room — NDA signed. Everything here is confidential and watermarked to you.
+        <ShieldCheck className="h-4 w-4" /> Data room - NDA signed. Everything here is confidential and watermarked to you.
       </div>
       <div className="p-5">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <div className="text-[11px] uppercase tracking-wide text-gray-400 font-bold">The business</div>
-            <div className="font-serif text-xl font-bold text-gray-900">{room.identity?.business_name ?? '—'}</div>
+            <div className="font-serif text-xl font-bold text-gray-900">{room.identity?.business_name ?? '-'}</div>
             <div className="text-[13px] text-gray-500 flex items-center gap-1.5 mt-0.5">
               {room.identity?.location && <><MapPin className="h-3.5 w-3.5" />{room.identity.location} · </>}Ref {room.identity?.reference}
             </div>
@@ -604,7 +604,7 @@ function DataRoom({ releaseId, room, myState, onChanged, onPass }: { releaseId: 
             <button key={doc.id} onClick={() => dfLogOpen(releaseId, doc.id, doc.name)} className="flex items-center gap-2 text-[13px] text-gray-700 hover:text-[#0A2540] py-1 w-full text-left">
               <FileText className="h-3.5 w-3.5 text-gray-400" /> {doc.name} <span className="text-[10px] text-gray-400 ml-1">{doc.doc_kind ?? ''}</span>
             </button>
-          )) : <div className="text-[12px] text-gray-400">Documents are being prepared — ask below and the team will load them for you.</div>}
+          )) : <div className="text-[12px] text-gray-400">Documents are being prepared - ask below and the team will load them for you.</div>}
         </div>
 
         <div className="mt-6">
@@ -616,7 +616,7 @@ function DataRoom({ releaseId, room, myState, onChanged, onPass }: { releaseId: 
             </div>
           ))}
           <div className="flex gap-2 mt-2">
-            <input className={input} placeholder="Ask a question — answers may be shared with all NDA'd members" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && q.trim() && ask()} />
+            <input className={input} placeholder="Ask a question - answers may be shared with all NDA'd members" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && q.trim() && ask()} />
             <button className={btnGhost} disabled={busy || !q.trim()} onClick={ask}>Ask</button>
           </div>
         </div>
@@ -625,7 +625,7 @@ function DataRoom({ releaseId, room, myState, onChanged, onPass }: { releaseId: 
         <div className="flex gap-3 mt-6">
           {myState === 'data_room' && <button className={btnGold + ' flex-1'} disabled={busy} onClick={interest}><CalendarClock className="h-4 w-4" /> Express interest & book intro call</button>}
           {myState === 'interest_expressed' && <button className={btnGold + ' flex-1'} disabled={busy} onClick={async () => { await dfBookConfirm(releaseId); onChanged(); }}><CheckCircle2 className="h-4 w-4" /> I've booked my intro call</button>}
-          {['intro_call_booked', 'offer_submitted', 'heads_of_terms', 'diligence'].includes(myState) && <div className="flex-1 text-center text-[13px] font-semibold text-gray-700 py-3 bg-gray-50 rounded-xl">{BAND_LABEL[myState]} — the OI team will progress things with you directly.</div>}
+          {['intro_call_booked', 'offer_submitted', 'heads_of_terms', 'diligence'].includes(myState) && <div className="flex-1 text-center text-[13px] font-semibold text-gray-700 py-3 bg-gray-50 rounded-xl">{BAND_LABEL[myState]} - the OI team will progress things with you directly.</div>}
           {myState === 'data_room' && <button className={btnGhost} onClick={onPass}><ThumbsDown className="h-4 w-4" /> Pass</button>}
         </div>
       </div>

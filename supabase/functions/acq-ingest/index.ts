@@ -120,7 +120,17 @@ Deno.serve(async (req: Request) => {
       const idx: Record<string, number> = {};
       headers.forEach((h, i) => { const f = mapping[h]; if (f && (FIELDS as readonly string[]).includes(f) && idx[f] === undefined) idx[f] = i; });
       if (idx.company_name === undefined) { await sql.end({ timeout: 5 }); return json({ error: 'mapping must include company_name' }, 400); }
-      let created = 0, merged = 0, skipped = 0; const errors: string[] = [];
+      let created = 0, merged = 0, skipped = 0, excluded_pipeline = 0, excluded_platform = 0; const errors: string[] = [];
+
+      // Cross-check sets: the uploader's own pipeline deals, and platform-known
+      // companies (host pipeline + everything in the member deal flow). Uploads
+      // matching these are eliminated, not imported.
+      const ownDeals = await sql`select name, ch_snapshot->>'company_number' as company_number from acq.deals where org_id=${orgId} and status not in ('passed','archived')`;
+      const platformRows = await sql`select business_name as name, companies_house_number as company_number from public.submissions where coalesce(status,'') not in ('rejected','archived','declined','withdrawn')`;
+      const ownNum = new Set<string>(); const ownName = new Set<string>();
+      for (const d of ownDeals) { if (d.company_number) ownNum.add(String(d.company_number).replace(/\s/g, '').toUpperCase()); const k = nameKey(String(d.name ?? '')); if (k.length > 3) ownName.add(k); }
+      const platNum = new Set<string>(); const platName = new Set<string>();
+      for (const d of platformRows) { if (d.company_number) platNum.add(String(d.company_number).replace(/\s/g, '').toUpperCase()); const k = nameKey(String(d.name ?? '')); if (k.length > 3) platName.add(k); }
 
       for (const r of rows.slice(1)) {
         try {
@@ -133,6 +143,11 @@ Deno.serve(async (req: Request) => {
           const domain = domainOf(website ?? '', owner_email ?? '') || null;
           const postcode = g('postcode').toUpperCase() || null;
           const revenue = idx.revenue !== undefined ? numOf(norm(r[idx.revenue])) : null;
+
+          // eliminate anything already in the buyer's pipeline or known to the platform
+          const nk = nameKey(company_name);
+          if ((company_number && ownNum.has(company_number)) || (nk.length > 3 && ownName.has(nk))) { excluded_pipeline++; continue; }
+          if ((company_number && platNum.has(company_number)) || (nk.length > 3 && platName.has(nk))) { excluded_platform++; continue; }
 
           // dedupe: company_number > domain > email > fuzzy name+postcode
           let existing: any = null;
@@ -171,9 +186,9 @@ Deno.serve(async (req: Request) => {
         } catch (e) { skipped++; if (errors.length < 10) errors.push(String(e).slice(0, 200)); }
       }
 
-      if (body.job_id) await sql`update acq.ingest_jobs set status='committed', mapping=${mapping}, rows_created=${created}, rows_merged=${merged}, rows_skipped=${skipped}, errors=${errors} where id=${body.job_id} and org_id=${orgId}`;
+      if (body.job_id) await sql`update acq.ingest_jobs set status='committed', mapping=${mapping}, rows_created=${created}, rows_merged=${merged}, rows_skipped=${skipped + excluded_pipeline + excluded_platform}, errors=${errors} where id=${body.job_id} and org_id=${orgId}`;
       await sql.end({ timeout: 5 });
-      return json({ ok: true, created, merged, skipped, errors });
+      return json({ ok: true, created, merged, skipped, excluded_pipeline, excluded_platform, errors });
     }
 
     await sql.end({ timeout: 5 });

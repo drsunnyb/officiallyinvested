@@ -1,5 +1,5 @@
 // =============================================================================
-// PipelineLite — the per-workspace pipeline for self-serve users.
+// PipelineLite - the per-workspace pipeline for self-serve users.
 // Free forever: add deals, move them through stages, get the deterministic
 // Acquisition Score. The AI analyst layer (full analysis, committee, memo,
 // drafts) is where the paywall sits.
@@ -42,7 +42,7 @@ export default function PipelineLite() {
         <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
           <div>
             <h1 className="font-serif text-2xl font-bold text-[#FFD700]">Your pipeline</h1>
-            <p className="text-white/50 text-[13px] mt-0.5">Free forever. The Acquisition Score is on us — the AI analyst joins on a paid plan.</p>
+            <p className="text-white/50 text-[13px] mt-0.5">Free forever. The Acquisition Score is on us - the AI analyst joins on a paid plan.</p>
           </div>
           <div className="flex gap-2">
             <Link to="/admin/origination" className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'}><ArrowLeft className="h-4 w-4" /> Origination</Link>
@@ -126,7 +126,7 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
       if (kind === 'committee') await runCommittee(deal.id);
       if (kind === 'memo') await runMemo(deal.id);
       setErr('');
-      alert('Running — results appear on the deal shortly.');
+      alert('Running - results appear on the deal shortly.');
     } catch (e: any) { setErr(e.message || String(e)); }
     setAiBusy('');
   };
@@ -136,7 +136,7 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
         <div className="flex items-start justify-between">
           <div>
             <div className="font-serif font-bold text-xl text-gray-900">{deal.name}</div>
-            <div className="text-[12px] text-gray-500">{deal.sector ?? '—'}{deal.asking_price ? ` · asking £${Number(deal.asking_price).toLocaleString()}` : ''}</div>
+            <div className="text-[12px] text-gray-500">{deal.sector ?? '-'}{deal.asking_price ? ` · asking £${Number(deal.asking_price).toLocaleString()}` : ''}</div>
           </div>
           <button onClick={onClose}><X className="h-5 w-5 text-gray-400" /></button>
         </div>
@@ -178,12 +178,12 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
           <button className={btnGold + ' w-full mt-3 justify-center'} disabled={busy} onClick={score}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : snap.acquisition_score != null ? 'Re-score' : 'Get my Acquisition Score'}</button>
         </div>
 
-        {/* AI analyst — the paywall line */}
+        {/* AI analyst - the paywall line */}
         <div className="mt-5 rounded-2xl border-2 p-4" style={{ borderColor: paid ? '#e5e7eb' : '#FFD700' }}>
           <div className="text-[13px] font-bold text-gray-900 flex items-center gap-1.5">
             {!paid && <Lock className="h-4 w-4 text-[#0A2540]" />} AI Analyst {!paid && <span className="text-[10px] font-bold text-[#0A2540] bg-[#FFD700] px-1.5 py-0.5 rounded-full">UPGRADE</span>}
           </div>
-          <p className="text-[12px] text-gray-500 mt-1">Reads accounts, models the funding stack, stress-tests price, runs a deal committee, and writes the memo and every letter — in your voice.</p>
+          <p className="text-[12px] text-gray-500 mt-1">Reads accounts, models the funding stack, stress-tests price, runs a deal committee, and writes the memo and every letter - in your voice.</p>
           <div className="grid grid-cols-3 gap-2 mt-3">
             {[['analysis', 'Full analysis'], ['committee', 'Deal committee'], ['memo', 'Investment memo']].map(([k, l]) => (
               <button key={k} onClick={() => ai(k)} disabled={!!aiBusy}

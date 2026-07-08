@@ -1,4 +1,4 @@
-// Paywall — shown whenever a free workspace touches a paid capability.
+// Paywall - shown whenever a free workspace touches a paid capability.
 // Goes straight to Stripe Checkout; falls back to email if payments are off.
 import { useState } from 'react';
 import { X, Sparkles, Check, Loader2 } from 'lucide-react';
@@ -18,7 +18,7 @@ export default function Paywall({ onClose, context }: { onClose: () => void; con
     try {
       const r = await billingCheckout(plan);
       if (r.url) { window.location.href = r.url; return; }
-      setErr(r.message || r.error || 'Checkout unavailable — email sandeep@officiallyinvested.com');
+      setErr(r.message || r.error || 'Checkout unavailable - email sandeep@officiallyinvested.com');
     } catch (e: any) { setErr(e.message || String(e)); }
     setBusy(null);
   };
@@ -51,7 +51,7 @@ export default function Paywall({ onClose, context }: { onClose: () => void; con
           ))}
         </div>
         {err && <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">{err}</div>}
-        <div className="text-[11px] text-gray-400 text-center mt-4">Monthly credits reset on the 1st; purchased top-ups roll over. Cancel any time. Annual (2 months free) available — ask us.</div>
+        <div className="text-[11px] text-gray-400 text-center mt-4">Monthly credits reset on the 1st; purchased top-ups roll over. Cancel any time. Annual (2 months free) available - ask us.</div>
       </div>
     </div>
   );

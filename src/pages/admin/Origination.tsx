@@ -27,11 +27,11 @@ export const requirePaid = () => {
 };
 
 const TOUR_STEPS: { key: View | null; title: string; text: string }[] = [
-  { key: 'dashboard', title: 'Your command centre', text: 'Everything starts here: live counts of prospects, campaigns and replies. This is the advantage — while others browse listings, your system is out finding owners.' },
-  { key: 'buybox', title: 'Your buy box runs the show', text: 'Built from your expertise and capital by the coach. Every search, score and letter keys off it. Refine it any time — you can run several.' },
+  { key: 'dashboard', title: 'Your command centre', text: 'Everything starts here: live counts of prospects, campaigns and replies. This is the advantage - while others browse listings, your system is out finding owners.' },
+  { key: 'buybox', title: 'Your buy box runs the show', text: 'Built from your expertise and capital by the coach. Every search, score and letter keys off it. Refine it any time - you can run several.' },
   { key: 'find', title: 'Find companies in seconds', text: '900,000+ UK companies, filtered to your buy box instantly: distance, size, owner age, even distressed businesses. No rate limits, no lists to buy.' },
-  { key: 'prospects', title: 'Your private prospect CRM', text: 'Everything you source lands here, scored and explained. Track letters, log calls, attach notes. Sourced data stays in the platform — your uploads stay yours.' },
-  { key: 'campaigns', title: 'Outreach on autopilot', text: 'Letters first, by design — a rejected cold email burns a contact forever, a letter does not. AI drafts in your voice; nothing sends without your approval. (Paid)' },
+  { key: 'prospects', title: 'Your private prospect CRM', text: 'Everything you source lands here, scored and explained. Track letters, log calls, attach notes. Sourced data stays in the platform - your uploads stay yours.' },
+  { key: 'campaigns', title: 'Outreach on autopilot', text: 'Letters first, by design - a rejected cold email burns a contact forever, a letter does not. AI drafts in your voice; nothing sends without your approval. (Paid)' },
   { key: 'dealflow', title: 'Community deal flow', text: "Off-market deals we source and release to members. Browse teasers free; NDA and data-room access unlock with your plan tier." },
   { key: null, title: 'And when a deal gets real…', text: 'Add it to your pipeline (free, always) and get your Acquisition Score. The AI analyst, committee and memos join on any paid plan. Good hunting.' },
 ];
@@ -57,7 +57,7 @@ const STAGE_TINT: Record<string, string> = {
 };
 const PROV_LABEL: Record<string, string> = { platform: 'Sourced', uploaded: 'Your upload', funnel: 'Funnel lead', meta_ads: 'Meta lead' };
 const fitTint = (n: number | null) => n == null ? 'bg-gray-100 text-gray-400' : n >= 80 ? 'bg-emerald-100 text-emerald-800' : n >= 60 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500';
-const money = (n: any) => n == null ? '—' : '£' + Number(n).toLocaleString();
+const money = (n: any) => n == null ? '-' : '£' + Number(n).toLocaleString();
 
 type View = 'dashboard' | 'find' | 'prospects' | 'contacts' | 'campaigns' | 'dealflow' | 'members' | 'funnel' | 'buybox' | 'about' | 'billing';
 
@@ -297,7 +297,7 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
               </div>
               <label className="flex items-center gap-2.5 mt-5 cursor-pointer max-w-md">
                 <input type="checkbox" checked={succession} onChange={(e) => setSuccession(e.target.checked)} className="h-4 w-4 accent-[#0A2540]" />
-                <span className="text-[13px] text-gray-700">Prioritise <b>succession signals</b> — owners aged 55+ with no obvious successor (the strongest "will sell" indicator)</span>
+                <span className="text-[13px] text-gray-700">Prioritise <b>succession signals</b> - owners aged 55+ with no obvious successor (the strongest "will sell" indicator)</span>
               </label>
             </>
           )}
@@ -357,7 +357,7 @@ function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => 
             <Sparkles className="h-6 w-6 text-[#FFD700] shrink-0" />
             <div className="flex-1">
               <div className="font-semibold">Set up your buy box to unlock Origination</div>
-              <div className="text-white/60 text-[13px] mt-0.5">Industries, geography and deal size — everything here is driven by it. Takes two minutes.</div>
+              <div className="text-white/60 text-[13px] mt-0.5">Industries, geography and deal size - everything here is driven by it. Takes two minutes.</div>
             </div>
             <ChevronRight className="h-5 w-5 text-[#FFD700]" />
           </button>
@@ -377,7 +377,7 @@ function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => 
                 <div className="font-semibold text-gray-900 mb-3">How it flows</div>
                 {[
                   ['Find companies', 'Companies House, filtered to your buy box, scored for fit and succession', 'find'],
-                  ['Enrol in a campaign', 'Letter first, then email, then a call task — drafted in your voice, sent only after you approve', 'campaigns'],
+                  ['Enrol in a campaign', 'Letter first, then email, then a call task - drafted in your voice, sent only after you approve', 'campaigns'],
                   ['Replies come back', 'Interested owners are flagged; unsubscribes are suppressed automatically', 'prospects'],
                   ['Promote to deal', 'One click puts them on your pipeline with the full history attached', 'prospects'],
                 ].map(([t, d, v], i) => (
@@ -526,7 +526,7 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
                   </div>
                 );
               })}
-              <div className="text-[11px] text-gray-400 mt-2">Runs in the background at roughly 700 companies an hour — every match lands in Prospects automatically. You can close this page.</div>
+              <div className="text-[11px] text-gray-400 mt-2">Runs in the background at roughly 700 companies an hour - every match lands in Prospects automatically. You can close this page.</div>
             </div>
           )}
           {!result && !busy && (
@@ -536,7 +536,7 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
               <div className="text-[13px]">Pick industries on the left and run the search. Every result lands in your Prospects, scored and ready for outreach.</div>
             </div>
           )}
-          {busy && <div className={card + ' p-10 text-center text-gray-400'}><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />Searching Companies House — checking distances, filed accounts sizes and director ages. Tight filters can take up to a minute.</div>}
+          {busy && <div className={card + ' p-10 text-center text-gray-400'}><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />Searching Companies House - checking distances, filed accounts sizes and director ages. Tight filters can take up to a minute.</div>}
           {result && (
             <div className={card}>
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -545,7 +545,7 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
                   <div className="text-[12px] text-gray-400 mt-0.5">
                     Analysed the {result.scanned} {result.considered && result.considered < result.total_hits ? 'nearest' : 'best'} of {Number(result.total_hits).toLocaleString()} matches
                     {result.excluded_size ? ` · ${result.excluded_size} excluded by size` : ''}{result.excluded_age ? ` · ${result.excluded_age} excluded by director age` : ''}
-                    {result.rate_limited ? ' · stopped early: Companies House rate limit — wait a minute for more' : ''}
+                    {result.rate_limited ? ' · stopped early: Companies House rate limit - wait a minute for more' : ''}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -604,7 +604,7 @@ function ProspectsView({ setErr }: { setErr: (s: string) => void }) {
 
   return (
     <>
-      <Header title="Prospects" sub={`${total} companies in your CRM. Sourced data stays in here — it cannot be downloaded or exported.`}>
+      <Header title="Prospects" sub={`${total} companies in your CRM. Sourced data stays in here - it cannot be downloaded or exported.`}>
         <button onClick={() => setUploadOpen(true)} className={btnGhost}><Upload className="h-4 w-4" />Upload list</button>
       </Header>
       <div className="px-8 pb-8">
@@ -628,10 +628,10 @@ function ProspectsView({ setErr }: { setErr: (s: string) => void }) {
                 : rows.length === 0 ? <tr><td colSpan={7} className="px-5 py-12 text-center text-gray-400 text-[13px]">No prospects match. Use <b>Find companies</b> or <b>Upload list</b> to fill your CRM.</td></tr>
                 : rows.map((p) => (
                   <tr key={p.id} onClick={() => openDrawer(p.id)} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 cursor-pointer">
-                    <td className="px-5 py-3"><span className={'text-[11px] font-bold px-2 py-0.5 rounded-full ' + fitTint(p.fit_score)}>{p.fit_score ?? '—'}</span></td>
+                    <td className="px-5 py-3"><span className={'text-[11px] font-bold px-2 py-0.5 rounded-full ' + fitTint(p.fit_score)}>{p.fit_score ?? '-'}</span></td>
                     <td className="px-2 py-3"><div className="text-[13px] font-semibold text-gray-800">{p.company_name}</div><div className="text-[11px] text-gray-400">{p.company_number ?? ''}</div></td>
-                    <td className="px-2 py-3 text-[12px] text-gray-500 hidden lg:table-cell">{p.region ?? '—'}</td>
-                    <td className="px-2 py-3 hidden md:table-cell">{p.oldest_director_age ? <span className={'text-[11px] px-2 py-0.5 rounded-full ' + (p.oldest_director_age >= 60 ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500')}>Dir. {p.oldest_director_age}</span> : <span className="text-gray-300 text-[12px]">—</span>}</td>
+                    <td className="px-2 py-3 text-[12px] text-gray-500 hidden lg:table-cell">{p.region ?? '-'}</td>
+                    <td className="px-2 py-3 hidden md:table-cell">{p.oldest_director_age ? <span className={'text-[11px] px-2 py-0.5 rounded-full ' + (p.oldest_director_age >= 60 ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500')}>Dir. {p.oldest_director_age}</span> : <span className="text-gray-300 text-[12px]">-</span>}</td>
                     <td className="px-2 py-3 text-[12px] text-gray-500 hidden md:table-cell">{money(p.revenue_estimate)}</td>
                     <td className="px-2 py-3"><span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{PROV_LABEL[p.provenance] ?? p.provenance}</span></td>
                     <td className="px-5 py-3 text-right"><span className={'text-[11px] font-semibold px-2 py-0.5 rounded-full ' + (STAGE_TINT[p.stage] ?? '')}>{p.stage.replace('_', ' ')}</span></td>
@@ -678,7 +678,7 @@ function ProspectsView({ setErr }: { setErr: (s: string) => void }) {
                   )}
                   {detail.memberships.length > 0 && (
                     <div><div className="text-[11px] text-gray-400 mb-1">Campaigns</div>
-                      {detail.memberships.map((m: any) => <div key={m.id} className="text-[12px]">{m.campaign_name} — {m.status}, step {m.current_step + 1}</div>)}
+                      {detail.memberships.map((m: any) => <div key={m.id} className="text-[12px]">{m.campaign_name} - {m.status}, step {m.current_step + 1}</div>)}
                     </div>
                   )}
                   <div><div className="text-[11px] text-gray-400 mb-1">Outreach & letters</div>
@@ -754,7 +754,7 @@ function UploadModal({ onClose, setErr }: { onClose: () => void; setErr: (s: str
                 <div key={h} className="flex items-center gap-2">
                   <span className="text-[13px] text-gray-700 w-48 truncate">{h}</span>
                   <select className={input__ + ' flex-1'} value={mapping[h] ?? ''} onChange={(e) => setMapping((m) => ({ ...m, [h]: e.target.value || null }))}>
-                    <option value="">— ignore —</option>{FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
+                    <option value="">- ignore -</option>{FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
               ))}
@@ -765,6 +765,12 @@ function UploadModal({ onClose, setErr }: { onClose: () => void; setErr: (s: str
         {report && (
           <div className="bg-gray-50 rounded-xl p-4 text-[13px] text-gray-700">
             <b>{report.created}</b> new prospects · <b>{report.merged}</b> merged into existing records · {report.skipped} skipped.
+            {(report.excluded_pipeline > 0 || report.excluded_platform > 0) && (
+              <div className="text-gray-500 mt-1">
+                {report.excluded_pipeline > 0 && <span><b>{report.excluded_pipeline}</b> removed: already in your pipeline. </span>}
+                {report.excluded_platform > 0 && <span><b>{report.excluded_platform}</b> removed: already active on the platform, so approaching them again would step on live conversations.</span>}
+              </div>
+            )}
             {report.errors?.length > 0 && <div className="text-amber-600 mt-1">{report.errors.length} rows had issues.</div>}
             <div className="mt-3"><button onClick={onClose} className={btnPrimary}>Done</button></div>
           </div>
@@ -792,14 +798,14 @@ function ContactsView({ setErr }: { setErr: (s: string) => void }) {
   const done = async (id: string) => { await crmCompleteTask(id); setTasks((t) => t.filter((x) => x.id !== id)); };
   return (
     <>
-      <Header title="Contacts & tasks" sub="Everyone your deals touch — vendors, agents, accountants, solicitors, lenders — and what needs doing next. Call tasks from campaigns land here too." />
+      <Header title="Contacts & tasks" sub="Everyone your deals touch - vendors, agents, accountants, solicitors, lenders - and what needs doing next. Call tasks from campaigns land here too." />
       <div className="px-8 pb-8 grid lg:grid-cols-5 gap-5">
         <div className={card + ' lg:col-span-2 p-5 h-fit'}>
           <div className="font-semibold text-gray-900 mb-3">Needs you <span className="text-gray-400 font-normal">· {tasks.length} open · origination only</span></div>
           {loading ? <Loader2 className="h-4 w-4 animate-spin text-gray-300" /> : tasks.length === 0 ? <div className="text-[13px] text-gray-400">Nothing outstanding.</div> : tasks.map((t) => (
             <div key={t.id} className="flex items-start gap-2.5 py-2.5 border-b border-gray-50 last:border-0">
               <button onClick={() => done(t.id)} className="mt-0.5 text-gray-300 hover:text-emerald-500" title="Mark done"><Check className="h-4 w-4" /></button>
-              <div className="min-w-0"><div className="text-[13px] text-gray-800">{t.title}</div><div className="text-[11px] text-gray-400">{[t.deal_name, t.contact_name, t.due_date ? 'due ' + String(t.due_date).slice(0, 10) : null].filter(Boolean).join(' · ') || '—'}</div></div>
+              <div className="min-w-0"><div className="text-[13px] text-gray-800">{t.title}</div><div className="text-[11px] text-gray-400">{[t.deal_name, t.contact_name, t.due_date ? 'due ' + String(t.due_date).slice(0, 10) : null].filter(Boolean).join(' · ') || '-'}</div></div>
             </div>
           ))}
           <div className="flex gap-2 mt-3">
@@ -941,7 +947,7 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
 
   return (
     <>
-      <Header title="Campaigns" sub="Register-sourced prospects are letters-only until they reply — a rejected cold email burns that owner for good, a letter never does. Your own uploads, funnel enquiries and Meta leads can be emailed from day one. Calls unlock once anyone engages. Nothing sends until you approve it.">
+      <Header title="Campaigns" sub="Register-sourced prospects are letters-only until they reply - a rejected cold email burns that owner for good, a letter never does. Your own uploads, funnel enquiries and Meta leads can be emailed from day one. Calls unlock once anyone engages. Nothing sends until you approve it.">
         <button onClick={showQueue} disabled={!!busy} className={btnGhost}><Check className="h-4 w-4" />Approval queue</button>
         <button onClick={runNow} disabled={!!busy} className={btnGhost}>{busy === 'run' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Run engine now</button>
         <button onClick={() => setCreating((c) => !c)} className={btnGold}><Send className="h-4 w-4" />New campaign</button>
@@ -1047,7 +1053,7 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
                 </div>
                 {picking && (
                   <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
-                    {!pickList ? <div className="p-4 text-gray-400"><Loader2 className="h-4 w-4 animate-spin" /></div> : pickList.length === 0 ? <div className="p-4 text-[12px] text-gray-400">No available prospects match — loosen the fit filter or source more.</div> : pickList.map((pr: any) => (
+                    {!pickList ? <div className="p-4 text-gray-400"><Loader2 className="h-4 w-4 animate-spin" /></div> : pickList.length === 0 ? <div className="p-4 text-[12px] text-gray-400">No available prospects match - loosen the fit filter or source more.</div> : pickList.map((pr: any) => (
                       <label key={pr.id} className="flex items-center gap-3 px-3 py-2 text-[12.5px] cursor-pointer hover:bg-gray-50">
                         <input type="checkbox" checked={picked.has(pr.id)} onChange={(e) => setPicked((old_) => { const n = new Set(old_); e.target.checked ? n.add(pr.id) : n.delete(pr.id); return n; })} />
                         <span className="font-semibold text-gray-800">{pr.company_name}</span>
@@ -1100,7 +1106,7 @@ function FunnelView({ setErr, settings, onSaved }: { setErr: (s: string) => void
         </div>
         <div className={card + ' p-5'}>
           <div className="font-semibold text-gray-900 mb-1">Meta lead ads → straight into Prospects</div>
-          <p className="text-[13px] text-gray-500 mb-3">Run "Thinking of selling your business?" instant-form ads on Facebook and Instagram. Leads flow in via webhook — no landing page needed.</p>
+          <p className="text-[13px] text-gray-500 mb-3">Run "Thinking of selling your business?" instant-form ads on Facebook and Instagram. Leads flow in via webhook - no landing page needed.</p>
           <ol className="list-decimal list-inside text-[13px] text-gray-600 flex flex-col gap-1.5 mb-3">
             <li>Create a <b>Lead Ads</b> campaign with an instant form: business name, owner name, email, phone, area, rough turnover.</li>
             <li>Target your buy-box regions, ages 45–65, business-owner interests. Plain, personal creative beats stock photos.</li>
@@ -1138,7 +1144,7 @@ function BuyBoxView({ openWizard, setErr, onChanged }: { openWizard: () => void;
   };
   return (
     <>
-      <Header title="Buy box" sub="The definition of what you buy — built with the Officially Invested method. Sourcing, fit scoring, campaign drafting and the funnel all read from whichever box is active. Run as many as you like.">
+      <Header title="Buy box" sub="The definition of what you buy - built with the Officially Invested method. Sourcing, fit scoring, campaign drafting and the funnel all read from whichever box is active. Run as many as you like.">
         <button onClick={openWizard} className={btnGhost}><Settings2 className="h-4 w-4" />Quick wizard</button>
         <button onClick={() => setChatOpen(true)} className={btnGold}><Sparkles className="h-4 w-4" />Build with the coach</button>
       </Header>
@@ -1213,7 +1219,7 @@ function BuyBoxChat({ onClose, onSaved, setErr }: { onClose: () => void; onSaved
   const save = async () => {
     setSaving(true);
     try { await buyboxCreate(proposal, { name: proposal.name ?? 'My buy box', created_from: 'chat', transcript: msgs }); onSaved(); }
-    catch (e: any) { setErr(e.message || String(e)); setSaving(false); }
+    catch (e: any) { const m = e.message || String(e); if (/needs_upgrade|paid plans|Upgrade to add more/.test(m)) window.dispatchEvent(new Event('oi:paywall')); else setErr(m); setSaving(false); }
   };
 
   return (
@@ -1222,7 +1228,7 @@ function BuyBoxChat({ onClose, onSaved, setErr }: { onClose: () => void; onSaved
         <div className="px-6 py-4 rounded-t-2xl flex items-center justify-between" style={{ background: NAVY }}>
           <div>
             <div className="text-[#FFD700] font-serif font-bold">The Buy Box coach</div>
-            <div className="text-white/50 text-[11px]">Built on the Officially Invested frameworks — screening gates, RED, the funding stack</div>
+            <div className="text-white/50 text-[11px]">Built on the Officially Invested frameworks - screening gates, RED, the funding stack</div>
           </div>
           <button onClick={onClose} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
         </div>
@@ -1247,7 +1253,7 @@ function BuyBoxChat({ onClose, onSaved, setErr }: { onClose: () => void; onSaved
           <div ref={endRef} />
         </div>
         <div className="px-4 py-3 border-t border-gray-100 flex gap-2">
-          <textarea className={input__ + ' flex-1 resize-none'} rows={2} placeholder="Type your answer — or paste your CV / LinkedIn experience…" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} autoFocus />
+          <textarea className={input__ + ' flex-1 resize-none'} rows={2} placeholder="Type your answer - or paste your CV / LinkedIn experience…" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} autoFocus />
           <button onClick={() => send()} disabled={thinking || !input.trim()} className={btnPrimary}><Send className="h-4 w-4" /></button>
         </div>
       </div>
@@ -1342,7 +1348,7 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
               <div key={label}>
                 <div className="flex justify-between text-[13px]"><span className="font-semibold text-gray-800">{label}</span><span className="font-bold text-gray-900">{total}</span></div>
                 <div className="h-2 bg-gray-100 rounded-full mt-1.5 overflow-hidden"><div className="h-full rounded-full" style={{ width: Math.min(100, total > 0 ? 100 : 0) + '%', background: total <= 5 ? '#dc2626' : total <= 20 ? '#f59e0b' : '#0A2540' }} /></div>
-                <div className="text-[11px] text-gray-400 mt-1">{monthly} monthly (resets 1st) + {extra} purchased{total <= 5 ? ' — running low' : ''}</div>
+                <div className="text-[11px] text-gray-400 mt-1">{monthly} monthly (resets 1st) + {extra} purchased{total <= 5 ? ' - running low' : ''}</div>
               </div>
             ))}
           </div>
@@ -1355,7 +1361,7 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
         )}
       </div>
       {showTopup && <CreditsTopUp onClose={() => { setShowTopup(false); creditsBalance().then(setBal).catch(() => {}); }} />}
-      <Header title="Usage & billing" sub="Control how much the machine does each month. Letters are your only cold-outreach cost — email and phone are free and unlock once a prospect engages." />
+      <Header title="Usage & billing" sub="Control how much the machine does each month. Letters are your only cold-outreach cost - email and phone are free and unlock once a prospect engages." />
       <div className="px-8 pb-8 grid lg:grid-cols-2 gap-5 max-w-3xl">
         <div className={card + ' p-5'}>
           <div className="font-semibold text-gray-900 mb-1">Letter volume</div>
@@ -1376,10 +1382,10 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
         </div>
         <div className={card + ' p-5 lg:col-span-2'}>
           <div className="font-semibold text-gray-900 mb-1">Plan & billing</div>
-          <p className="text-[13px] text-gray-500 mb-3">Change your plan, payment method and invoices. Self-serve billing arrives with the Stripe launch — until then we handle changes same-day by email.</p>
+          <p className="text-[13px] text-gray-500 mb-3">Change your plan, payment method and invoices. Self-serve billing arrives with the Stripe launch - until then we handle changes same-day by email.</p>
           <div className="flex gap-2">
             <a className={btnGhost} href="mailto:deals@officiallyinvested.com?subject=Billing%20change">Change plan / billing</a>
-            <span className="text-[11px] text-gray-400 self-center">Stripe self-serve portal — coming soon</span>
+            <span className="text-[11px] text-gray-400 self-center">Stripe self-serve portal - coming soon</span>
           </div>
         </div>
       </div>
@@ -1442,7 +1448,7 @@ function DealFlowView({ setErr, initialSubmission }: { setErr: (m: string) => vo
               </div>
             </div>
           ))}
-          {!releases.length && <div className={card + ' p-10 text-center text-gray-400 text-sm'}>No releases yet. Release a pipeline deal to your members — anonymised until NDA.</div>}
+          {!releases.length && <div className={card + ' p-10 text-center text-gray-400 text-sm'}>No releases yet. Release a pipeline deal to your members - anonymised until NDA.</div>}
         </div>
       )}
       {/* every pipeline deal, released or not */}
@@ -1458,7 +1464,7 @@ function DealFlowView({ setErr, initialSubmission }: { setErr: (m: string) => vo
                 const rel = relBySub[x.id];
                 return (
                   <tr key={x.id} className="border-b border-gray-50 hover:bg-gray-50/60">
-                    <td className="px-4 py-2.5"><div className="font-semibold text-gray-900">{x.business_name || '—'}</div><div className="text-[11px] text-gray-400">{x.reference}</div></td>
+                    <td className="px-4 py-2.5"><div className="font-semibold text-gray-900">{x.business_name || '-'}</div><div className="text-[11px] text-gray-400">{x.reference}</div></td>
                     <td className="px-4 py-2.5 text-gray-600 capitalize">{String(x.status).replace(/_/g, ' ')}</td>
                     <td className="px-4 py-2.5">
                       {rel ? (
@@ -1606,7 +1612,7 @@ function ReleaseForm({ onClose, onSaved, setErr, initialSubmissionId }: { onClos
           <div>
             <div className="text-[12px] font-semibold text-gray-700 mb-1">Pipeline deal (identity revealed only after NDA)</div>
             <select className={input__ + ' w-full'} value={f.submission_id} onChange={(e) => set('submission_id', e.target.value)}>
-              <option value="">— none / off-pipeline —</option>
+              <option value="">- none / off-pipeline -</option>
               {subs.map((x) => <option key={x.id} value={x.id}>{x.reference} · {x.business_name}</option>)}
             </select>
           </div>
@@ -1619,7 +1625,7 @@ function ReleaseForm({ onClose, onSaved, setErr, initialSubmissionId }: { onClos
           </div>
           <input className={input__ + ' w-full'} placeholder="Guide multiple, e.g. 4.2× adj. EBITDA" value={f.guide_multiple} onChange={(e) => set('guide_multiple', e.target.value)} />
           <div>
-            <div className="text-[12px] font-semibold text-gray-700 mb-1">"Why I sourced this" — 3–4 sentences, in your voice. The highest-converting element on the page.</div>
+            <div className="text-[12px] font-semibold text-gray-700 mb-1">"Why I sourced this" - 3–4 sentences, in your voice. The highest-converting element on the page.</div>
             <textarea className={input__ + ' w-full'} rows={4} value={f.why_sourced} onChange={(e) => set('why_sourced', e.target.value)} />
           </div>
           <div className="bg-gray-50 rounded-xl p-3.5">
@@ -1647,7 +1653,7 @@ function ReleaseForm({ onClose, onSaved, setErr, initialSubmissionId }: { onClos
           </div>
           <label className="flex items-center gap-2 text-[13px] text-gray-700"><input type="checkbox" checked={f.manual_review} onChange={(e) => set('manual_review', e.target.checked)} /> Manual review for Accelerator too (Academy is always reviewed)</label>
           <button className={btnGold + ' w-full'} disabled={busy || !f.headline.trim() || !f.why_sourced.trim()} onClick={save}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save as draft'}</button>
-          <div className="text-[11px] text-gray-400 text-center">Saved as draft — publish from the Deal flow list when you're ready. Publishing emails eligible members.</div>
+          <div className="text-[11px] text-gray-400 text-center">Saved as draft - publish from the Deal flow list when you're ready. Publishing emails eligible members.</div>
         </div>
       </div>
     </div>
@@ -1690,7 +1696,7 @@ function MembersView({ setErr }: { setErr: (m: string) => void }) {
             <tbody>
               {members.map((m) => (
                 <tr key={m.id} className="border-b border-gray-50">
-                  <td className="px-4 py-2.5"><div className="font-semibold text-gray-900">{m.full_name || '—'}</div><div className="text-[11px] text-gray-500">{m.email}</div></td>
+                  <td className="px-4 py-2.5"><div className="font-semibold text-gray-900">{m.full_name || '-'}</div><div className="text-[11px] text-gray-500">{m.email}</div></td>
                   <td className="px-4 py-2.5">
                     <select className={input__ + ' !py-1 !text-[12px]'} value={m.tier} onChange={async (e) => { await dfAdminMemberUpsert({ id: m.id, full_name: m.full_name, tier: e.target.value, status: m.status }).catch((er: any) => setErr(er.message)); load(); }}>
                       <option value="circle">Circle</option><option value="accelerator">Accelerator</option><option value="academy">Academy</option>
@@ -1706,7 +1712,7 @@ function MembersView({ setErr }: { setErr: (m: string) => void }) {
                   </td>
                 </tr>
               ))}
-              {!members.length && <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400">No members yet — add your first above.</td></tr>}
+              {!members.length && <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400">No members yet - add your first above.</td></tr>}
             </tbody>
           </table>
         </div>

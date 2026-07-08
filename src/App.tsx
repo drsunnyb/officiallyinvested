@@ -41,7 +41,7 @@ function ScrollToTop() {
 function App() {
   const { pathname } = useLocation();
   const isAdmin = pathname.startsWith('/admin');
-  // Product surfaces carry their own chrome — no marketing nav/footer there.
+  // Product surfaces carry their own chrome - no marketing nav/footer there.
   const bare = isAdmin || pathname.startsWith('/signup') || pathname.startsWith('/start') || pathname.startsWith('/deals');
   return (
     <div className="min-h-screen bg-[#0A2540]">

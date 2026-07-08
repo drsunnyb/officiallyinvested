@@ -1,5 +1,5 @@
 // =============================================================================
-// /signup — the front door of the Investor OS.
+// /signup - the front door of the Investor OS.
 // 1 Account → 2 About you → 3 Buy Box coach (conversational) → 4 Workspace
 // build (live lead preview from the buy box) → Origination with guided tour.
 // The buy box is the engine: it drives sourcing, outreach and deal matching.
@@ -119,7 +119,7 @@ export default function Signup() {
   const startCoach = async () => {
     setThinking(true);
     try {
-      const r = await buyboxChat([{ role: 'user', content: 'Hi — I have just signed up. Please introduce yourself briefly and start building my buy box.' }]);
+      const r = await buyboxChat([{ role: 'user', content: 'Hi - I have just signed up. Please introduce yourself briefly and start building my buy box.' }]);
       setMsgs([{ role: 'assistant', content: r.message }]);
     } catch (e: any) { setErr(e.message || String(e)); }
     setThinking(false);
@@ -150,8 +150,8 @@ export default function Signup() {
         const geo = proposal.location ? { location: proposal.location, radius_miles: proposal.radius_miles ?? 25 } : {};
         const r = await sourceSearch({ categories: (proposal.industries ?? []).map((i: any) => i.key ?? i).slice(0, 5), ...geo, max_results: 25 });
         setPreview(r);
-        log(`${r.total_hits ?? r.prospects?.length ?? 0} matching companies found — first ${r.prospects?.length ?? 0} added to your Prospects`);
-      } catch (_) { log('Lead scan queued — your Prospects view will fill shortly'); }
+        log(`${r.total_hits ?? r.prospects?.length ?? 0} matching companies found - first ${r.prospects?.length ?? 0} added to your Prospects`);
+      } catch (_) { log('Lead scan queued - your Prospects view will fill shortly'); }
       log('Outreach engine ready (letters-first, compliant by design)');
       log('Community deal flow unlocked in your sidebar');
     } catch (e: any) { setErr(e.message || String(e)); }
@@ -180,7 +180,7 @@ export default function Signup() {
             <div className="text-center">
               <div className="inline-flex h-12 w-12 rounded-2xl items-center justify-center mb-4" style={{ background: GOLD }}><Sparkles className="h-6 w-6" style={{ color: NAVY }} /></div>
               <h1 className="font-serif text-2xl font-bold text-gray-900">Your Investor OS starts here</h1>
-              <p className="text-[13px] text-gray-500 mt-2">Buy a business, not a job. We'll build your buy box, find matching owners, and run the approach — you make the decisions.</p>
+              <p className="text-[13px] text-gray-500 mt-2">Buy a business, not a job. We'll build your buy box, find matching owners, and run the approach - you make the decisions.</p>
             </div>
             <div className="mt-6 space-y-2.5">
               <button onClick={() => oauth('google')} className="w-full flex items-center justify-center gap-2.5 border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
@@ -203,11 +203,11 @@ export default function Signup() {
         {step === 1 && (
           <div className="bg-white rounded-3xl shadow-2xl p-8">
             <h1 className="font-serif text-2xl font-bold text-gray-900">About you</h1>
-            <p className="text-[13px] text-gray-500 mt-1.5">This shapes everything — your buy box, and the credibility woven into every letter we send for you.</p>
+            <p className="text-[13px] text-gray-500 mt-1.5">This shapes everything - your buy box, and the credibility woven into every letter we send for you.</p>
             <input className={input + ' mt-5'} placeholder="Your full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
             <input className={input + ' mt-2.5'} placeholder="Company / workspace name (e.g. Bansal Acquisitions)" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
             <input className={input + ' mt-2.5'} placeholder="Website or LinkedIn (optional)" value={website} onChange={(e) => setWebsite(e.target.value)} />
-            <textarea className={input + ' mt-2.5'} rows={3} placeholder="One or two lines on your background (optional — the coach will dig deeper next)" value={bio} onChange={(e) => setBio(e.target.value)} />
+            <textarea className={input + ' mt-2.5'} rows={3} placeholder="One or two lines on your background (optional - the coach will dig deeper next)" value={bio} onChange={(e) => setBio(e.target.value)} />
             <button className={btnGold + ' mt-5'} disabled={busy || !fullName.trim()} onClick={provision}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continue to your Buy Box coach <ArrowRight className="h-4 w-4" /></>}
             </button>

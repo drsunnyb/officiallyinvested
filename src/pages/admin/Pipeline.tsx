@@ -35,7 +35,7 @@ interface Deal {
 }
 
 function daysAgo(d: string) { return Math.floor((Date.now() - new Date(d).getTime()) / 864e5); }
-function assetName(r: Deal) { return r.business_name || r.spv_name || '—'; }
+function assetName(r: Deal) { return r.business_name || r.spv_name || '-'; }
 function valueLabel(r: Deal) { return r.type === 'business' ? 'Value' : r.deal_kind === 'development' ? 'GDV' : 'Portfolio value'; }
 function latestScore(r: Deal) {
   return [...(r.scores || [])].sort((a, b) => +new Date(b.scored_at) - +new Date(a.scored_at))[0] || null;
@@ -48,7 +48,7 @@ function ballState(r: Deal): { cls: string; label: string } | null {
   const vend = items(r).filter((i) => i.kind === 'vendor_outstanding' && !i.is_done);
   if (vend.length) {
     const oldest = Math.max(...vend.map((i) => daysAgo(i.created_at)));
-    return { cls: 'vendor', label: `Waiting on vendor — ${oldest}d${oldest >= STALE_DAYS ? ' · chase now' : ''}` };
+    return { cls: 'vendor', label: `Waiting on vendor - ${oldest}d${oldest >= STALE_DAYS ? ' · chase now' : ''}` };
   }
   const steps = items(r)
     .filter((i) => ['next_step', 'clarification', 'funding'].includes(i.kind) && !i.is_done)
@@ -56,10 +56,10 @@ function ballState(r: Deal): { cls: string; label: string } | null {
   if (steps.length) {
     const oldest = Math.max(...steps.map((i) => daysAgo(i.created_at)));
     return oldest >= STALE_DAYS
-      ? { cls: 'you-stale', label: `YOUR MOVE — stalled ${oldest}d` }
-      : { cls: 'you', label: `Your move — ${steps.length} open` };
+      ? { cls: 'you-stale', label: `YOUR MOVE - stalled ${oldest}d` }
+      : { cls: 'you', label: `Your move - ${steps.length} open` };
   }
-  return { cls: 'none', label: 'No next action — set one' };
+  return { cls: 'none', label: 'No next action - set one' };
 }
 
 const BALL_STYLES: Record<string, string> = {
@@ -119,13 +119,13 @@ function Login() {
           <div className="w-9 h-9 bg-[#FFD700] rotate-45" style={{ clipPath: 'polygon(50% 0%,100% 50%,50% 100%,0% 50%)' }}></div>
           <div>
             <h1 className="text-xl font-serif font-bold text-[#FFD700]">Officially Invested</h1>
-            <p className="text-white/50 text-xs">Deal pipeline — team access only</p>
+            <p className="text-white/50 text-xs">Deal pipeline - team access only</p>
           </div>
         </div>
         {sent ? (
           <div className="text-white/80">
             <Mail className="h-8 w-8 text-[#FFD700] mb-3" />
-            Check your inbox — we've sent a magic link to <span className="text-white font-semibold">{email}</span>.
+            Check your inbox - we've sent a magic link to <span className="text-white font-semibold">{email}</span>.
           </div>
         ) : (
           <>
@@ -274,7 +274,7 @@ export default function Pipeline() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setMsg('Done — output saved below.');
+      setMsg('Done - output saved below.');
       load();
     } catch (e: any) {
       setMsg('Assist failed: ' + (e?.message ?? String(e)));
@@ -356,7 +356,7 @@ export default function Pipeline() {
     const rows = tasks.filter((t) => !existing.has(t)).map((t) => ({ submission_id: deal.id, kind: 'checklist', content: t, stage }));
     if (!rows.length) { setMsg('All items from this plan are already on the deal.'); return; }
     const { error } = await supabase.from('deal_items').insert(rows);
-    setMsg(error ? 'Could not add: ' + error.message : `Added ${rows.length} tickable items to the deal — progress and your notes feed the next assessment.`);
+    setMsg(error ? 'Could not add: ' + error.message : `Added ${rows.length} tickable items to the deal - progress and your notes feed the next assessment.`);
     load();
   };
   const rescore = async (dealId: string) => {
@@ -364,7 +364,7 @@ export default function Pipeline() {
     setMsg('Re-scoring with the OI framework…');
     const { error } = await supabase.rpc('trigger_rescore', { p_submission_id: dealId });
     if (error) { setMsg('Could not trigger: ' + error.message); return; }
-    setTimeout(() => { load(); setMsg('Re-scored — fresh assessment saved.'); }, 18000);
+    setTimeout(() => { load(); setMsg('Re-scored - fresh assessment saved.'); }, 18000);
   };
 
   // ---------- render ----------
@@ -514,7 +514,7 @@ export default function Pipeline() {
                   const st = STAGES.find((s) => s.key === d.status);
                   return (
                     <tr key={d.id} onClick={() => setOpenId(d.id)} className="cursor-pointer hover:bg-white/5 text-white/85">
-                      <td className="px-3 py-2.5 border-b border-white/5">{b ? <span className={'text-[10px] font-bold rounded-lg px-2 py-1 ' + BALL_STYLES[b.cls]}>{b.label}</span> : '—'}</td>
+                      <td className="px-3 py-2.5 border-b border-white/5">{b ? <span className={'text-[10px] font-bold rounded-lg px-2 py-1 ' + BALL_STYLES[b.cls]}>{b.label}</span> : '-'}</td>
                       <td className="px-3 py-2.5 border-b border-white/5 font-bold">{d.reference}</td>
                       <td className="px-3 py-2.5 border-b border-white/5 text-white/50">{new Date(d.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</td>
                       <td className="px-3 py-2.5 border-b border-white/5">{d.type === 'business' ? 'Business' : 'Property'}</td>
@@ -546,7 +546,7 @@ export default function Pipeline() {
 
             {relMap[open.id] ? (
               <a href="/admin/origination?view=dealflow" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold mb-2 bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 hover:bg-emerald-400/30">
-                <Star className="h-3.5 w-3.5" /> {relMap[open.id].status === 'released' ? 'Live to members' : 'Members: ' + relMap[open.id].status.replace('_', ' ')} · {relMap[open.id].n_applied ?? 0} applied · {relMap[open.id].n_nda ?? 0} NDA'd — manage →
+                <Star className="h-3.5 w-3.5" /> {relMap[open.id].status === 'released' ? 'Live to members' : 'Members: ' + relMap[open.id].status.replace('_', ' ')} · {relMap[open.id].n_applied ?? 0} applied · {relMap[open.id].n_nda ?? 0} NDA'd - manage →
               </a>
             ) : (
               <a href={'/admin/origination?view=dealflow&submission=' + open.id} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold mb-2 bg-[#FFD700] text-[#0A2540] hover:brightness-95">
@@ -554,7 +554,7 @@ export default function Pipeline() {
               </a>
             )}
             {open.member_listed && !open.network_optin && (
-              <p className="text-amber-300 text-xs mb-2">⚠ Seller hasn't given buyer-network consent — get their OK before presenting.</p>
+              <p className="text-amber-300 text-xs mb-2">⚠ Seller hasn't given buyer-network consent - get their OK before presenting.</p>
             )}
 
             <DealAnalysisPanel submissionId={open.id} status={open.status} score={latestScore(open)} scoresCount={(open.scores || []).length} onRescore={() => rescore(open.id)} />
@@ -678,7 +678,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function KV({ k, v, gold }: { k: string; v: any; gold?: boolean }) {
-  if (v == null || v === '' || v === '—' || v === ' · ') return null;
+  if (v == null || v === '' || v === '-' || v === ' · ') return null;
   return (
     <div className="py-1.5 border-b border-white/5">
       <div className="text-white/40 text-[10px] uppercase tracking-wide">{k}</div>
@@ -726,7 +726,7 @@ function mdToHtml(md: string): string {
   return html;
 }
 
-/** Strip anything after the internal-notes marker — internal commentary never leaves the building. */
+/** Strip anything after the internal-notes marker - internal commentary never leaves the building. */
 function issuedContent(content: string): string {
   return content.split(/-{2,}\s*INTERNAL NOTES[^\n]*-{0,3}/i)[0].trimEnd();
 }
@@ -769,7 +769,7 @@ function downloadWordDoc(output: any) {
 function openBrandedPdf(output: any) {
   const w = window.open('', '_blank');
   if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>${output.title} — Officially Invested</title><style>
+  w.document.write(`<!DOCTYPE html><html><head><title>${output.title} - Officially Invested</title><style>
     @page { margin: 22mm 18mm; }
     ${LETTERHEAD_CSS}
     .diamond { clip-path: polygon(50% 0%,100% 50%,50% 100%,0% 50%); }
@@ -882,7 +882,7 @@ function OutputCard({ output, onSave, onRefine, onSelect, onDelete, onTrack, bus
 
       {mode === 'refine' && (
         <div className="mt-3 bg-[#081D33] border border-[#FFD700]/40 rounded-xl p-3">
-          <p className="text-white/70 text-xs mb-2">Tell the AI exactly what to change — it revises this document, keeps everything else, and recalculates the numbers. Be specific:</p>
+          <p className="text-white/70 text-xs mb-2">Tell the AI exactly what to change - it revises this document, keeps everything else, and recalculates the numbers. Be specific:</p>
           <textarea
             value={refineText}
             onChange={(e) => setRefineText(e.target.value)}
@@ -935,7 +935,7 @@ function OutputCard({ output, onSave, onRefine, onSelect, onDelete, onTrack, bus
         <div className="mt-3 bg-amber-400/10 border border-amber-400/40 rounded-xl p-3">
           {placeholders.length > 0 && (
             <>
-              <div className="text-amber-300 text-xs font-bold mb-1.5">Before issuing — {placeholders.length} key input{placeholders.length > 1 ? 's' : ''} needed:</div>
+              <div className="text-amber-300 text-xs font-bold mb-1.5">Before issuing - {placeholders.length} key input{placeholders.length > 1 ? 's' : ''} needed:</div>
               <ul className="text-amber-200/90 text-[12px] list-disc pl-5 space-y-0.5">
                 {placeholders.slice(0, 10).map((p, i) => <li key={i}>{p}</li>)}
                 {placeholders.length > 10 && <li>…and {placeholders.length - 10} more</li>}
@@ -944,7 +944,7 @@ function OutputCard({ output, onSave, onRefine, onSelect, onDelete, onTrack, bus
             </>
           )}
           {hasInternalNotes && (
-            <p className="text-white/45 text-[11px] mt-2">This document has internal notes that are <b className="text-white/60">automatically stripped</b> from the Branded PDF and Word exports — the seller never sees them.</p>
+            <p className="text-white/45 text-[11px] mt-2">This document has internal notes that are <b className="text-white/60">automatically stripped</b> from the Branded PDF and Word exports - the seller never sees them.</p>
           )}
         </div>
       )}
@@ -1000,7 +1000,7 @@ function ItemRow({ item, onToggle, onDelete, onNote, showKind = true }: { item: 
             value={noteDraft}
             onChange={(e) => setNoteDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { onNote(item.id, noteDraft); setNoting(false); } }}
-            placeholder="Finding / note — e.g. 'Checked: top council is 18% of revenue, contract to 2028'"
+            placeholder="Finding / note - e.g. 'Checked: top council is 18% of revenue, contract to 2028'"
             className="flex-1 bg-white/5 border border-white/20 text-white text-[12px] rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#FFD700] placeholder-white/30"
           />
           <button onClick={() => { onNote(item.id, noteDraft); setNoting(false); }} className="bg-[#FFD700] text-[#0A2540] px-3 rounded-lg text-xs font-bold">Save</button>
@@ -1016,14 +1016,14 @@ function ChecklistSection({ deal, onToggle, onDelete, onNote }: { deal: Deal; on
   const byStage: Record<string, any[]> = {};
   cl.forEach((i) => { (byStage[i.stage] = byStage[i.stage] || []).push(i); });
   return (
-    <Section title={`Checklists & DD plans — ${cl.filter((i) => i.is_done).length}/${cl.length} done`}>
+    <Section title={`Checklists & DD plans - ${cl.filter((i) => i.is_done).length}/${cl.length} done`}>
       {STAGES.filter((s) => byStage[s.key]).map((s) => (
         <div key={s.key}>
           <div className="text-[#FFD700]/70 text-[10px] font-bold uppercase tracking-wide mt-2 mb-0.5">{s.label}</div>
           {byStage[s.key].map((i) => <ItemRow key={i.id} item={i} onToggle={onToggle} onDelete={onDelete} onNote={onNote} showKind={false} />)}
         </div>
       ))}
-      <p className="text-white/40 text-[11px] mt-2">Tick items and add findings as notes — then hit "Re-run assessment" and the AI re-reads progress, updates the red flags and tells you what's still outstanding.</p>
+      <p className="text-white/40 text-[11px] mt-2">Tick items and add findings as notes - then hit "Re-run assessment" and the AI re-reads progress, updates the red flags and tells you what's still outstanding.</p>
     </Section>
   );
 }
@@ -1034,7 +1034,7 @@ function ItemsSection({ deal, onAdd, onToggle, onDelete, onNote }: { deal: Deal;
   const list = items(deal).sort((a, b) => Number(a.is_done) - Number(b.is_done));
   const submit = () => { onAdd(deal.id, kind, content); setContent(''); };
   return (
-    <Section title="Working items — next steps, red flags, clarifications, funding, vendor">
+    <Section title="Working items - next steps, red flags, clarifications, funding, vendor">
       {list.map((i) => <ItemRow key={i.id} item={i} onToggle={onToggle} onDelete={onDelete} onNote={onNote} />)}
       <div className="flex gap-2 mt-3">
         <select value={kind} onChange={(e) => setKind(e.target.value)} className="bg-white/10 border border-white/20 text-white rounded-lg px-2.5 py-2 text-sm w-36">

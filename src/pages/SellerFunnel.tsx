@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-// White-label seller intake for tenants: /f/:slug — branded from acq-funnel-meta,
+// White-label seller intake for tenants: /f/:slug - branded from acq-funnel-meta,
 // submits to acq-funnel (public POST). Hosted on our domain because the
 // Supabase functions gateway serves HTML as text/plain.
 const BASE = ((import.meta as any).env?.VITE_SUPABASE_URL ?? '').replace(/\/$/, '') + '/functions/v1';
