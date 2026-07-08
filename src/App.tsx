@@ -12,6 +12,9 @@ import Origination from './pages/admin/Origination';
 import Settings from './pages/admin/Settings';
 
 const AUTH_HASH = /access_token=|error_code=|error=|type=recovery/;
+// Snapshot before the Supabase client consumes (and strips) the token hash.
+const ARRIVED_VIA_AUTH = typeof window !== 'undefined' && AUTH_HASH.test(window.location.hash);
+let authRouted = false;
 
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
@@ -19,8 +22,9 @@ function ScrollToTop() {
   useEffect(() => {
     // Supabase auth callbacks land on the site root with tokens/errors in the
     // hash. Send them to the signup wizard, which resumes the journey.
-    if (hash && AUTH_HASH.test(hash)) {
-      if (pathname === '/' || pathname === '') nav('/signup' + hash, { replace: true });
+    if ((hash && AUTH_HASH.test(hash)) || (ARRIVED_VIA_AUTH && !authRouted)) {
+      authRouted = true;
+      if (pathname === '/' || pathname === '') nav('/signup' + (hash && AUTH_HASH.test(hash) ? hash : ''), { replace: true });
       return;
     }
     if (hash) {
