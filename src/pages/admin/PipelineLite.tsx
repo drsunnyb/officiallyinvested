@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { Loader2, Plus, X, Sparkles, ArrowLeft, Lock, HelpCircle } from 'lucide-react';
 import { liteDeals, liteDealCreate, liteDealUpdate, onboardScore, onboardStatus, runAnalyze, runCommittee, runMemo } from '../../lib/acq';
 import Paywall, { CreditsTopUp, ensureCredits } from '../../components/Paywall';
+import DealAnalysisPanel from '../../components/DealAnalysisPanel';
 
 const NAVY = '#0A2540';
 const input = 'border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#0A2540] bg-white';
@@ -132,7 +133,7 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
   };
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex justify-end" onClick={onClose}>
-      <div className="w-full max-w-xl bg-white h-full overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+      <div className={'w-full bg-white h-full overflow-y-auto p-6 ' + (paid ? 'max-w-4xl' : 'max-w-xl')} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
             <div className="font-serif font-bold text-xl text-gray-900">{deal.name}</div>
@@ -178,7 +179,16 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
           <button className={btnGold + ' w-full mt-3 justify-center'} disabled={busy} onClick={score}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : snap.acquisition_score != null ? 'Re-score' : 'Get my Acquisition Score'}</button>
         </div>
 
-        {/* AI analyst - the paywall line */}
+        {/* paid: the full deal cockpit - same one Sandeep uses */}
+        {paid && (
+          <div className="mt-6">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Deal cockpit</div>
+            <DealAnalysisPanel dealId={deal.id} />
+          </div>
+        )}
+
+        {/* free: AI analyst teaser - the paywall line */}
+        {!paid && (
         <div className="mt-5 rounded-2xl border-2 p-4" style={{ borderColor: paid ? '#e5e7eb' : '#FFD700' }}>
           <div className="text-[13px] font-bold text-gray-900 flex items-center gap-1.5">
             {!paid && <Lock className="h-4 w-4 text-[#0A2540]" />} AI Analyst {!paid && <span className="text-[10px] font-bold text-[#0A2540] bg-[#FFD700] px-1.5 py-0.5 rounded-full">UPGRADE</span>}
@@ -194,6 +204,7 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
           </div>
           {!paid && <div className="text-[11px] text-gray-400 mt-2 flex items-center gap-1"><HelpCircle className="h-3 w-3" /> Your score above stays free. These unlock with any paid plan.</div>}
         </div>
+        )}
       </div>
     </div>
   );

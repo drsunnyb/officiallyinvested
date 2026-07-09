@@ -70,7 +70,7 @@ const ACTION_META: Record<string, { label: string; sub: string; icon: any }> = {
 
 type Tab = 'overview' | 'documents' | 'correspondence' | 'drafts' | 'people';
 
-export default function DealAnalysisPanel({ submissionId, status, score, scoresCount, onRescore }: { submissionId: string; status?: string; score?: any; scoresCount?: number; onRescore?: () => void }) {
+export default function DealAnalysisPanel({ submissionId, dealId: dealIdProp, status, score, scoresCount, onRescore }: { submissionId?: string; dealId?: string; status?: string; score?: any; scoresCount?: number; onRescore?: () => void }) {
   const [b, setB] = useState<AcqBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -97,10 +97,10 @@ export default function DealAnalysisPanel({ submissionId, status, score, scoresC
 
   const load = useCallback(async () => {
     setLoading(true); setErr('');
-    try { setB(await getDealBySubmission(submissionId)); }
+    try { setB(dealIdProp ? await getDealById(dealIdProp) : await getDealBySubmission(submissionId!)); }
     catch (e: any) { setErr(e.message || String(e)); }
     finally { setLoading(false); }
-  }, [submissionId]);
+  }, [submissionId, dealIdProp]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const id = b?.deal?.id; if (id) legalList(id).then((r) => setLegalDocs(r.documents || [])).catch(() => {}); }, [b?.deal?.id]);
 

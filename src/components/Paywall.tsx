@@ -127,16 +127,23 @@ export function CreditsTopUp({ onClose, focus }: { onClose: () => void; focus?: 
             <div key={k} className={'rounded-2xl border p-4 ' + (focus === k ? 'border-[#FFD700] shadow-lg' : 'border-gray-200')}>
               <div className="font-bold text-gray-900 flex items-center gap-1.5"><Icon className="h-4 w-4 text-[#0A2540]" /> {label}</div>
               <div className="text-[11px] text-gray-400 mt-0.5 mb-3">{sub}</div>
-              {group(k).map(([key, p]) => (
+              {(() => { const rows = group(k); const basePer = rows.length ? rows[0][1].amount / rows[0][1].qty : 1; return rows.map(([key, p]) => {
+                const per = p.amount / p.qty;
+                const save = Math.round((1 - per / basePer) * 100);
+                const perLabel = per >= 100 ? `£${(per / 100).toFixed(2)}` : `${Math.round(per)}p`;
+                return (
                 <button key={key} onClick={() => toggle(key)} disabled={!!busy}
                   className={'w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 mb-2 text-left transition border ' + (basket.has(key) ? 'border-[#0A2540] bg-[#0A2540]/[0.04] ring-1 ring-[#0A2540]' : 'border-gray-200 hover:border-gray-400')}>
-                  <span className="flex items-center gap-2 text-[13px] font-semibold text-gray-800">
-                    <span className={'h-4 w-4 rounded border flex items-center justify-center ' + (basket.has(key) ? 'bg-[#0A2540] border-[#0A2540]' : 'border-gray-300')}>{basket.has(key) && <Check className="h-3 w-3 text-[#FFD700]" />}</span>
-                    {p.label}
+                  <span className="flex items-center gap-2.5 text-[13px] font-semibold text-gray-800">
+                    <span className={'h-4 w-4 rounded border flex items-center justify-center shrink-0 ' + (basket.has(key) ? 'bg-[#0A2540] border-[#0A2540]' : 'border-gray-300')}>{basket.has(key) && <Check className="h-3 w-3 text-[#FFD700]" />}</span>
+                    <span>
+                      {p.label}
+                      <span className="block text-[11px] font-normal text-gray-400">{perLabel} per credit{save > 0 && <span className="ml-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-px">save {save}%</span>}</span>
+                    </span>
                   </span>
                   <span className="text-[13px] font-bold text-[#0A2540]">{`£${(p.amount / 100).toLocaleString()}`}</span>
                 </button>
-              ))}
+              ); }); })()}
             </div>
           ))}
         </div>
