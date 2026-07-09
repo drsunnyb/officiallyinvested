@@ -6,9 +6,10 @@
 // =============================================================================
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Plus, X, Sparkles, ArrowLeft, Lock, HelpCircle } from 'lucide-react';
-import { liteDeals, liteDealCreate, liteDealUpdate, onboardScore, onboardStatus, runAnalyze, runCommittee, runMemo } from '../../lib/acq';
-import Paywall, { CreditsTopUp, ensureCredits } from '../../components/Paywall';
+import { Loader2, Plus, X, Sparkles, ArrowLeft, Lock, Check, LogOut } from 'lucide-react';
+import { liteDeals, liteDealCreate, liteDealUpdate, onboardScore, onboardStatus, crmList, crmAddTask, crmCompleteTask } from '../../lib/acq';
+import Paywall, { CreditsTopUp } from '../../components/Paywall';
+import { supabase } from '../../lib/supabase';
 import DealAnalysisPanel from '../../components/DealAnalysisPanel';
 
 const NAVY = '#0A2540';
@@ -51,21 +52,43 @@ export default function PipelineLite() {
             <Link to="/admin/origination" className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'}><ArrowLeft className="h-4 w-4" /> Origination</Link>
             <Link to="/deals" className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'}>Community deals</Link>
             <button className={btnGold} onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> Add deal</button>
+            <button className="text-white/50 hover:text-white p-2" title="Sign out" onClick={async () => { await supabase?.auth.signOut(); window.location.href = '/signup'; }}><LogOut className="h-4 w-4" /></button>
           </div>
         </div>
         {err && <div className="bg-red-50 text-red-700 text-sm rounded-lg px-4 py-2.5 mb-4">{err}</div>}
+        {deals && deals.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 mb-5">
+            {([['Live deals', deals.filter((d) => !['completed', 'passed'].includes(d.status)).length],
+              ['In conversation', deals.filter((d) => d.status === 'contacted').length],
+              ['Offers out', deals.filter((d) => ['offer', 'heads_of_terms'].includes(d.status)).length],
+              ['In diligence', deals.filter((d) => d.status === 'diligence').length],
+              ['Completed', deals.filter((d) => d.status === 'completed').length]] as [string, number][]).map(([label, value]) => (
+              <div key={label} className="bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5">
+                <div className="text-white/50 text-[11px] mb-0.5">{label}</div>
+                <div className="text-[#FFD700] text-lg font-bold">{value}</div>
+              </div>
+            ))}
+          </div>
+        )}
         {!deals ? <div className="text-white/50 py-20 text-center"><Loader2 className="h-6 w-6 animate-spin inline" /></div> : (
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             {BOARD_STAGES.map((st) => (
-              <div key={st} className="bg-white/[0.05] border border-white/10 rounded-xl p-2.5 min-h-[180px]">
+              <div key={st} className="bg-white/[0.05] border border-white/10 rounded-xl p-2.5 min-h-[180px]"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={async (e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) { await liteDealUpdate(id, { status: st }).catch((x: any) => setErr(x.message)); load(); } }}>
                 <div className="text-white/60 text-[10px] font-bold uppercase tracking-wider px-1 mb-2">{STAGE_LABEL[st]} · {deals.filter((d) => d.status === st).length}</div>
                 {deals.filter((d) => d.status === st).map((d) => (
-                  <button key={d.id} onClick={() => setOpenId(d.id)} className="w-full text-left bg-white rounded-lg p-3 mb-2 hover:-translate-y-0.5 transition-transform">
+                  <button key={d.id} draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', d.id)} onClick={() => setOpenId(d.id)} className="w-full text-left bg-white rounded-lg p-3 mb-2 hover:-translate-y-0.5 transition-transform cursor-grab active:cursor-grabbing">
                     <div className="text-[13px] font-semibold text-gray-900 leading-snug">{d.name}</div>
-                    <div className="flex items-center gap-2 mt-1.5 text-[10px] text-gray-400">
-                      <span className="truncate">{d.sector ?? ''}</span>
-                      {d.asking_price && <span className="font-semibold text-gray-600">£{Number(d.asking_price).toLocaleString()}</span>}
+                    <div className="flex flex-wrap gap-x-2 mt-1.5 text-[10px] font-semibold text-[#B8860B]">
+                      {d.ch_snapshot?.score_inputs?.revenue > 0 && <span>Rev £{Number(d.ch_snapshot.score_inputs.revenue).toLocaleString()}</span>}
+                      {d.ch_snapshot?.score_inputs?.ebitda > 0 && <span>Profit £{Number(d.ch_snapshot.score_inputs.ebitda).toLocaleString()}</span>}
+                      {d.asking_price && <span>Ask £{Number(d.asking_price).toLocaleString()}</span>}
+                      {!d.asking_price && !(d.ch_snapshot?.score_inputs?.revenue > 0) && <span className="text-gray-400 font-normal">{d.sector ?? ''}</span>}
                     </div>
+                    {Date.now() - new Date(d.updated_at ?? d.created_at).getTime() > 7 * 86400000 && !['completed', 'passed'].includes(d.status) && (
+                      <div className="mt-1.5 text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 inline-block">No movement · {Math.floor((Date.now() - new Date(d.updated_at ?? d.created_at).getTime()) / 86400000)}d · nudge it</div>
+                    )}
                     <div className="flex items-center justify-between mt-1.5">
                       <span className="text-[9px] text-gray-300">{d.updated_at ? new Date(d.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}</span>
                       {d.ch_snapshot?.acquisition_score != null ? <span className={'text-[10px] font-bold px-1.5 py-0.5 rounded-full ' + (d.ch_snapshot.acquisition_score >= 65 ? 'bg-emerald-600 text-white' : 'bg-[#0A2540] text-white')}>✦ {d.ch_snapshot.acquisition_score} · {d.ch_snapshot.score_band}</span> : <span className="text-[9px] text-gray-300">not scored</span>}
@@ -115,102 +138,123 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
   const snap = deal.ch_snapshot ?? {};
   const [si, setSi] = useState<any>(snap.score_inputs ?? { oldest_director_age: '', revenue: '', ebitda: '', incorporated_on: '', accounts_current: true, seller_engaged: false, asset_backing: 'none' });
   const [busy, setBusy] = useState(false);
-  const [aiBusy, setAiBusy] = useState('');
+  const [showScore, setShowScore] = useState(snap.acquisition_score == null);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [taskDraft, setTaskDraft] = useState('');
+  const loadTasks = () => crmList().then((r) => setTasks((r.tasks || []).filter((t: any) => t.deal_id === deal.id))).catch(() => {});
+  useEffect(() => { loadTasks(); }, [deal.id]);
+  const addTask = async () => { if (!taskDraft.trim()) return; await crmAddTask({ deal_id: deal.id, title: taskDraft.trim() }).catch((e: any) => setErr(e.message)); setTaskDraft(''); loadTasks(); };
+  const doneTask = async (id: string) => { await crmCompleteTask(id); setTasks((t) => t.filter((x) => x.id !== id)); };
   const score = async () => {
     setBusy(true);
     try {
       await onboardScore({ oldest_director_age: Number(si.oldest_director_age) || 0, revenue: Number(si.revenue) || 0, ebitda: Number(si.ebitda) || 0, incorporated_on: si.incorporated_on || null, accounts_current: si.accounts_current, seller_engaged: si.seller_engaged, asset_backing: si.asset_backing }, deal.id);
-      onChanged();
+      setShowScore(false); onChanged();
     } catch (e: any) { setErr(e.message || String(e)); }
     setBusy(false);
   };
-  const ai = async (kind: string) => {
-    if (!paid) { onPaywall('The AI analyst reads the accounts, stress-tests the deal and writes your documents'); return; }
-    if (!(await ensureCredits('ai', 1, kind + ' ' + deal.id.slice(0, 8)))) return;
-    setAiBusy(kind);
-    try {
-      if (kind === 'analysis') await runAnalyze(deal.id);
-      if (kind === 'committee') await runCommittee(deal.id);
-      if (kind === 'memo') await runMemo(deal.id);
-      setErr('');
-      alert('Running - results appear on the deal shortly.');
-    } catch (e: any) { setErr(e.message || String(e)); }
-    setAiBusy('');
-  };
+  const chipCls = (active: boolean) => 'text-[12px] px-3.5 py-1.5 rounded-full border font-semibold transition ' + (active ? 'bg-[#FFD700] text-[#0A2540] border-[#FFD700]' : 'border-white/25 text-white/75 hover:border-white/50 hover:text-white');
+  const STAGE_ASSIST: Record<string, string> = { sourced: 'Initial screening brief', contacted: 'Conversation prep brief', analysing: 'Full analysis', offer: 'Deal committee', heads_of_terms: 'Deal committee', diligence: 'Investment memo', completed: 'Investment memo', passed: 'Full analysis' };
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex justify-end" onClick={onClose}>
-      <div className="w-full bg-white h-full overflow-y-auto p-6 max-w-4xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/60 flex justify-end" onClick={onClose}>
+      <div className="w-full max-w-4xl h-full overflow-y-auto p-8" style={{ background: 'linear-gradient(160deg,#0A2540,#0C2B4A)' }} onClick={(e) => e.stopPropagation()}>
+        {/* header - the same anatomy as the host pipeline */}
         <div className="flex items-start justify-between">
           <div>
-            <div className="font-serif font-bold text-xl text-gray-900">{deal.name}</div>
-            <div className="text-[12px] text-gray-500">{deal.sector ?? '-'}{deal.asking_price ? ` · asking £${Number(deal.asking_price).toLocaleString()}` : ''}</div>
+            <h2 className="font-serif font-bold text-[26px] text-[#FFD700] leading-tight">{deal.name}</h2>
+            <div className="text-white/40 text-[12px] mt-1">{new Date(deal.created_at).toLocaleDateString('en-GB')}{deal.sector ? ' · ' + deal.sector : ''}{deal.asking_price ? ' · Ask £' + Number(deal.asking_price).toLocaleString() : ''}</div>
           </div>
-          <button onClick={onClose}><X className="h-5 w-5 text-gray-400" /></button>
+          <button onClick={onClose} className="text-white/40 hover:text-white p-1"><X className="h-5 w-5" /></button>
         </div>
 
-        <div className="mt-4">
-          <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1.5">Stage</div>
-          <div className="flex flex-wrap gap-1.5">
+        {/* deal stage */}
+        <div className="mt-7">
+          <div className="text-white/40 text-[11px] font-bold uppercase tracking-[0.15em] font-serif mb-2.5">Deal stage</div>
+          <div className="flex flex-wrap gap-2">
             {['sourced', 'contacted', 'analysing', 'offer', 'heads_of_terms', 'diligence', 'completed', 'passed'].map((st) => (
               <button key={st} onClick={async () => { await liteDealUpdate(deal.id, { status: st }).catch((e: any) => setErr(e.message)); onChanged(); }}
-                className={'text-[11px] px-2.5 py-1 rounded-full border ' + (deal.status === st ? 'bg-[#0A2540] text-white border-[#0A2540] font-bold' : 'border-gray-300 text-gray-600 hover:border-[#0A2540]/50')}>{STAGE_LABEL[st]}</button>
+                className={chipCls(deal.status === st)}>{STAGE_LABEL[st]}</button>
             ))}
           </div>
         </div>
 
-        {/* free acquisition score */}
-        <div className="mt-6 bg-gray-50 rounded-2xl p-4">
-          <div className="flex items-center justify-between">
-            <div className="text-[13px] font-bold text-gray-900 flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-[#0A2540]" /> Acquisition Score <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">FREE</span></div>
-            {snap.acquisition_score != null && <span className="font-serif font-bold text-2xl text-gray-900">{snap.acquisition_score}<span className="text-[12px] text-gray-400 font-sans"> · {snap.score_band}</span></span>}
+        {/* AI assistance for this stage */}
+        <div className="mt-7">
+          <div className="text-white/40 text-[11px] font-bold uppercase tracking-[0.15em] font-serif mb-2.5">AI assistance for this stage</div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => { if (!paid) { onPaywall('The AI analyst reads the accounts, stress-tests the deal and writes your documents'); return; } document.getElementById('lite-cockpit')?.scrollIntoView({ behavior: 'smooth' }); }}
+              className="bg-[#FFD700] text-[#0A2540] text-[13px] font-bold px-5 py-2.5 rounded-full hover:brightness-95 transition">{STAGE_ASSIST[deal.status] ?? 'Full analysis'}</button>
+            {!paid && <span className="inline-flex items-center gap-1.5 text-[11px] text-white/50 self-center"><Lock className="h-3 w-3" /> unlocks with any paid plan</span>}
           </div>
-          {snap.score_breakdown && (
-            <div className="mt-2">{snap.score_breakdown.map((b: any, i: number) => (
-              <div key={i} className="flex justify-between text-[12px] text-gray-600 py-0.5"><span>{b.part}</span><span className="font-semibold">{b.pts}/{b.max}</span></div>
-            ))}</div>
-          )}
-          <div className="grid grid-cols-2 gap-2 mt-3">
-            <input className={input} placeholder="Oldest director age" value={si.oldest_director_age} onChange={(e) => setSi({ ...si, oldest_director_age: e.target.value })} />
-            <input className={input} placeholder="Incorporated YYYY-MM-DD" value={si.incorporated_on} onChange={(e) => setSi({ ...si, incorporated_on: e.target.value })} />
-            <input className={input} placeholder="Revenue £" value={si.revenue} onChange={(e) => setSi({ ...si, revenue: e.target.value })} />
-            <input className={input} placeholder="Adj EBITDA £" value={si.ebitda} onChange={(e) => setSi({ ...si, ebitda: e.target.value })} />
-            <select className={input} value={si.asset_backing} onChange={(e) => setSi({ ...si, asset_backing: e.target.value })}>
-              <option value="none">No asset backing</option><option value="partial">Some property/plant</option><option value="full">Freehold / asset-rich</option>
-            </select>
-            <div className="flex flex-col gap-1 text-[12px] text-gray-600 justify-center">
-              <label className="flex items-center gap-1.5"><input type="checkbox" checked={si.accounts_current} onChange={(e) => setSi({ ...si, accounts_current: e.target.checked })} /> Accounts current</label>
-              <label className="flex items-center gap-1.5"><input type="checkbox" checked={si.seller_engaged} onChange={(e) => setSi({ ...si, seller_engaged: e.target.checked })} /> Seller engaged</label>
+        </div>
+
+        {/* acquisition score - free, styled into the dark chrome */}
+        <div className="mt-7 bg-white/[0.05] border border-white/10 rounded-2xl p-5">
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] font-bold text-white flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-[#FFD700]" /> Acquisition Score <span className="text-[9px] font-bold text-emerald-300 bg-emerald-400/15 border border-emerald-400/30 px-1.5 py-0.5 rounded-full uppercase">Free</span></div>
+            <div className="flex items-center gap-3">
+              {snap.acquisition_score != null && <span className="font-serif font-bold text-2xl text-[#FFD700]">{snap.acquisition_score}<span className="text-[12px] text-white/40 font-sans"> · {snap.score_band}</span></span>}
+              <button className="text-[11px] text-white/50 underline underline-offset-2 hover:text-white" onClick={() => setShowScore((v) => !v)}>{showScore ? 'hide inputs' : snap.acquisition_score != null ? 're-score' : 'score it'}</button>
             </div>
           </div>
-          <button className={btnGold + ' w-full mt-3 justify-center'} disabled={busy} onClick={score}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : snap.acquisition_score != null ? 'Re-score' : 'Get my Acquisition Score'}</button>
+          {snap.score_breakdown && !showScore && (
+            <div className="mt-2.5">{snap.score_breakdown.map((b: any, i: number) => (
+              <div key={i} className="flex justify-between text-[12px] text-white/60 py-0.5"><span>{b.part}</span><span className="font-semibold text-white/80">{b.pts}/{b.max}</span></div>
+            ))}</div>
+          )}
+          {showScore && (
+            <>
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                {[['oldest_director_age', 'Oldest director age'], ['incorporated_on', 'Incorporated YYYY-MM-DD'], ['revenue', 'Revenue £'], ['ebitda', 'Adj EBITDA £']].map(([k, ph]) => (
+                  <input key={k} className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-[#FFD700]/60" placeholder={ph} value={si[k]} onChange={(e) => setSi({ ...si, [k]: e.target.value })} />
+                ))}
+                <select className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none [&>option]:text-gray-900" value={si.asset_backing} onChange={(e) => setSi({ ...si, asset_backing: e.target.value })}>
+                  <option value="none">No asset backing</option><option value="partial">Some property/plant</option><option value="full">Freehold / asset-rich</option>
+                </select>
+                <div className="flex flex-col gap-1 text-[12px] text-white/60 justify-center">
+                  <label className="flex items-center gap-1.5"><input type="checkbox" checked={si.accounts_current} onChange={(e) => setSi({ ...si, accounts_current: e.target.checked })} /> Accounts current</label>
+                  <label className="flex items-center gap-1.5"><input type="checkbox" checked={si.seller_engaged} onChange={(e) => setSi({ ...si, seller_engaged: e.target.checked })} /> Seller engaged</label>
+                </div>
+              </div>
+              <button className={btnGold + ' w-full mt-3 justify-center'} disabled={busy} onClick={score}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : snap.acquisition_score != null ? 'Re-score' : 'Get my Acquisition Score'}</button>
+            </>
+          )}
         </div>
 
-        {/* the full deal cockpit for everyone - AI triggers gate on free */}
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Deal cockpit</div>
+        {/* working items - next steps on this deal */}
+        <div className="mt-7">
+          <div className="text-white/40 text-[11px] font-bold uppercase tracking-[0.15em] font-serif mb-2.5">Working items - next steps on this deal</div>
+          {tasks.length === 0 && <div className="text-white/35 text-[12.5px] mb-2">Nothing outstanding. Add the next move so it never slips.</div>}
+          {tasks.map((t) => (
+            <div key={t.id} className="flex items-start gap-2.5 py-2 border-b border-white/[0.07]">
+              <button onClick={() => doneTask(t.id)} className="mt-0.5 text-white/25 hover:text-emerald-400" title="Mark done"><Check className="h-4 w-4" /></button>
+              <span className="inline-flex text-[9px] font-bold bg-[#FFD700]/15 text-[#FFD700] border border-[#FFD700]/30 rounded-full px-2 py-0.5 uppercase mt-0.5 shrink-0">Next step</span>
+              <div className="text-[13px] text-white/85 leading-relaxed">{t.title}{t.due_date && <span className="text-white/35 text-[11px] ml-2">due {String(t.due_date).slice(0, 10)}</span>}</div>
+            </div>
+          ))}
+          <div className="flex gap-2 mt-3">
+            <input className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-[#FFD700]/60" placeholder="e.g. Chase 2023 accounts · Confirm SDLT position" value={taskDraft} onChange={(e) => setTaskDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} />
+            <button className={btnGold} onClick={addTask}>Add</button>
+          </div>
+        </div>
+
+        {/* the full cockpit - identical instrument, AI gated on free */}
+        <div className="mt-7" id="lite-cockpit">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="text-white/40 text-[11px] font-bold uppercase tracking-[0.15em] font-serif">Deal cockpit - documents, analysis, people, history</div>
             {!paid && <button onClick={() => onPaywall('The cockpit is yours. The AI analyst inside it joins on any paid plan')} className="inline-flex items-center gap-1 text-[10px] font-bold bg-[#FFD700] text-[#0A2540] px-2 py-0.5 rounded-full uppercase tracking-wide"><Lock className="h-2.5 w-2.5" /> AI unlocks with a plan</button>}
           </div>
-          <DealAnalysisPanel dealId={deal.id} locked={!paid} />
+          <div className="bg-white rounded-2xl p-4">
+            <DealAnalysisPanel dealId={deal.id} locked={!paid} />
+          </div>
         </div>
 
-        {false && (
-        <div className="mt-5 rounded-2xl border-2 p-4" style={{ borderColor: paid ? '#e5e7eb' : '#FFD700' }}>
-          <div className="text-[13px] font-bold text-gray-900 flex items-center gap-1.5">
-            {!paid && <Lock className="h-4 w-4 text-[#0A2540]" />} AI Analyst {!paid && <span className="text-[10px] font-bold text-[#0A2540] bg-[#FFD700] px-1.5 py-0.5 rounded-full">UPGRADE</span>}
-          </div>
-          <p className="text-[12px] text-gray-500 mt-1">Reads accounts, models the funding stack, stress-tests price, runs a deal committee, and writes the memo and every letter - in your voice.</p>
-          <div className="grid grid-cols-3 gap-2 mt-3">
-            {[['analysis', 'Full analysis'], ['committee', 'Deal committee'], ['memo', 'Investment memo']].map(([k, l]) => (
-              <button key={k} onClick={() => ai(k)} disabled={!!aiBusy}
-                className={'rounded-xl py-2.5 text-[12px] font-bold transition ' + (paid ? 'bg-[#0A2540] text-white hover:bg-[#0E3257]' : 'bg-[#FFD700] text-[#0A2540] hover:brightness-95')}>
-                {aiBusy === k ? <Loader2 className="h-3.5 w-3.5 animate-spin inline" /> : l}
-              </button>
-            ))}
-          </div>
-          {!paid && <div className="text-[11px] text-gray-400 mt-2 flex items-center gap-1"><HelpCircle className="h-3 w-3" /> Your score above stays free. These unlock with any paid plan.</div>}
+        {/* deal detail footer */}
+        <div className="mt-7 pt-5 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4 pb-4">
+          {[['Sector', deal.sector ?? '-'], ['Asking price', deal.asking_price ? '£' + Number(deal.asking_price).toLocaleString() : '-'], ['Source', deal.source === 'deal_flow' ? 'Member deal flow' : deal.source ?? 'manual'], ['Added', new Date(deal.created_at).toLocaleDateString('en-GB')]].map(([k, v]) => (
+            <div key={k as string}><div className="text-white/35 text-[10px] font-bold uppercase tracking-wide">{k}</div><div className="text-[#FFD700] text-[14px] font-semibold mt-0.5">{v}</div></div>
+          ))}
         </div>
-        )}
       </div>
     </div>
   );

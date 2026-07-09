@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import {
   Loader2, Search, Upload, Send, Globe, Users, ShieldCheck, Check, ArrowUpRight, ArrowLeft,
-  LayoutDashboard, Target, Building2, PhoneCall, Mail, FileText, ChevronRight, X, Sparkles, Settings2, Copy, CreditCard,
+  LayoutDashboard, Target, Building2, PhoneCall, Mail, FileText, ChevronRight, X, Sparkles, Settings2, Copy, CreditCard, LogOut,
 } from 'lucide-react';
 import {
   prospectsList, prospectGet, prospectUpdate, prospectSuppress, prospectPromote,
@@ -139,6 +139,7 @@ export default function Origination() {
         <div className="px-5 py-4 border-t border-white/10">
           <a href="/deals" className="flex items-center gap-2 text-[#FFD700]/90 hover:text-[#FFD700] text-[13px] mb-2.5"><Sparkles className="h-4 w-4" /> Community deals</a>
           <Link to="/admin/pipeline" className="flex items-center gap-2 text-white/60 hover:text-white text-[13px]"><ArrowLeft className="h-4 w-4" /> Back to pipeline</Link>
+          <button onClick={async () => { await supabase?.auth.signOut(); window.location.href = '/signup'; }} className="flex items-center gap-2 text-white/60 hover:text-white text-[13px] mt-2.5"><LogOut className="h-4 w-4" /> Sign out</button>
           <div className="flex items-start gap-1.5 text-[10px] text-white/35 mt-3 leading-relaxed"><ShieldCheck className="h-3.5 w-3.5 shrink-0 mt-px" /> Sourced data lives here and cannot be exported. Lists you upload remain yours.</div>
         </div>
       </aside>
