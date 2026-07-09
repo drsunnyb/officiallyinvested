@@ -10,6 +10,7 @@ import {
   sourceTaxonomy, sourceSearch, sourceStartRun, sourceRuns, sourceCancelRun, ingestPropose, ingestCommit,
   outreachList, outreachCreate, outreachUpdate, outreachDraftTemplates, outreachEnrol,
   outreachQueue, outreachApprove, outreachApproveAll, outreachRun, outreachMarkReplied, outreachUpdateTouch,
+  dfListings,
   getOrgSettings, setOrgSettings, crmList, crmAddTask, crmCompleteTask, crmAiTasks,
   buyboxList, buyboxChat, buyboxCreate, buyboxActivate, buyboxDelete,
   dfAdminReleases, dfAdminReleaseUpsert, dfAdminPublish, dfAdminBoard, dfAdminDecide, dfAdminAdvance,
@@ -340,21 +341,47 @@ function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => 
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [total, setTotal] = useState(0);
   const [camps, setCamps] = useState<any[]>([]);
+  const [sentTouches, setSentTouches] = useState<any[]>([]);
+  const [attention, setAttention] = useState<{ count: number; top: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     Promise.all([prospectsList({ per: 5 }), outreachList()])
       .then(([p, c]) => { setCounts(p.stage_counts || {}); setTotal(Object.values(p.stage_counts || {}).reduce((a, b) => a + b, 0)); setCamps(c.campaigns); })
       .catch((e) => setErr(e.message || String(e))).finally(() => setLoading(false));
+    outreachQueue('sent').then((q) => setSentTouches(q.touches ?? [])).catch(() => {});
+    // Buy-box deals in the community flow that have had no action from you yet
+    Promise.all([dfListings(), buyboxList(), sourceTaxonomy()]).then(([l, bb, tx]) => {
+      const groups: Record<string, string> = Object.fromEntries((tx.taxonomy ?? []).map((t: any) => [t.key, String(t.group ?? '').toLowerCase()]));
+      const boxes = (bb.boxes ?? []).map((b: any) => new Set((b.criteria?.industries ?? []).map((k: string) => groups[k]).filter(Boolean)));
+      const fresh = (l.listings ?? []).filter((x: any) => !x.my_state && x.status === 'live' && boxes.some((g) => g.has(String(x.sector_group ?? '').toLowerCase())));
+      setAttention({ count: fresh.length, top: fresh.slice(0, 3) });
+    }).catch(() => setAttention({ count: 0, top: [] }));
   }, []);
   const needsApproval = camps.reduce((a, c) => a + (c.needs_approval || 0), 0);
+  const sent = camps.reduce((a, c) => a + (c.sent || 0), 0);
   const replied = (counts.replied || 0) + (counts.qualified || 0);
-  const kpis = [
-    { label: 'Prospects in CRM', value: total, action: () => go('prospects') },
-    { label: 'In campaigns', value: counts.in_campaign || 0, action: () => go('campaigns') },
-    { label: 'Awaiting your approval', value: needsApproval, action: () => go('campaigns'), hot: needsApproval > 0 },
-    { label: 'Replied / qualified', value: replied, action: () => go('prospects'), hot: replied > 0 },
-    { label: 'Promoted to deals', value: counts.promoted || 0, action: () => go('prospects') },
+  const promoted = counts.promoted || 0;
+  const inCampaigns = counts.in_campaign || 0;
+
+  // last 14 days of sends for the activity bars
+  const days: { label: string; letters: number; emails: number }[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const key = d.toISOString().slice(0, 10);
+    const of = sentTouches.filter((t) => String(t.sent_at ?? '').slice(0, 10) === key);
+    days.push({ label: d.toLocaleDateString('en-GB', { weekday: 'narrow' }), letters: of.filter((t) => t.channel === 'letter').length, emails: of.filter((t) => t.channel !== 'letter').length });
+  }
+  const maxDay = Math.max(1, ...days.map((d) => d.letters + d.emails));
+
+  const funnel = [
+    { label: 'Prospects', value: total, view: 'prospects' as View },
+    { label: 'In campaigns', value: inCampaigns, view: 'campaigns' as View },
+    { label: 'Sent', value: sent, view: 'campaigns' as View },
+    { label: 'Replied', value: replied, view: 'prospects' as View },
+    { label: 'Deals', value: promoted, view: 'prospects' as View },
   ];
+  const maxF = Math.max(1, ...funnel.map((f) => f.value));
+
   return (
     <>
       <Header title="Origination" sub="Find owners in your buy box, reach them across letter, email and phone, and move interested sellers straight onto your pipeline." >
@@ -373,14 +400,77 @@ function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => 
         )}
         {loading ? <div className="text-gray-400 text-sm flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Loading…</div> : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-              {kpis.map((k) => (
-                <button key={k.label} onClick={k.action} className={card + ' p-4 text-left hover:shadow-md transition ' + (k.hot ? 'ring-2 ring-[#FFD700]' : '')}>
-                  <div className="text-[26px] font-bold text-gray-900">{k.value}</div>
-                  <div className="text-[12px] text-gray-500 mt-0.5">{k.label}</div>
-                </button>
-              ))}
+            {/* the engine, as a funnel */}
+            <div className="rounded-2xl p-6 mb-5 text-white" style={{ background: 'linear-gradient(120deg,#0A2540 0%,#0E3257 70%,#123A66 100%)' }}>
+              <div className="flex items-baseline justify-between flex-wrap gap-2">
+                <div className="font-serif font-bold text-[17px] text-[#FFD700]">Your origination engine</div>
+                <div className="text-white/40 text-[12px]">register → letter → conversation → deal</div>
+              </div>
+              <div className="grid grid-cols-5 gap-2 mt-5">
+                {funnel.map((f, i) => (
+                  <button key={f.label} onClick={() => go(f.view)} className="text-left group">
+                    <div className="font-serif font-bold text-[26px] leading-none text-white group-hover:text-[#FFD700] transition">{f.value}</div>
+                    <div className="text-[11px] text-white/50 mt-1">{f.label}</div>
+                    <div className="mt-2.5 h-2 rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: Math.max(6, Math.round((f.value / maxF) * 100)) + '%', background: i < 2 ? 'linear-gradient(90deg,#C9A227,#FFD700)' : i === 2 ? '#7FB2E5' : '#6EE7B7' }} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-x-5 gap-y-1 mt-4 text-[12px]">
+                {needsApproval > 0 && <button onClick={() => go('campaigns')} className="text-[#FFD700] font-semibold hover:underline">{needsApproval} awaiting your approval →</button>}
+                {(attention?.count ?? 0) > 0 && <Link to="/deals" className="text-emerald-300 font-semibold hover:underline">{attention!.count} buy-box deal{attention!.count > 1 ? 's' : ''} in the community flow need your eye →</Link>}
+                {needsApproval === 0 && (attention?.count ?? 0) === 0 && <span className="text-white/35">Nothing needs you right now. The engine keeps working.</span>}
+              </div>
             </div>
+
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              {/* activity, last 14 days */}
+              <div className={card + ' p-5'}>
+                <div className="flex items-baseline justify-between">
+                  <div className="font-semibold text-gray-900">Outreach activity</div>
+                  <div className="text-[11px] text-gray-400">last 14 days · <span className="text-[#A67C00] font-semibold">letters</span> · <span className="text-[#0A2540] font-semibold">emails</span></div>
+                </div>
+                {sent === 0 ? (
+                  <div className="text-[13px] text-gray-400 mt-4 bg-gray-50 rounded-lg px-4 py-3">Nothing sent yet. Approve your queued letters and the bars start here.</div>
+                ) : (
+                  <div className="flex items-end gap-1.5 h-28 mt-4">
+                    {days.map((d, i) => (
+                      <div key={i} className="flex-1 flex flex-col justify-end items-stretch gap-px h-full" title={`${d.letters} letters · ${d.emails} emails`}>
+                        <div className="rounded-t-sm" style={{ height: Math.round((d.emails / maxDay) * 100) + '%', background: '#0A2540', opacity: d.emails ? 1 : 0 }} />
+                        <div className={d.emails ? '' : 'rounded-t-sm'} style={{ height: Math.round((d.letters / maxDay) * 100) + '%', background: 'linear-gradient(180deg,#FFD700,#C9A227)', opacity: d.letters ? 1 : 0 }} />
+                        <div className="h-px bg-gray-200" />
+                        <div className="text-[9px] text-gray-300 text-center">{d.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* community deals needing attention */}
+              <div className={card + ' p-5'}>
+                <div className="flex items-baseline justify-between">
+                  <div className="font-semibold text-gray-900">Deal flow, matched to your buy box</div>
+                  <Link to="/deals" className="text-[11px] font-bold text-[#0A2540] hover:underline">Open deal flow →</Link>
+                </div>
+                {!attention ? <div className="text-gray-300 mt-4"><Loader2 className="h-4 w-4 animate-spin" /></div> : attention.count === 0 ? (
+                  <div className="text-[13px] text-gray-400 mt-4 bg-gray-50 rounded-lg px-4 py-3">No unreviewed buy-box matches right now. New releases land here the moment they match your mandate.</div>
+                ) : (
+                  <div className="mt-3 divide-y divide-gray-50">
+                    {attention.top.map((l: any) => (
+                      <Link key={l.id} to={'/deals/' + l.id} className="flex items-center gap-3 py-2.5 group">
+                        <span className="inline-flex items-center gap-1 bg-[#FFFDF2] border border-[#FFD700] text-[#7A6200] text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0"><Sparkles className="h-2.5 w-2.5" />Buy box</span>
+                        <span className="text-[13px] font-medium text-gray-800 truncate flex-1 group-hover:text-[#0A2540]">{l.headline}</span>
+                        <span className="text-[11px] text-gray-400 shrink-0">{l.region ?? ''}</span>
+                        <ChevronRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-[#0A2540] shrink-0" />
+                      </Link>
+                    ))}
+                    {attention.count > 3 && <Link to="/deals" className="block text-[12px] font-semibold text-[#0A2540] pt-2.5 hover:underline">{attention.count - 3} more waiting →</Link>}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="grid md:grid-cols-2 gap-4">
               <div className={card + ' p-5'}>
                 <div className="font-semibold text-gray-900 mb-3">How it flows</div>

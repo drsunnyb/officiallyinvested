@@ -2,7 +2,7 @@
 // Goes straight to Stripe Checkout; falls back to email if payments are off.
 import { useState } from 'react';
 import { X, Sparkles, Check, Loader2 } from 'lucide-react';
-import { billingCheckout } from '../lib/acq';
+import { billingCheckout, onboardStatus } from '../lib/acq';
 
 const TIERS: { key: 'analyst' | 'originator' | 'team'; name: string; price: string; blurb: string; feats: string[]; featured?: boolean }[] = [
   { key: 'analyst', name: 'Analyst', price: '£99', blurb: 'Screen 30 businesses, take 2 to offer. Every month.', feats: ['100 AI credits + 10 letters included monthly', 'Full AI analysis, committee, memos & drafts in your voice', 'Unlimited pipeline deals & CRM', 'Member deals open to you on day 7'] },
@@ -14,11 +14,18 @@ export default function Paywall({ onClose, context }: { onClose: () => void; con
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const [annual, setAnnual] = useState(false);
+  const [plan, setPlan] = useState<string | null>(null);
+  useEffect(() => { onboardStatus().then((st) => setPlan(st.plan ?? 'free')).catch(() => setPlan(null)); }, []);
+  const NEXT: Record<string, string> = { analyst: 'originator', originator: 'team' };
+  const paid = !!plan && plan !== 'free';
+  const featuredKey = paid && NEXT[plan!] ? NEXT[plan!] : 'originator';
   const ANNUAL_PRICE: Record<string, string> = { analyst: '£990', originator: '£2,990', team: '£7,490' };
-  const go = async (plan: 'analyst' | 'originator' | 'team') => {
+  const go = async (target: 'analyst' | 'originator' | 'team') => {
+    const plan = target;
     setBusy(plan); setErr('');
     try {
-      const r = await billingCheckout(plan, annual ? 'annual' : 'monthly');
+      const r: any = await billingCheckout(plan, annual ? 'annual' : 'monthly');
+      if (r.changed) { alert(r.message ?? 'Plan changed. Stripe prorates the difference.'); window.location.reload(); return; }
       if (r.url) { window.location.href = r.url; return; }
       setErr(r.message || r.error || 'Checkout unavailable - email sandeep@officiallyinvested.com');
     } catch (e: any) { setErr(e.message || String(e)); }
@@ -30,8 +37,8 @@ export default function Paywall({ onClose, context }: { onClose: () => void; con
         <div className="flex items-start justify-between">
           <div>
             <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#0A2540] bg-[#FFD700] px-2.5 py-1 rounded-full"><Sparkles className="h-3 w-3" /> Upgrade to unlock</div>
-            <h2 className="font-serif text-2xl font-bold text-gray-900 mt-3">{context ?? 'This is where the AI takes over'}</h2>
-            <p className="text-[13px] text-gray-500 mt-1 max-w-lg">Your pipeline and CRM stay free forever. The AI analyst, automated outreach and full deal access are what paying members get.</p>
+            <h2 className="font-serif text-2xl font-bold text-gray-900 mt-3">{paid ? (plan === 'team' ? 'You are on our top plan' : 'Ready for the next tier?') : (context ?? 'This is where the AI takes over')}</h2>
+            <p className="text-[13px] text-gray-500 mt-1 max-w-lg">{paid ? (plan === 'team' ? 'Top up credits any time from the Credits panel - or talk to us about bespoke volume.' : `You are on ${plan![0].toUpperCase()}${plan!.slice(1)}. Upgrading lifts your monthly credits and deal-flow access instantly, and Stripe prorates the difference.`) : 'Your pipeline and CRM stay free forever. The AI analyst, automated outreach and full deal access are what paying members get.'}</p>
           </div>
           <button onClick={onClose}><X className="h-5 w-5 text-gray-400" /></button>
         </div>
@@ -41,8 +48,9 @@ export default function Paywall({ onClose, context }: { onClose: () => void; con
         </div>
         <div className="grid sm:grid-cols-3 gap-4 mt-4">
           {TIERS.map((t) => (
-            <div key={t.key} className={'rounded-2xl border p-5 flex flex-col ' + (t.featured ? 'border-[#FFD700] shadow-xl relative bg-gradient-to-b from-[#FFFDF2] to-white' : 'border-gray-200 bg-white')}>
-              {t.featured && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#FFD700] text-[#0A2540] text-[10px] font-bold px-3 py-0.5 rounded-full">MOST POPULAR</span>}
+            <div key={t.key} className={'rounded-2xl border p-5 flex flex-col relative ' + (t.key === plan ? 'border-emerald-400 bg-emerald-50/30' : t.key === featuredKey ? 'border-[#FFD700] shadow-xl bg-gradient-to-b from-[#FFFDF2] to-white' : 'border-gray-200 bg-white')}>
+              {t.key === plan && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[10px] font-bold px-3 py-0.5 rounded-full">YOUR CURRENT PLAN</span>}
+              {t.key !== plan && t.key === featuredKey && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#FFD700] text-[#0A2540] text-[10px] font-bold px-3 py-0.5 rounded-full">{paid ? 'YOUR NEXT STEP' : 'MOST POPULAR'}</span>}
               <div className="font-bold text-gray-900">{t.name}</div>
               <div className="mt-1">
                 <span className="font-serif text-3xl font-bold text-gray-900">{annual ? ANNUAL_PRICE[t.key] : t.price}</span>
@@ -53,9 +61,9 @@ export default function Paywall({ onClose, context }: { onClose: () => void; con
               <ul className="mt-3 space-y-1.5 flex-1">
                 {t.feats.map((f) => <li key={f} className="flex items-start gap-1.5 text-[12px] text-gray-600"><Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-px" />{f}</li>)}
               </ul>
-              <button onClick={() => go(t.key)} disabled={!!busy}
-                className={'mt-4 w-full rounded-xl py-2.5 text-sm font-bold transition ' + (t.featured ? 'bg-[#FFD700] text-[#0A2540] hover:brightness-95' : 'bg-[#0A2540] text-white hover:bg-[#0E3257]')}>
-                {busy === t.key ? <Loader2 className="h-4 w-4 animate-spin inline" /> : `Choose ${t.name}`}
+              <button onClick={() => go(t.key)} disabled={!!busy || t.key === plan}
+                className={'mt-4 w-full rounded-xl py-2.5 text-sm font-bold transition ' + (t.key === plan ? 'bg-emerald-100 text-emerald-800 cursor-default' : t.key === featuredKey ? 'bg-[#FFD700] text-[#0A2540] hover:brightness-95' : 'bg-[#0A2540] text-white hover:bg-[#0E3257]')}>
+                {busy === t.key ? <Loader2 className="h-4 w-4 animate-spin inline" /> : t.key === plan ? 'Your current plan' : paid ? (['analyst', 'originator', 'team'].indexOf(t.key) > ['analyst', 'originator', 'team'].indexOf(plan!) ? `Upgrade to ${t.name} →` : `Switch to ${t.name}`) : `Choose ${t.name}`}
               </button>
             </div>
           ))}
