@@ -76,7 +76,11 @@ export async function legalFillBroker(deal_id: string, file: File, counterparty?
 }
 export const crmList = (q?: string) => invoke<{ ok: boolean; contacts: any[]; tasks: any[] }>('acq-crm', { action: 'list', ...(q && q.trim() ? { q: q.trim() } : {}) });
 export const crmUpdateContact = (contact_id: string, patch: Record<string, unknown>) => invoke<{ ok: boolean; contact: any }>('acq-crm', { action: 'contact_update', contact_id, patch });
-export const meetingCreate = (m: { title: string; starts_at: string; duration_mins?: number; location?: string; notes?: string; contact_id?: string | null; deal_id?: string | null }) => invoke<{ ok: boolean; meeting: any }>('acq-crm', { action: 'meeting_create', ...m });
+export const meetingCreate = (m: { title: string; starts_at: string; duration_mins?: number; location?: string; notes?: string; contact_id?: string | null; deal_id?: string | null; invite_self?: boolean; invite_contact?: boolean }) => invoke<{ ok: boolean; meeting: any; invited?: string[] }>('acq-crm', { action: 'meeting_create', ...m });
+export const crmCommThread = (contact_id: string) => invoke<{ ok: boolean; thread: any[] }>('acq-crm', { action: 'comm_thread', contact_id });
+export const crmReply = (p: { to: string; subject: string; body: string; contact_id?: string; deal_id?: string | null; attachments?: { file_name: string; base64: string }[] }) => invoke<{ ok: boolean; communication: any }>('acq-crm', { action: 'comm_reply', ...p });
+export const crmAiDraftReply = (contact_id: string, instruction?: string, for_approval?: boolean) => invoke<{ ok: boolean; draft?: { subject: string; body: string; needs_review_because?: string }; task?: any }>('acq-crm', { action: 'ai_draft_reply', contact_id, ...(instruction ? { instruction } : {}), ...(for_approval ? { for_approval: true } : {}) });
+export const crmApproveReply = (task_id: string) => invoke<{ ok: boolean; sent?: boolean }>('acq-crm', { action: 'approve_reply_task', task_id });
 export const meetingUpdate = (meeting_id: string, patch: Record<string, unknown>) => invoke<{ ok: boolean; meeting: any }>('acq-crm', { action: 'meeting_update', meeting_id, patch });
 export const meetingCancel = (meeting_id: string) => invoke('acq-crm', { action: 'meeting_cancel', meeting_id });
 export const meetingsList = (contact_id?: string) => invoke<{ ok: boolean; meetings: any[] }>('acq-crm', { action: 'meetings_list', ...(contact_id ? { contact_id } : {}) });

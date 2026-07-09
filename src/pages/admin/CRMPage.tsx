@@ -6,8 +6,8 @@
 // own people. Identical for the host admin and every user (feature parity).
 // =============================================================================
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, X, Check, LogOut, RefreshCw, Search, Calendar, Phone, Mail, FileText, Users, Pencil } from 'lucide-react';
-import { crmList, crmAddContact, crmContactDetail, crmUpdateContact, crmAddTask, crmCompleteTask, meetingCreate, meetingUpdate, meetingCancel, meetingsList } from '../../lib/acq';
+import { Loader2, X, Check, LogOut, RefreshCw, Search, Calendar, Phone, Mail, FileText, Users, Pencil, Paperclip, Sparkles } from 'lucide-react';
+import { crmList, crmAddContact, crmContactDetail, crmUpdateContact, crmAddTask, crmCompleteTask, meetingCreate, meetingUpdate, meetingCancel, meetingsList, crmCommThread, crmReply, crmAiDraftReply, crmApproveReply } from '../../lib/acq';
 import { supabase } from '../../lib/supabase';
 
 const NAVY = '#0A2540';
@@ -133,12 +133,20 @@ export default function CRMPage() {
 
 function ContactDetail({ contactId, onChanged, setErr }: { contactId: string; onChanged: () => void; setErr: (m: string) => void }) {
   const [d, setD] = useState<any>(null);
-  const [tab, setTab] = useState<'timeline' | 'meetings' | 'deals' | 'tasks'>('timeline');
+  const [tab, setTab] = useState<'timeline' | 'comms' | 'meetings' | 'deals' | 'files' | 'tasks'>('timeline');
   const [editing, setEditing] = useState(false);
   const [ef, setEf] = useState<Record<string, string>>({});
   const [mf, setMf] = useState<Record<string, string>>({ duration: '30' });
+  const [inviteSelf, setInviteSelf] = useState(true);
+  const [inviteContact, setInviteContact] = useState(false);
   const [tf, setTf] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState('');
+  const [thread, setThread] = useState<any[] | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [rf, setRf] = useState<Record<string, string>>({});
+  const [rFiles, setRFiles] = useState<File[]>([]);
+  const [reviewNote, setReviewNote] = useState('');
+  const rFileRef = useRef<HTMLInputElement>(null);
   const load = () => crmContactDetail(contactId).then(setD).catch((e: any) => setErr(e.message || String(e)));
   useEffect(() => { load(); }, [contactId]);
   if (!d?.contact) return <div className="bg-white/[0.04] border border-white/10 rounded-xl p-14 text-center"><Loader2 className="h-5 w-5 animate-spin text-[#FFD700] mx-auto" /></div>;
@@ -153,8 +161,35 @@ function ContactDetail({ contactId, onChanged, setErr }: { contactId: string; on
   const schedule = async () => {
     if (!mf.title?.trim() || !mf.date || !mf.time) return;
     setBusy('meet');
-    try { await meetingCreate({ title: mf.title.trim(), starts_at: new Date(mf.date + 'T' + mf.time).toISOString(), duration_mins: Number(mf.duration) || 30, location: mf.location || undefined, contact_id: c.id }); setMf({ duration: '30' }); await load(); }
+    try { await meetingCreate({ title: mf.title.trim(), starts_at: new Date(mf.date + 'T' + mf.time).toISOString(), duration_mins: Number(mf.duration) || 30, location: mf.location || undefined, contact_id: c.id, invite_self: inviteSelf, invite_contact: inviteContact }); setMf({ duration: '30' }); await load(); }
     catch (e: any) { setErr(e.message || String(e)); }
+    setBusy('');
+  };
+  const gcalUrl = (m: any) => {
+    const f = (x: Date) => x.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const s = new Date(m.starts_at); const e = new Date(s.getTime() + (Number(m.duration_mins) || 30) * 60000);
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(m.title) + '&dates=' + f(s) + '/' + f(e) + (m.location ? '&location=' + encodeURIComponent(m.location) : '') + '&details=' + encodeURIComponent('From your Officially Invested CRM');
+  };
+  const loadThread = () => crmCommThread(c.id).then((r) => setThread(r.thread || [])).catch((e: any) => setErr(e.message || String(e)));
+  const toB64 = (file: File) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] ?? ''); r.onerror = rej; r.readAsDataURL(file); });
+  const sendReply = async () => {
+    if (!rf.body?.trim()) return;
+    setBusy('send');
+    try {
+      const attachments = [] as any[];
+      for (const f of rFiles) attachments.push({ file_name: f.name, base64: await toB64(f) });
+      await crmReply({ to: rf.to || c.email, subject: rf.subject || 'Re: our conversation', body: rf.body, contact_id: c.id, attachments });
+      setRf({}); setRFiles([]); setReviewNote(''); await Promise.all([load(), loadThread()]);
+    } catch (e: any) { setErr(e.message || String(e)); }
+    setBusy('');
+  };
+  const aiDraft = async (forApproval: boolean) => {
+    setBusy(forApproval ? 'park' : 'draft');
+    try {
+      const r = await crmAiDraftReply(c.id, rf.body?.trim() || undefined, forApproval);
+      if (forApproval) { setReviewNote('Parked as a task: review and send it from Tasks with one click.'); await load(); }
+      else if (r.draft) { setRf({ ...rf, subject: r.draft.subject, body: r.draft.body }); setReviewNote(r.draft.needs_review_because ? 'Check before sending: ' + r.draft.needs_review_because : 'Draft ready. Read it, tweak it, send it.'); }
+    } catch (e: any) { setErr(e.message || String(e)); }
     setBusy('');
   };
   const markHeld = async (m: any) => {
@@ -209,10 +244,67 @@ function ContactDetail({ contactId, onChanged, setErr }: { contactId: string; on
 
       <div className="flex gap-2 flex-wrap mt-5 mb-4">
         <TabBtn k="timeline" label="Timeline" n={d.timeline?.length} />
+        <TabBtn k="comms" label="Comms" n={d.communications?.length} />
         <TabBtn k="meetings" label="Meetings" n={scheduled.length} />
         <TabBtn k="deals" label="Deals" n={d.deals?.length} />
+        <TabBtn k="files" label="Files" n={d.documents?.length} />
         <TabBtn k="tasks" label="Tasks" n={(d.tasks || []).filter((t: any) => t.status === 'open').length} />
       </div>
+
+      {tab === 'comms' && (
+        <div>
+          {/* reply from here: yours to write, or the agent drafts it */}
+          <div className="bg-white/[0.05] border border-white/10 rounded-xl p-4 mb-4">
+            <div className="text-white/40 text-[11px] font-bold uppercase tracking-wide mb-2.5">Reply from here</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+              <input className={input} placeholder={'To (' + (c.email ?? 'add their email first') + ')'} value={rf.to ?? ''} onChange={(e) => setRf({ ...rf, to: e.target.value })} />
+              <input className={input} placeholder="Subject" value={rf.subject ?? ''} onChange={(e) => setRf({ ...rf, subject: e.target.value })} />
+            </div>
+            <textarea className={input + ' w-full h-32 resize-none'} placeholder="Write the reply, or type what you want to say in rough notes and let the agent draft it properly." value={rf.body ?? ''} onChange={(e) => setRf({ ...rf, body: e.target.value })} />
+            {reviewNote && <div className="text-[12px] text-[#FFD700] mt-2">{reviewNote}</div>}
+            <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+              <button onClick={() => rFileRef.current?.click()} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white/70 border border-white/25 rounded-full px-3 py-1.5 hover:border-white/50"><Paperclip className="h-3.5 w-3.5" /> Attach</button>
+              <input ref={rFileRef} type="file" multiple className="hidden" onChange={(e) => { const fs = Array.from(e.target.files ?? []).filter((f) => f.size < 3 * 1024 * 1024); setRFiles((p) => [...p, ...fs].slice(0, 3)); e.target.value = ''; }} />
+              {rFiles.map((f, i) => <span key={i} className="inline-flex items-center gap-1 text-[11px] bg-white/10 text-white/80 rounded-full px-2.5 py-1">{f.name.slice(0, 22)}<button onClick={() => setRFiles(rFiles.filter((_, j) => j !== i))} className="text-white/40 hover:text-white"><X className="h-3 w-3" /></button></span>)}
+              <div className="flex-1" />
+              <button onClick={() => aiDraft(false)} disabled={busy !== ''} className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#FFD700] border border-[#FFD700]/40 rounded-full px-3.5 py-1.5 hover:bg-[#FFD700]/10 disabled:opacity-40"><Sparkles className="h-3.5 w-3.5" /> {busy === 'draft' ? 'Drafting…' : 'AI: draft it'}</button>
+              <button onClick={() => aiDraft(true)} disabled={busy !== ''} className="text-[12px] font-semibold text-white/70 border border-white/25 rounded-full px-3.5 py-1.5 hover:border-white/50 disabled:opacity-40">{busy === 'park' ? 'Parking…' : 'Draft as approval task'}</button>
+              <button onClick={sendReply} disabled={busy !== '' || !rf.body?.trim() || !(rf.to || c.email)} className="bg-[#FFD700] text-[#0A2540] rounded-full text-[13px] font-bold px-4 py-1.5 disabled:opacity-40">{busy === 'send' ? 'Sending…' : 'Send'}</button>
+            </div>
+            <div className="text-white/30 text-[11px] mt-2">Sends from Officially Invested with replies coming straight back to your inbox, and it is logged on the timeline.</div>
+          </div>
+          {/* the full correspondence, summarised rows that open out */}
+          {thread === null ? <button onClick={loadThread} className="text-[12.5px] text-[#FFD700] underline underline-offset-2">Load the full correspondence</button> :
+            thread.length === 0 ? <div className="text-white/35 text-[13px] py-4">No written correspondence yet.</div> :
+            thread.map((x: any) => (
+              <div key={x.id} className="py-2.5 border-b border-white/[0.06] cursor-pointer" onClick={() => setExpanded((s) => { const n = new Set(s); n.has(x.id) ? n.delete(x.id) : n.add(x.id); return n; })}>
+                <div className="flex items-center gap-2">
+                  <span className={'text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ' + (x.direction === 'in' ? 'bg-emerald-400/25 text-emerald-200' : 'bg-white/10 text-white/60')}>{x.direction === 'in' ? 'THEM' : 'YOU'}</span>
+                  <div className="text-white/85 text-[13px] font-semibold truncate flex-1">{x.subject || x.kind}{x.deal_name && <span className="text-white/35 font-normal"> · {x.deal_name}</span>}</div>
+                  <div className="text-white/30 text-[11px] shrink-0">{fmtDT(x.happened_at)}</div>
+                </div>
+                <div className={'text-white/55 text-[12.5px] mt-1 whitespace-pre-wrap ' + (expanded.has(x.id) ? '' : 'line-clamp-2')}>{x.body}</div>
+                {!expanded.has(x.id) && String(x.body ?? '').length > 160 && <div className="text-[#FFD700]/70 text-[11px] mt-0.5">click to read in full</div>}
+              </div>
+            ))}
+        </div>
+      )}
+
+      {tab === 'files' && (
+        <div>
+          {(d.documents ?? []).length === 0 && <div className="text-white/35 text-[13px] py-6">No files yet. Documents uploaded on their deals appear here automatically.</div>}
+          {(d.documents ?? []).map((f: any) => (
+            <div key={f.id} className="flex items-center gap-3 py-2.5 border-b border-white/[0.06]">
+              <FileText className="h-4 w-4 text-[#FFD700] shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="text-white/85 text-[13px] font-semibold truncate">{f.file_name}</div>
+                <div className="text-white/40 text-[11.5px]">{(d.deals ?? []).find((x: any) => x.id === f.deal_id)?.name ?? 'deal document'} · {fmtDT(f.created_at)}</div>
+              </div>
+            </div>
+          ))}
+          <div className="text-white/30 text-[11px] mt-3">Open the deal in your pipeline to read or add documents; the analyst reads everything filed there.</div>
+        </div>
+      )}
 
       {tab === 'timeline' && (
         <div>
@@ -247,6 +339,10 @@ function ContactDetail({ contactId, onChanged, setErr }: { contactId: string; on
               <input className={input + ' md:col-span-2'} placeholder="Where (phone, video link, their office)" value={mf.location ?? ''} onChange={(e) => setMf({ ...mf, location: e.target.value })} />
               <button onClick={schedule} disabled={busy === 'meet' || !mf.title?.trim() || !mf.date || !mf.time} className="bg-[#FFD700] text-[#0A2540] rounded-lg text-sm font-bold py-2 disabled:opacity-40">{busy === 'meet' ? 'Saving…' : 'Schedule'}</button>
             </div>
+            <div className="flex gap-4 mt-2.5 text-[12px] text-white/60">
+              <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={inviteSelf} onChange={(e) => setInviteSelf(e.target.checked)} /> Put it in my calendar (invite by email)</label>
+              {c.email && <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={inviteContact} onChange={(e) => setInviteContact(e.target.checked)} /> Send {c.name.split(' ')[0]} an invite too</label>}
+            </div>
           </div>
           {(d.meetings ?? []).length === 0 && <div className="text-white/35 text-[13px]">No meetings with {c.name.split(' ')[0]} yet.</div>}
           {(d.meetings ?? []).map((m: any) => (
@@ -257,7 +353,8 @@ function ContactDetail({ contactId, onChanged, setErr }: { contactId: string; on
                 <div className="text-white/40 text-[11.5px]">{fmtDT(m.starts_at)} · {m.duration_mins} mins{m.location ? ' · ' + m.location : ''}{m.outcome ? ' · ' + m.outcome : ''}</div>
               </div>
               {m.status === 'scheduled' && (
-                <div className="flex gap-1.5 shrink-0">
+                <div className="flex gap-1.5 shrink-0 items-center">
+                  <a href={gcalUrl(m)} target="_blank" rel="noreferrer" className="text-[11px] font-bold text-[#FFD700] border border-[#FFD700]/40 rounded-full px-2.5 py-1 hover:bg-[#FFD700]/10">Google Calendar</a>
                   <button onClick={() => markHeld(m)} className="text-[11px] font-bold text-emerald-300 border border-emerald-400/40 rounded-full px-2.5 py-1 hover:bg-emerald-400/10">Mark held</button>
                   <button onClick={async () => { await meetingCancel(m.id); load(); }} className="text-white/30 hover:text-red-400" title="Cancel"><X className="h-3.5 w-3.5" /></button>
                 </div>
@@ -287,7 +384,16 @@ function ContactDetail({ contactId, onChanged, setErr }: { contactId: string; on
           {(d.tasks ?? []).filter((t: any) => t.status === 'open').map((t: any) => (
             <div key={t.id} className="flex items-start gap-2.5 py-2 border-b border-white/[0.06]">
               <button onClick={async () => { await crmCompleteTask(t.id); load(); }} className="mt-0.5 text-white/25 hover:text-emerald-400" title="Mark done"><Check className="h-4 w-4" /></button>
-              <div className="text-[13px] text-white/85">{t.title}{t.due_date && <span className="text-white/35 text-[11px] ml-2">due {String(t.due_date).slice(0, 10)}</span>}</div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] text-white/85">{t.title}{t.due_date && <span className="text-white/35 text-[11px] ml-2">due {String(t.due_date).slice(0, 10)}</span>}</div>
+                {t.meta?.action === 'approve_reply' && t.meta?.draft && (
+                  <div className="mt-1.5 bg-white/[0.05] border border-[#FFD700]/30 rounded-lg p-3">
+                    <div className="text-[11px] text-white/45 mb-1">To {t.meta.draft.to} · {t.meta.draft.subject}</div>
+                    <div className="text-[12.5px] text-white/70 whitespace-pre-wrap">{t.meta.draft.body}</div>
+                    <button onClick={async () => { setBusy('appr'); try { await crmApproveReply(t.id); await Promise.all([load(), loadThread()]); } catch (e: any) { setErr(e.message || String(e)); } setBusy(''); }} disabled={busy === 'appr'} className="mt-2 bg-[#FFD700] text-[#0A2540] rounded-full text-[12px] font-bold px-4 py-1.5 disabled:opacity-40">{busy === 'appr' ? 'Sending…' : 'Approve and send'}</button>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
           {(d.tasks ?? []).filter((t: any) => t.status === 'open').length === 0 && <div className="text-white/35 text-[13px] py-4">Nothing outstanding for {c.name.split(' ')[0]}.</div>}

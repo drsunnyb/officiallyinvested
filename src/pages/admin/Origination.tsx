@@ -11,7 +11,7 @@ import {
   outreachList, outreachCreate, outreachUpdate, outreachDraftTemplates, outreachEnrol,
   outreachQueue, outreachApprove, outreachApproveAll, outreachRun, outreachMarkReplied, outreachUpdateTouch,
   dfListings,
-  getOrgSettings, setOrgSettings, crmList, crmAddTask, crmCompleteTask, crmAiTasks,
+  getOrgSettings, setOrgSettings, crmList, crmAddTask, crmCompleteTask, crmAiTasks, crmApproveReply,
   buyboxList, buyboxChat, buyboxCreate, buyboxActivate, buyboxDelete,
   dfAdminReleases, dfAdminReleaseUpsert, dfAdminPublish, dfAdminBoard, dfAdminDecide, dfAdminAdvance,
   dfAdminExclusivity, dfAdminAnswer, dfAdminCountersign, dfAdminMembers, dfAdminMemberUpsert,
@@ -940,9 +940,11 @@ function ContactsView({ setErr, go }: { setErr: (s: string) => void; go: (v: any
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] text-gray-800">{t.title}{t.meta?.auto && <span className="ml-1.5 inline-flex text-[9px] font-bold bg-[#FFD700]/20 text-[#8a6d00] border border-[#FFD700]/50 rounded-full px-1.5 py-px uppercase align-middle">AI</span>}</div>
                 <div className={'text-[11px] ' + (overdue(t) ? 'text-red-500 font-semibold' : 'text-gray-400')}>{[t.contact_name, t.due_date ? (overdue(t) ? 'overdue · was due ' : 'due ') + String(t.due_date).slice(0, 10) : null].filter(Boolean).join(' · ') || 'no due date'}</div>
-                {t.meta?.action && TASK_ACTION_LABEL[t.meta.action] && (
+                {t.meta?.action === 'approve_reply' && t.meta?.draft ? (
+                  <button onClick={async () => { if (window.confirm('Send this reply?\n\nTo: ' + t.meta.draft.to + '\nSubject: ' + (t.meta.draft.subject ?? '') + '\n\n' + t.meta.draft.body)) { try { await crmApproveReply(t.id); await load(); } catch (e: any) { setErr(e.message || String(e)); } } }} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-[#0A2540] bg-[#FFD700] hover:brightness-95 rounded-full px-3 py-1">Review and send →</button>
+                ) : t.meta?.action && TASK_ACTION_LABEL[t.meta.action] ? (
                   <button onClick={() => runAction(t.meta.action)} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-[#0A2540] bg-[#FFD700] hover:brightness-95 rounded-full px-3 py-1">{TASK_ACTION_LABEL[t.meta.action]} →</button>
-                )}
+                ) : null}
                 {t.meta?.action === 'call_or_manual' && (
                   <div className="mt-1 text-[11px] text-gray-500">This one needs you in person. The brief above tells you exactly what to do; mark it done when it is.</div>
                 )}
