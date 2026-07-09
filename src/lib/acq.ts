@@ -180,6 +180,8 @@ export const billingPortal = () => invoke<{ ok?: boolean; url?: string; error?: 
 export const liteDeals = () => invoke<{ ok: boolean; deals: any[]; stages: string[] }>('acq-onboard', { action: 'deals_list' });
 export const liteDealCreate = (deal: Record<string, unknown>) => invoke<{ ok: boolean; deal: any }>('acq-onboard', { action: 'deal_create', deal });
 export const liteDealUpdate = (deal_id: string, patch: Record<string, unknown>) => invoke<{ ok: boolean; deal: any }>('acq-onboard', { action: 'deal_update', deal_id, ...patch });
+export const dealIntake = (p: { text?: string; website?: string; attachments?: { file_name: string; media_type: string; base64?: string; text?: string }[] }) =>
+  invoke<{ ok: boolean; deal?: any; host?: boolean; submission_id?: string; reference?: string; summary: string; confidence: string; score: number | null; band: string | null; missing_info: { item: string; why?: string }[]; ch_matched: boolean }>('acq-onboard', { action: 'deal_intake', ...p });
 // ---------------- Metered credits ----------------
 export const creditsBalance = () => invoke<{ ok: boolean; ai: number; letter: number; detail: any; packs: Record<string, { kind: string; qty: number; amount: number; label: string }>; events: any[] }>('acq-credits', { action: 'balance' });
 export const creditsConsume = (kind: 'ai' | 'letter', amount = 1, reason?: string) => invoke<{ ok: boolean; balance?: { ai: number; letter: number }; needs_topup?: boolean; ai?: number; letter?: number }>('acq-credits', { action: 'consume', kind, amount, ...(reason ? { reason } : {}) });
