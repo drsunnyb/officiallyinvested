@@ -1088,9 +1088,14 @@ function LetterPreview({ touch, credits, onClose, onSaved, onApprove }: { touch:
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const isLetter = touch.channel === 'letter';
-  const save = async () => {
+  const save = async (apply?: 'campaign') => {
     setBusy(true); setErr('');
-    try { const r = await outreachUpdateTouch(touch.id, { body }); onSaved(r.touch); setEditing(false); }
+    try {
+      const r: any = await outreachUpdateTouch(touch.id, apply ? ({ body, apply } as any) : { body });
+      onSaved(r.touch);
+      if (apply && r.applied != null) alert(`Saved. ${r.applied} other unsent letter${r.applied === 1 ? '' : 's'} in this campaign updated with each owner's own details.`);
+      setEditing(false);
+    }
     catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(false); }
   };
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -1101,7 +1106,8 @@ function LetterPreview({ touch, credits, onClose, onSaved, onApprove }: { touch:
           <div className="text-white font-serif font-bold text-lg">{isLetter ? 'Letter preview' : 'Email preview'} <span className="text-white/50 text-[13px] font-sans font-normal">· {touch.company_name}</span></div>
           <div className="flex gap-2">
             {!editing && <button className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'} onClick={() => setEditing(true)}>Edit</button>}
-            {editing && <button className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'} disabled={busy} onClick={save}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save changes'}</button>}
+            {editing && <button className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'} disabled={busy} onClick={() => save()}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save this letter'}</button>}
+            {editing && <button className={btnGhost + ' !text-white !border-[#FFD700]/60 hover:!bg-white/10'} disabled={busy} onClick={() => save('campaign')} title="Updates the campaign template and every unsent letter, keeping each owner's own name and details">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save for all unsent'}</button>}
             <button className={btnGold} onClick={onApprove}><Check className="h-4 w-4" />Approve{isLetter ? ' · 1 letter credit' : ''}</button>
             <button className="text-white/50 hover:text-white px-2" onClick={onClose}><X className="h-5 w-5" /></button>
           </div>

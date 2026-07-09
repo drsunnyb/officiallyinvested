@@ -16,13 +16,27 @@ const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 const clean = (s: string) => s.replace(/—/g, ', ').replace(/\*\*|##+|```/g, '').replace(/^ +| +$/gm, (m) => m).trim();
-const render = (tpl: string, p: any, org: any) => tpl
-  .replace(/{{\s*company_name\s*}}/g, p.company_name ?? 'your business')
-  .replace(/{{\s*owner_name\s*}}/g, p.owner_name ?? 'there')
-  .replace(/{{\s*first_name\s*}}/g, (p.owner_name ?? '').split(' ')[0] || 'there')
-  .replace(/{{\s*region\s*}}/g, p.region ?? 'your area')
-  .replace(/{{\s*sender_name\s*}}/g, org.sender_name ?? org.name ?? '')
-  .replace(/{{\s*sender_company\s*}}/g, org.name ?? '');
+// Name chain: explicit owner name -> oldest registered director (Companies
+// House "SURNAME, First Middle" format, title-cased) -> a courteous phrase.
+const tc = (x: string) => x.toLowerCase().replace(/(^|[\s-'])[a-z]/g, (c) => c.toUpperCase());
+const directorName = (p: any): string | null => {
+  const ds = Array.isArray(p?.directors) ? [...p.directors].sort((a: any, b: any) => (a?.dob_year ?? 9999) - (b?.dob_year ?? 9999)) : [];
+  const n = ds[0]?.name; if (!n) return null;
+  const parts = String(n).split(','); const last = (parts[0] ?? '').trim(); const first = (parts[1] ?? '').trim().split(/\s+/)[0] ?? '';
+  const full = [first, last].filter(Boolean).map(tc).join(' ');
+  return full || null;
+};
+const bestName = (p: any): string | null => (p?.owner_name && String(p.owner_name).trim()) || directorName(p);
+const render = (tpl: string, p: any, org: any) => {
+  const name = bestName(p);
+  return tpl
+    .replace(/{{\s*company_name\s*}}/g, p.company_name ?? 'your business')
+    .replace(/{{\s*owner_name\s*}}/g, name ?? 'Business Owner')
+    .replace(/{{\s*first_name\s*}}/g, (name ?? '').split(' ')[0] || 'Business Owner')
+    .replace(/{{\s*region\s*}}/g, p.region ?? 'your area')
+    .replace(/{{\s*sender_name\s*}}/g, org.sender_name ?? org.name ?? '')
+    .replace(/{{\s*sender_company\s*}}/g, org.name ?? '');
+};
 
 async function isSuppressed(sql: any, orgId: string, p: any): Promise<string | null> {
   const vals: { kind: string; value: string }[] = [];
@@ -163,10 +177,32 @@ Deno.serve(async (req: Request) => {
           body = ${body.body != null ? String(body.body).slice(0, 6000) : sql`body`},
           subject = ${body.subject !== undefined ? (body.subject ? String(body.subject).slice(0, 200) : null) : sql`subject`}
         where id=${body.touch_id} and org_id=${orgId} and status in ('needs_approval','queued')
-        returning id, body, subject`)[0];
+        returning id, body, subject, step_id, prospect_id, campaign_id`)[0];
       if (!t) { await sql.end({ timeout: 5 }); return json({ error: 'not editable (already approved or sent)' }, 400); }
+      let applied = 0;
+      if (body.apply === 'campaign' && t.step_id && body.body != null) {
+        // De-personalise the edit back into merge fields, save it as the step
+        // template, and re-render every unsent letter of this step so the whole
+        // campaign carries the change while each owner keeps their own details.
+        const me = (await sql`select * from acq.prospects where id=${t.prospect_id}`)[0];
+        let tpl = String(body.body).slice(0, 6000);
+        const sub = (val: string | null, token: string) => { if (val && String(val).trim().length > 2) tpl = tpl.split(String(val)).join(token); };
+        sub(me?.company_name, '{{company_name}}');
+        sub(me?.owner_name, '{{owner_name}}');
+        sub((me?.owner_name ?? '').split(' ')[0] || null, '{{first_name}}');
+        sub(me?.region, '{{region}}');
+        await sql`update acq.campaign_steps set body=${tpl} where id=${t.step_id}`;
+        const outreachCfg = org?.settings?.outreach ?? {};
+        const siblings = await sql`select tt.id as touch_id, p.* from acq.outreach_touches tt join acq.prospects p on p.id=tt.prospect_id
+          where tt.step_id=${t.step_id} and tt.org_id=${orgId} and tt.status in ('needs_approval','queued') and tt.id != ${t.touch_id}`;
+        for (const p of siblings) {
+          const rendered = render(tpl, p, { ...org, sender_name: outreachCfg.sender_name });
+          await sql`update acq.outreach_touches set body=${rendered} where id=${p.touch_id}`;
+          applied++;
+        }
+      }
       await sql.end({ timeout: 5 });
-      return json({ ok: true, touch: t });
+      return json({ ok: true, touch: t, applied });
     }
 
     if (action === 'approve' || action === 'cancel') {
@@ -263,7 +299,7 @@ async function runOrg(sql: any, cfg: any, org: any) {
     const sentToday = Number((await sql`select count(*)::int as n from acq.outreach_touches where campaign_id=${c.id} and status='sent' and sent_at::date = (now() at time zone 'Europe/London')::date`)[0].n);
     const budget = Math.max(0, c.daily_cap - sentToday);
     if (!budget) continue;
-    const toSend = await sql`select t.*, p.company_name, p.owner_name, p.owner_email, p.address, p.postcode, p.region from acq.outreach_touches t join acq.prospects p on p.id=t.prospect_id where t.campaign_id=${c.id} and t.status='approved' order by t.created_at limit ${Math.min(budget, 25)}`;
+    const toSend = await sql`select t.*, p.company_name, p.owner_name, p.owner_email, p.address, p.postcode, p.region, p.directors from acq.outreach_touches t join acq.prospects p on p.id=t.prospect_id where t.campaign_id=${c.id} and t.status='approved' order by t.created_at limit ${Math.min(budget, 25)}`;
     for (const t of toSend) {
       try {
         if (t.channel === 'email') {
@@ -279,7 +315,8 @@ async function runOrg(sql: any, cfg: any, org: any) {
           if (!cfg.stannp_api_key) { continue; /* stays approved until the key exists */ }
           const fd = new FormData();
           fd.set('test', org?.settings?.outreach?.letters_live ? 'false' : 'true');
-          fd.set('recipient[title]', ''); fd.set('recipient[firstname]', (t.owner_name ?? 'The').split(' ')[0]); fd.set('recipient[lastname]', (t.owner_name ?? 'Business Owner').split(' ').slice(1).join(' ') || 'Owner');
+          const envName = bestName(t) ?? 'The Business Owner';
+          fd.set('recipient[title]', ''); fd.set('recipient[firstname]', envName.split(' ')[0]); fd.set('recipient[lastname]', envName.split(' ').slice(1).join(' ') || 'Owner');
           fd.set('recipient[company]', t.company_name ?? ''); fd.set('recipient[address1]', (t.address ?? '').split(',')[0]); fd.set('recipient[address2]', (t.address ?? '').split(',').slice(1).join(',').trim()); fd.set('recipient[postcode]', t.postcode ?? ''); fd.set('recipient[country]', 'GB');
           fd.set('background', ''); fd.set('pages', contactFooter(t.body ?? ''));
           const sr = await fetch('https://dash.stannp.com/api/v1/letters/create', { method: 'POST', headers: { Authorization: 'Basic ' + btoa(cfg.stannp_api_key + ':') }, body: fd });
