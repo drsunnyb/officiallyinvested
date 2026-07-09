@@ -127,6 +127,7 @@ export const outreachList = () => invoke<{ ok: boolean; campaigns: any[]; steps:
 export const outreachCreate = (payload: Record<string, unknown>) => invoke<{ ok: boolean; campaign: any; steps: any[] }>('acq-outreach', { action: 'create', ...payload });
 export const outreachUpdate = (campaign_id: string, patch: Record<string, unknown>) => invoke('acq-outreach', { action: 'update', campaign_id, ...patch });
 export const outreachDraftTemplates = (profile?: Record<string, unknown>) => invoke<{ ok: boolean; steps: { channel: string; wait_days: number; subject: string | null; body: string }[] }>('acq-outreach', { action: 'draft_templates', ...(profile ? { profile } : {}) });
+export const outreachUpdateTouch = (touch_id: string, patch: { body?: string; subject?: string | null }) => invoke<{ ok: boolean; touch: any }>('acq-outreach', { action: 'update_touch', touch_id, ...patch });
 export const outreachEnrol = (campaign_id: string, filter: Record<string, unknown>) => invoke<{ ok: boolean; enrolled: number; suppressed: number; candidates: number }>('acq-outreach', { action: 'enrol', campaign_id, filter });
 export const outreachQueue = (status?: string) => invoke<{ ok: boolean; touches: any[] }>('acq-outreach', { action: 'queue', ...(status ? { status } : {}) });
 export const outreachApprove = (touch_ids: string[]) => invoke('acq-outreach', { action: 'approve', touch_ids });

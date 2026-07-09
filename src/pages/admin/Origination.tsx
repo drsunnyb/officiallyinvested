@@ -9,7 +9,7 @@ import {
   prospectsList, prospectGet, prospectUpdate, prospectSuppress, prospectPromote,
   sourceTaxonomy, sourceSearch, sourceStartRun, sourceRuns, sourceCancelRun, ingestPropose, ingestCommit,
   outreachList, outreachCreate, outreachUpdate, outreachDraftTemplates, outreachEnrol,
-  outreachQueue, outreachApprove, outreachApproveAll, outreachRun, outreachMarkReplied,
+  outreachQueue, outreachApprove, outreachApproveAll, outreachRun, outreachMarkReplied, outreachUpdateTouch,
   getOrgSettings, setOrgSettings, crmList, crmAddTask, crmCompleteTask, crmAiTasks,
   buyboxList, buyboxChat, buyboxCreate, buyboxActivate, buyboxDelete,
   dfAdminReleases, dfAdminReleaseUpsert, dfAdminPublish, dfAdminBoard, dfAdminDecide, dfAdminAdvance,
@@ -910,6 +910,7 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
   const [creating, setCreating] = useState(false); const [name, setName] = useState('');
   const [draftSteps, setDraftSteps] = useState<any[]>([]); const [queue, setQueue] = useState<any[] | null>(null);
   const [enrolFor, setEnrolFor] = useState<string | null>(null);
+  const [preview, setPreview] = useState<any | null>(null);
   const [credits, setCredits] = useState<any>(null);
   const loadCredits = () => creditsBalance().then(setCredits).catch(() => {});
   const [showMethod, setShowMethod] = useState(() => { try { return localStorage.getItem('oi_method_seen') !== '1'; } catch { return true; } });
@@ -1032,7 +1033,8 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
               {queue.map((t) => (
                 <div key={t.id} className="bg-gray-50 rounded-lg p-3 text-[12px]">
                   <div className="flex items-center gap-2 mb-1"><b className="text-gray-800">{t.company_name}</b><span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-500">{t.channel}</span>
-                    <button onClick={async () => { if (!gate(t.channel === 'letter' ? 'letter' : 'ai')) return; try { await outreachApprove([t.id]); setQueue((q) => q!.filter((x) => x.id !== t.id)); } catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } }} className="ml-auto text-emerald-600 hover:text-emerald-700 font-semibold">Approve</button></div>
+                    <button onClick={() => setPreview(t)} className="ml-auto text-[#0A2540] hover:underline font-semibold">{t.channel === 'letter' ? 'Preview letter' : 'Preview'}</button>
+                    <button onClick={async () => { if (!gate(t.channel === 'letter' ? 'letter' : 'ai')) return; try { await outreachApprove([t.id]); setQueue((q) => q!.filter((x) => x.id !== t.id)); } catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } }} className="text-emerald-600 hover:text-emerald-700 font-semibold">Approve</button></div>
                   {t.subject && <div className="text-gray-600 font-medium">{t.subject}</div>}
                   <div className="text-gray-500 line-clamp-2 whitespace-pre-wrap">{t.body}</div>
                 </div>
@@ -1071,7 +1073,62 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
           </div>
         ))}
       </div>
+      {preview && <LetterPreview touch={preview} credits={credits} onClose={() => setPreview(null)}
+        onSaved={(t: any) => { setQueue((q) => q ? q.map((x) => x.id === t.id ? { ...x, body: t.body, subject: t.subject } : x) : q); setPreview((p: any) => ({ ...p, body: t.body, subject: t.subject })); }}
+        onApprove={async () => { if (!gate(preview.channel === 'letter' ? 'letter' : 'ai')) return; try { await outreachApprove([preview.id]); setQueue((q) => q!.filter((x) => x.id !== preview.id)); setPreview(null); loadCredits(); } catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } }} />}
     </>
+  );
+}
+
+// The letter exactly as it will print: A4 sheet, address block, date, body,
+// and the contact details that are stamped on at send time. Editable in place.
+function LetterPreview({ touch, credits, onClose, onSaved, onApprove }: { touch: any; credits: any; onClose: () => void; onSaved: (t: any) => void; onApprove: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(touch.body ?? '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const isLetter = touch.channel === 'letter';
+  const save = async () => {
+    setBusy(true); setErr('');
+    try { const r = await outreachUpdateTouch(touch.id, { body }); onSaved(r.touch); setEditing(false); }
+    catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(false); }
+  };
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/70 flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="w-full max-w-3xl my-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-white font-serif font-bold text-lg">{isLetter ? 'Letter preview' : 'Email preview'} <span className="text-white/50 text-[13px] font-sans font-normal">· {touch.company_name}</span></div>
+          <div className="flex gap-2">
+            {!editing && <button className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'} onClick={() => setEditing(true)}>Edit</button>}
+            {editing && <button className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'} disabled={busy} onClick={save}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save changes'}</button>}
+            <button className={btnGold} onClick={onApprove}><Check className="h-4 w-4" />Approve{isLetter ? ' · 1 letter credit' : ''}</button>
+            <button className="text-white/50 hover:text-white px-2" onClick={onClose}><X className="h-5 w-5" /></button>
+          </div>
+        </div>
+        {err && <div className="bg-red-50 text-red-700 text-[13px] rounded-lg px-3 py-2 mb-3">{err}</div>}
+        <div className="bg-white rounded-sm shadow-2xl mx-auto" style={{ maxWidth: 640, minHeight: 860, padding: '64px 72px', fontFamily: 'Georgia, serif' }}>
+          <div className="flex justify-between text-[12px] text-gray-500" style={{ fontFamily: 'Georgia, serif' }}>
+            <div>
+              {touch.company_name && <div className="font-semibold text-gray-800">{touch.owner_name || 'The Business Owner'}</div>}
+              <div>{touch.company_name}</div>
+              {touch.address && <div>{touch.address}</div>}
+              {touch.postcode && <div>{touch.postcode}</div>}
+            </div>
+            <div className="text-right">{today}</div>
+          </div>
+          {editing ? (
+            <textarea className="w-full mt-8 text-[14px] leading-[1.8] text-gray-900 outline-none border border-dashed border-gray-300 rounded p-3 min-h-[560px]" style={{ fontFamily: 'Georgia, serif' }} value={body} onChange={(e) => setBody(e.target.value)} />
+          ) : (
+            <div className="mt-8 text-[14px] leading-[1.8] text-gray-900 whitespace-pre-wrap">{body}</div>
+          )}
+          <div className="mt-6 pt-4 border-t border-gray-100 text-[12px] text-gray-400">
+            Your phone, email and website from About you are added under the sign-off automatically when the letter posts.
+          </div>
+        </div>
+        {isLetter && credits && <div className="text-center text-white/40 text-[12px] mt-3">{credits.letter} letter credits available · posts inside the campaign send window at Stannp's next run</div>}
+      </div>
+    </div>
   );
 }
 
@@ -1269,6 +1326,7 @@ function AboutView({ settings, onSaved, setErr }: { settings: any; onSaved: () =
   const pr = settings?.profile ?? {};
   const [f, setF] = useState<Record<string, string>>({
     founder_name: pr.founder_name ?? '', entity_name: pr.entity_name ?? '', website: pr.website ?? '',
+    phone: pr.phone ?? '', contact_email: pr.contact_email ?? '',
     years_experience: pr.years_experience ?? '', bio: pr.bio ?? '', highlights: pr.highlights ?? '',
   });
   const [busy, setBusy] = useState(false); const [saved, setSaved] = useState(false);
@@ -1287,6 +1345,8 @@ function AboutView({ settings, onSaved, setErr }: { settings: any; onSaved: () =
             <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Your name</label><input className={input__ + ' w-full'} placeholder="e.g. Sandeep Bansal" value={f.founder_name} onChange={set('founder_name')} /></div>
             <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Buying entity / firm</label><input className={input__ + ' w-full'} placeholder="e.g. Officially Invested Ltd" value={f.entity_name} onChange={set('entity_name')} /></div>
             <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Website</label><input className={input__ + ' w-full'} placeholder="https://…" value={f.website} onChange={set('website')} /></div>
+            <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Phone <span className="text-gray-400 font-normal">(goes on every letter)</span></label><input className={input__ + ' w-full'} placeholder="07…" value={f.phone} onChange={set('phone')} /></div>
+            <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Contact email for letters <span className="text-gray-400 font-normal">(blank = your login email)</span></label><input className={input__ + ' w-full'} placeholder="you@yourfirm.co.uk" value={f.contact_email} onChange={set('contact_email')} /></div>
             <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Years of relevant experience</label><input className={input__ + ' w-full'} placeholder="e.g. 25" value={f.years_experience} onChange={set('years_experience')} /></div>
           </div>
           <div><label className="block text-[12px] font-semibold text-gray-700 mb-1">Short bio <span className="text-gray-400 font-normal">(2-4 sentences, as you would say it to an owner over coffee)</span></label>

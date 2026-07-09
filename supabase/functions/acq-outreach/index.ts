@@ -158,6 +158,17 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, touches: rows });
     }
 
+    if (action === 'update_touch') {
+      const t = (await sql`update acq.outreach_touches set
+          body = ${body.body != null ? String(body.body).slice(0, 6000) : sql`body`},
+          subject = ${body.subject !== undefined ? (body.subject ? String(body.subject).slice(0, 200) : null) : sql`subject`}
+        where id=${body.touch_id} and org_id=${orgId} and status in ('needs_approval','queued')
+        returning id, body, subject`)[0];
+      if (!t) { await sql.end({ timeout: 5 }); return json({ error: 'not editable (already approved or sent)' }, 400); }
+      await sql.end({ timeout: 5 });
+      return json({ ok: true, touch: t });
+    }
+
     if (action === 'approve' || action === 'cancel') {
       const st = action === 'approve' ? 'approved' : 'cancelled';
       await sql`update acq.outreach_touches set status=${st} where org_id=${orgId} and id = any(${body.touch_ids ?? []}) and status in ('needs_approval','queued','approved')`;
@@ -191,6 +202,15 @@ Deno.serve(async (req: Request) => {
 async function runOrg(sql: any, cfg: any, org: any) {
   const orgId = org.id;
   const outreach = org?.settings?.outreach ?? {};
+  const profile = org?.settings?.profile ?? {};
+  const ownerEmail = (await sql`select u.email from acq.org_members m join auth.users u on u.id=m.user_id where m.org_id=${orgId} and m.role='owner' limit 1`)[0]?.email ?? null;
+  // Every letter carries real contact details in the sign-off, added here so
+  // they can never be forgotten or invented by the drafting model.
+  const contactFooter = (bodyText: string) => {
+    const lines = [profile.phone, profile.contact_email ?? ownerEmail, profile.website].filter(Boolean) as string[];
+    const missing = lines.filter((l) => !bodyText.toLowerCase().includes(String(l).toLowerCase()));
+    return missing.length ? bodyText + '\n\n' + missing.join('\n') : bodyText;
+  };
   const report = { org: org.name, advanced: 0, queued: 0, sent_email: 0, sent_letter: 0, call_tasks: 0, suppressed: 0, failed: 0, replies: 0 };
 
   // 1) reply detection (best-effort): inbound comms whose contact email matches a prospect in an active campaign
@@ -261,14 +281,14 @@ async function runOrg(sql: any, cfg: any, org: any) {
           fd.set('test', org?.settings?.outreach?.letters_live ? 'false' : 'true');
           fd.set('recipient[title]', ''); fd.set('recipient[firstname]', (t.owner_name ?? 'The').split(' ')[0]); fd.set('recipient[lastname]', (t.owner_name ?? 'Business Owner').split(' ').slice(1).join(' ') || 'Owner');
           fd.set('recipient[company]', t.company_name ?? ''); fd.set('recipient[address1]', (t.address ?? '').split(',')[0]); fd.set('recipient[address2]', (t.address ?? '').split(',').slice(1).join(',').trim()); fd.set('recipient[postcode]', t.postcode ?? ''); fd.set('recipient[country]', 'GB');
-          fd.set('background', ''); fd.set('pages', t.body);
+          fd.set('background', ''); fd.set('pages', contactFooter(t.body ?? ''));
           const sr = await fetch('https://dash.stannp.com/api/v1/letters/create', { method: 'POST', headers: { Authorization: 'Basic ' + btoa(cfg.stannp_api_key + ':') }, body: fd });
           if (!sr.ok) throw new Error('stannp ' + sr.status + ' ' + (await sr.text()).slice(0, 150));
           const sid = (await sr.json())?.data?.id ?? null;
           await sql`update acq.outreach_touches set status='sent', sent_at=now(), provider='stannp', provider_id=${String(sid)} where id=${t.id}`;
           report.sent_letter++;
         } else if (t.channel === 'call_task') {
-          await sql`insert into acq.tasks (org_id, title, due_date) values (${t.org_id}, ${'Call ' + t.company_name + (t.owner_name ? ' (' + t.owner_name + ')' : '') + ' — screen against TPS before dialling. Brief: ' + (t.body ?? '').slice(0, 400)}, ${new Date().toISOString().slice(0, 10)})`;
+          await sql`insert into acq.tasks (org_id, title, due_date) values (${t.org_id}, ${'Call ' + t.company_name + (t.owner_name ? ' (' + t.owner_name + ')' : '') + ' - screen against TPS before dialling. Brief: ' + (t.body ?? '').slice(0, 400)}, ${new Date().toISOString().slice(0, 10)})`;
           await sql`update acq.outreach_touches set status='sent', sent_at=now(), provider='task' where id=${t.id}`;
           report.call_tasks++;
         }
