@@ -32,6 +32,7 @@ const TOUR_STEPS: { key: View | null; title: string; text: string }[] = [
   { key: 'find', title: 'Find companies in seconds', text: '900,000+ UK companies, filtered to your buy box instantly: distance, size, owner age, even distressed businesses. No rate limits, no lists to buy.' },
   { key: 'prospects', title: 'Your private prospect CRM', text: 'Everything you source lands here, scored and explained. Track letters, log calls, attach notes. Sourced data stays in the platform - your uploads stay yours.' },
   { key: 'campaigns', title: 'Outreach on autopilot', text: 'Letters first, by design - a rejected cold email burns a contact forever, a letter does not. AI drafts in your voice; nothing sends without your approval. (Paid)' },
+  { key: 'about', title: 'About you writes your letters', text: 'Your bio, phone and credibility highlights go into every letter and email the AI drafts, and your contact details are stamped under each sign-off. Two minutes here lifts reply rates more than anything else.' },
   { key: 'dealflow', title: 'Community deal flow', text: "Off-market deals we source and release to members. Browse teasers free; NDA and data-room access unlock with your plan tier." },
   { key: null, title: 'And when a deal gets real…', text: 'Add it to your pipeline (free, always) and get your Acquisition Score. The AI analyst, committee and memos join on any paid plan. Good hunting.' },
 ];
@@ -66,6 +67,7 @@ export default function Origination() {
   const deepView = qp.get('view') as View | null;
   const deepSubmission = qp.get('submission');
   const [view, setView] = useState<View>(deepView === 'dealflow' ? 'dealflow' : 'dashboard');
+  useEffect(() => { viewRef.current = view; setErr(''); }, [view]); // stale errors never follow you between views
   const [settings, setSettings] = useState<any | null>(null);
   const [orgName, setOrgName] = useState('');
   const [showWizard, setShowWizard] = useState(false);
@@ -74,10 +76,12 @@ export default function Origination() {
   const [unlock, setUnlock] = useState(false);
   const [topup, setTopup] = useState<'ai' | 'letter' | null>(null);
   const [, setPlan] = useState<string>('free'); // plan gating uses module-level CURRENT_PLAN
+  const [isHost, setIsHost] = useState<boolean>(true);
+  const viewRef = useRef<View>('dashboard');
   const [tour, setTour] = useState<number>(qp.get('tour') === '1' ? 0 : -1);
 
   useEffect(() => {
-    onboardStatus().then((st) => { CURRENT_PLAN = st.plan ?? 'free'; setPlan(st.plan ?? 'free'); }).catch(() => { CURRENT_PLAN = 'team'; });
+    onboardStatus().then((st) => { CURRENT_PLAN = st.plan ?? 'free'; setPlan(st.plan ?? 'free'); setIsHost(st.is_host_org !== false); if (st.is_host_org === false && ['members', 'dealflow'].includes(viewRef.current)) setView('dashboard'); }).catch(() => { CURRENT_PLAN = 'team'; });
     const onPaywall = () => setPaywall(true);
     const onUnlock = () => setUnlock(true);
     window.addEventListener('oi:unlock', onUnlock);
@@ -86,7 +90,7 @@ export default function Origination() {
     window.addEventListener('oi:topup', onTopup);
     return () => { window.removeEventListener('oi:paywall', onPaywall); window.removeEventListener('oi:topup', onTopup); window.removeEventListener('oi:unlock', () => setUnlock(true)); };
   }, []);
-  useEffect(() => { if (tour >= 0 && TOUR_STEPS[tour]?.key) setView(TOUR_STEPS[tour].key as View); }, [tour]);
+  useEffect(() => { const k = TOUR_STEPS[tour]?.key; if (tour >= 0 && k && (isHost || !HOST_ONLY.includes(k as View))) setView(k as View); }, [tour]);
   const endTour = () => { setTour(-1); onboardCompleteTour().catch(() => {}); window.history.replaceState({}, '', '/admin/origination'); };
 
   const reloadSettings = async () => {
@@ -97,7 +101,8 @@ export default function Origination() {
   };
   useEffect(() => { reloadSettings().catch((e) => setErr(e.message || String(e))); }, []);
 
-  const NAV: { key: View; label: string; icon: any }[] = [
+  const HOST_ONLY: View[] = ['dealflow', 'members'];
+  const NAV: { key: View; label: string; icon: any }[] = ([
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { key: 'find', label: 'Find companies', icon: Search },
     { key: 'prospects', label: 'Prospects', icon: Building2 },
@@ -109,7 +114,7 @@ export default function Origination() {
     { key: 'buybox', label: 'Buy box', icon: Target },
     { key: 'about', label: 'About you', icon: Users },
     { key: 'billing', label: 'Usage & billing', icon: CreditCard },
-  ];
+  ] as { key: View; label: string; icon: any }[]).filter((i) => isHost || !HOST_ONLY.includes(i.key));
 
   if (settings === null) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-400"><Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading Origination…</div>;
 
@@ -160,7 +165,7 @@ export default function Origination() {
         {view === 'find' && <FindView setErr={setErr} buyBox={settings.buy_box} go={setView} />}
         {view === 'prospects' && <ProspectsView setErr={setErr} />}
         {view === 'contacts' && <ContactsView setErr={setErr} />}
-        {view === 'campaigns' && <CampaignsView setErr={setErr} buyBox={settings.buy_box} />}
+        {view === 'campaigns' && <CampaignsView setErr={setErr} buyBox={settings.buy_box} profile={settings?.profile} goAbout={() => setView('about')} />}
         {view === 'dealflow' && <DealFlowView setErr={setErr} initialSubmission={deepSubmission} />}
         {view === 'members' && <MembersView setErr={setErr} />}
         {view === 'funnel' && <FunnelView setErr={setErr} settings={settings} onSaved={reloadSettings} />}
@@ -904,7 +909,7 @@ function EnrolPanel({ campaign, credits, busy, onEnrol, setErr }: { campaign: an
   );
 }
 
-function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox: any }) {
+function CampaignsView({ setErr, buyBox, profile, goAbout }: { setErr: (s: string) => void; buyBox: any; profile?: any; goAbout?: () => void }) {
   const [camps, setCamps] = useState<any[]>([]); const [steps, setSteps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); const [busy, setBusy] = useState('');
   const [creating, setCreating] = useState(false); const [name, setName] = useState('');
@@ -961,6 +966,13 @@ function CampaignsView({ setErr, buyBox }: { setErr: (s: string) => void; buyBox
         <button onClick={() => setCreating((c) => !c)} className={btnGold}><Send className="h-4 w-4" />New campaign</button>
       </Header>
       <div className="px-8 pb-8">
+        {profile !== undefined && (!profile?.phone || !String(profile?.bio ?? '').trim()) && (
+          <div className="flex items-center gap-2.5 bg-[#FFFDF2] border border-[#FFD700] rounded-xl px-4 py-2.5 mb-4 text-[12.5px] text-gray-700">
+            <Sparkles className="h-4 w-4 text-[#C9A227] shrink-0" />
+            <span>Your letters are formed from <b>About you</b>{!profile?.phone ? ' and your phone number goes under every sign-off' : ''}. It takes two minutes and lifts reply rates more than anything else.</span>
+            <button className="ml-auto font-bold text-[#0A2540] underline underline-offset-2 shrink-0" onClick={goAbout}>Complete it →</button>
+          </div>
+        )}
         {credits && (
           <div className="flex items-center gap-3 flex-wrap mb-4 text-[12.5px]">
             <span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold border ' + (credits.letter <= 5 ? 'bg-red-50 border-red-200 text-red-700' : credits.letter <= 20 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-gray-200 text-gray-700')}>

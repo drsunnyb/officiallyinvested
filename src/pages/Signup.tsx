@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Sparkles, Check, ArrowRight, Building2, Send, Paperclip, FileText, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { onboardStatus, onboardProvision, buyboxChat, buyboxCreate, sourceSearch } from '../lib/acq';
+import { onboardStatus, onboardProvision, buyboxChat, buyboxCreate, sourceSearch, getOrgSettings, setOrgSettings } from '../lib/acq';
 
 const NAVY = '#0A2540';
 const GOLD = '#FFD700';
@@ -145,6 +145,18 @@ export default function Signup() {
     try {
       await buyboxCreate(proposal, { make_active: true, name: proposal.industries?.[0]?.label ?? 'My buy box' });
       log('Buy box saved and activated');
+      // What the coach learned about their background becomes the letter-forming
+      // profile, so outreach sounds like them from day one without re-asking.
+      try {
+        if (proposal.expertise_summary) {
+          const cur = await getOrgSettings();
+          const prof = cur.settings?.profile ?? {};
+          if (!String(prof.bio ?? '').trim()) {
+            await setOrgSettings({ ...(cur.settings ?? {}), profile: { ...prof, bio: String(proposal.expertise_summary).slice(0, 1000) } });
+            log('Your background saved to About you - it shapes every letter');
+          }
+        }
+      } catch (_) { /* non-blocking */ }
       log('Scanning 1.1 million UK companies against your criteria…');
       try {
         const geo = proposal.location ? { location: proposal.location, radius_miles: proposal.radius_miles ?? 25 } : {};
