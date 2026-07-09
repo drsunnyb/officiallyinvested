@@ -923,7 +923,24 @@ function CampaignsView({ setErr, buyBox, profile, goAbout }: { setErr: (s: strin
   const CHANNEL_LABEL: Record<string, string> = { letter: 'Letter (posted)', email: 'Email', call_task: 'Call task (human)' };
   const CHANNEL_ICON: Record<string, any> = { letter: FileText, email: Mail, call_task: PhoneCall };
 
-  const load = async () => { setLoading(true); try { const r = await outreachList(); setCamps(r.campaigns); setSteps(r.steps); } catch (e: any) { setErr(e.message || String(e)); } finally { setLoading(false); } };
+  const [touchStats, setTouchStats] = useState<Record<string, { approved: number; letters_approved: number }>>({});
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await outreachList(); setCamps(r.campaigns); setSteps(r.steps);
+      try {
+        const q = await outreachQueue();
+        const st: Record<string, { approved: number; letters_approved: number }> = {};
+        for (const t of q.touches) {
+          if (t.status !== 'approved') continue;
+          st[t.campaign_id] = st[t.campaign_id] ?? { approved: 0, letters_approved: 0 };
+          st[t.campaign_id].approved++;
+          if (t.channel === 'letter') st[t.campaign_id].letters_approved++;
+        }
+        setTouchStats(st);
+      } catch (_) { /* counts are a nicety */ }
+    } catch (e: any) { setErr(e.message || String(e)); } finally { setLoading(false); }
+  };
   useEffect(() => { load(); loadCredits(); }, []);
   const aiDraft = async () => { if (!gate('ai')) return; setBusy('draft'); setErr(''); try { const r = await outreachDraftTemplates(buyBox ? { buy_box: buyBox } : undefined); setDraftSteps(r.steps); } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); } };
   const create = async () => {
@@ -961,8 +978,8 @@ function CampaignsView({ setErr, buyBox, profile, goAbout }: { setErr: (s: strin
   return (
     <>
       <Header title="Campaigns" sub="Register-sourced prospects are letters-only until they reply - a rejected cold email burns that owner for good, a letter never does. Your own uploads, funnel enquiries and Meta leads can be emailed from day one. Calls unlock once anyone engages. Nothing sends until you approve it.">
-        <button onClick={showQueue} disabled={!!busy} className={btnGhost}><Check className="h-4 w-4" />Approval queue</button>
-        <button onClick={runNow} disabled={!!busy} className={btnGhost}>{busy === 'run' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Run engine now</button>
+        <button onClick={showQueue} disabled={!!busy} className={btnGhost}><Check className="h-4 w-4" />Approval queue{camps.reduce((t, c) => t + (c.needs_approval ?? 0), 0) > 0 ? ` · ${camps.reduce((t, c) => t + (c.needs_approval ?? 0), 0)}` : ''}</button>
+        <button onClick={runNow} disabled={!!busy} title="Approved messages post automatically every 15 minutes inside each campaign's send window. This just skips the wait." className={btnGhost}>{busy === 'run' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Send approved now</button>
         <button onClick={() => setCreating((c) => !c)} className={btnGold}><Send className="h-4 w-4" />New campaign</button>
       </Header>
       <div className="px-8 pb-8">
@@ -1046,7 +1063,7 @@ function CampaignsView({ setErr, buyBox, profile, goAbout }: { setErr: (s: strin
                 <div key={t.id} className="bg-gray-50 rounded-lg p-3 text-[12px]">
                   <div className="flex items-center gap-2 mb-1"><b className="text-gray-800">{t.company_name}</b><span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-500">{t.channel}</span>
                     <button onClick={() => setPreview(t)} className="ml-auto text-[#0A2540] hover:underline font-semibold">{t.channel === 'letter' ? 'Preview letter' : 'Preview'}</button>
-                    <button onClick={async () => { if (!gate(t.channel === 'letter' ? 'letter' : 'ai')) return; try { await outreachApprove([t.id]); setQueue((q) => q!.filter((x) => x.id !== t.id)); } catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } }} className="text-emerald-600 hover:text-emerald-700 font-semibold">Approve</button></div>
+                    <button onClick={async () => { if (!gate(t.channel === 'letter' ? 'letter' : 'ai')) return; try { await outreachApprove([t.id]); setQueue((q) => q!.filter((x) => x.id !== t.id)); loadCredits(); } catch (e: any) { if (!creditErr(e)) setErr(e.message || String(e)); } }} className="text-emerald-600 hover:text-emerald-700 font-semibold">Approve</button></div>
                   {t.subject && <div className="text-gray-600 font-medium">{t.subject}</div>}
                   <div className="text-gray-500 line-clamp-2 whitespace-pre-wrap">{t.body}</div>
                 </div>
@@ -1066,13 +1083,27 @@ function CampaignsView({ setErr, buyBox, profile, goAbout }: { setErr: (s: strin
             <div className="flex items-center gap-3 flex-wrap">
               <span className={'h-2.5 w-2.5 rounded-full ' + (c.status === 'active' ? 'bg-emerald-500' : 'bg-gray-300')} />
               <b className="text-[14px] text-gray-900">{c.name}</b>
-              <span className="text-[12px] text-gray-400">{c.members} enrolled · {c.sent} sent · {c.replied} replied{c.needs_approval ? ` · ${c.needs_approval} awaiting approval` : ''}</span>
+              <span className="text-[12px] text-gray-400">{c.members} enrolled · {c.sent} sent · {c.replied} replied</span>
               <div className="ml-auto flex gap-2">
                 <button onClick={() => setEnrolFor(enrolFor === c.id ? null : c.id)} className={btnGhost}>Enrol prospects</button>
                 {c.status !== 'active' ? <button onClick={() => setStatus(c.id, 'active')} disabled={busy === c.id} className={btnPrimary}>Activate</button>
                   : <button onClick={() => setStatus(c.id, 'paused')} disabled={busy === c.id} className={btnGhost}>Pause</button>}
               </div>
             </div>
+            {(c.needs_approval > 0 || (touchStats[c.id]?.approved ?? 0) > 0) && (
+              <div className="flex flex-wrap gap-2 mt-2.5">
+                {c.needs_approval > 0 && (
+                  <button onClick={showQueue} className="inline-flex items-center gap-1.5 text-[12px] font-semibold bg-amber-50 border border-amber-200 text-amber-800 rounded-full px-3 py-1 hover:bg-amber-100">
+                    {c.needs_approval} waiting for your approval - nothing sends until you say so
+                  </button>
+                )}
+                {(touchStats[c.id]?.approved ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full px-3 py-1">
+                    {touchStats[c.id].approved} approved and scheduled - posts automatically {(c.send_window ?? '09:00-17:00')} UK, up to {c.daily_cap ?? 25} a day
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-1.5 text-[12px] text-gray-400 mt-2">
               {steps.filter((s) => s.campaign_id === c.id).map((s, i, arr) => {
                 const Icon = CHANNEL_ICON[s.channel];
