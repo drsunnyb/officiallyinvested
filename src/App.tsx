@@ -10,6 +10,7 @@ import Signup from './pages/Signup';
 import Pipeline from './pages/admin/Pipeline';
 import Origination from './pages/admin/Origination';
 import Settings from './pages/admin/Settings';
+import CRMPage from './pages/admin/CRMPage';
 
 const AUTH_HASH = /access_token=|error_code=|error=|type=recovery/;
 // Snapshot before the Supabase client consumes (and strips) the token hash.
@@ -61,6 +62,7 @@ function App() {
         <Route path="/admin/pipeline" element={<Pipeline />} />
         <Route path="/admin/origination" element={<Origination />} />
         <Route path="/admin/settings" element={<Settings />} />
+        <Route path="/admin/crm" element={<CRMPage />} />
       </Routes>
       {!bare && <Footer />}
     </div>

@@ -74,11 +74,18 @@ export async function legalFillBroker(deal_id: string, file: File, counterparty?
   const base64 = await fileToBase64(file);
   return invoke<{ ok: boolean; document: any; pdf_base64: string; signed: boolean }>('acq-legal', { action: 'fill_broker', deal_id, counterparty, title: file.name.replace(/\.[^.]+$/, ''), inline: { base64, media_type: file.type || 'application/pdf', file_name: file.name } });
 }
-export const crmList = () => invoke<{ ok: boolean; contacts: any[]; tasks: any[] }>('acq-crm', { action: 'list' });
+export const crmList = (q?: string) => invoke<{ ok: boolean; contacts: any[]; tasks: any[] }>('acq-crm', { action: 'list', ...(q && q.trim() ? { q: q.trim() } : {}) });
+export const crmUpdateContact = (contact_id: string, patch: Record<string, unknown>) => invoke<{ ok: boolean; contact: any }>('acq-crm', { action: 'contact_update', contact_id, patch });
+export const meetingCreate = (m: { title: string; starts_at: string; duration_mins?: number; location?: string; notes?: string; contact_id?: string | null; deal_id?: string | null }) => invoke<{ ok: boolean; meeting: any }>('acq-crm', { action: 'meeting_create', ...m });
+export const meetingUpdate = (meeting_id: string, patch: Record<string, unknown>) => invoke<{ ok: boolean; meeting: any }>('acq-crm', { action: 'meeting_update', meeting_id, patch });
+export const meetingCancel = (meeting_id: string) => invoke('acq-crm', { action: 'meeting_cancel', meeting_id });
+export const meetingsList = (contact_id?: string) => invoke<{ ok: boolean; meetings: any[] }>('acq-crm', { action: 'meetings_list', ...(contact_id ? { contact_id } : {}) });
 export const crmAddContact = (c: Record<string, unknown>) => invoke('acq-crm', { action: 'add_contact', ...c });
 export const crmAddTask = (t: Record<string, unknown>) => invoke('acq-crm', { action: 'add_task', ...t });
 export const crmAiTasks = () => invoke<{ ok: boolean; created: number; tasks: any[] }>('acq-crm', { action: 'ai_tasks' });
 export const crmCompleteTask = (task_id: string) => invoke('acq-crm', { action: 'complete_task', task_id });
+export const crmUpdateTask = (task_id: string, p: { toggle?: boolean; note?: string }) => invoke<{ ok: boolean; task: any }>('acq-crm', { action: 'update_task', task_id, ...p });
+export const crmDeleteTask = (task_id: string) => invoke('acq-crm', { action: 'delete_task', task_id });
 export const crmSuggest = (deal_id: string, roles?: string[]) => invoke<{ ok: boolean; suggestions: any[] }>('acq-crm', { action: 'suggest', deal_id, ...(roles ? { roles } : {}) });
 export const monitorList = () => invoke<{ ok: boolean; alerts: any[] }>('acq-monitor', { action: 'list' });
 export const monitorRun = () => invoke<{ ok: boolean; deals: number; checked: number; alerts_created: number }>('acq-monitor', { action: 'run' });
@@ -143,7 +150,7 @@ export const buyboxDelete = (box_id: string) => invoke('acq-buybox', { action: '
 export const sourceStartRun = (p: Record<string, unknown>) => invoke<{ ok: boolean; run: any; note: string }>('acq-source', { action: 'start_run', ...p });
 export const sourceRuns = () => invoke<{ ok: boolean; runs: any[] }>('acq-source', { action: 'runs' });
 export const sourceCancelRun = (run_id: string) => invoke('acq-source', { action: 'cancel_run', run_id });
-export const crmContactDetail = (contact_id: string) => invoke<{ ok: boolean; contact: any; deals: any[]; communications: any[]; documents: any[]; tasks: any[] }>('acq-crm', { action: 'contact_detail', contact_id });
+export const crmContactDetail = (contact_id: string) => invoke<{ ok: boolean; contact: any; deals: any[]; communications: any[]; documents: any[]; tasks: any[]; meetings: any[]; timeline: any[] }>('acq-crm', { action: 'contact_detail', contact_id });
 
 // ---------------- Deal flow (member deal journey: releases, NDA, data room) ----------------
 export const dfListings = () => invoke<{ listings: any[]; tier: string | null }>('acq-dealflow', { action: 'listings' });

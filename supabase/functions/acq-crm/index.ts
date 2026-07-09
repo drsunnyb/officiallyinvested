@@ -1,7 +1,13 @@
 // acq-crm — contacts + follow-up tasks + per-deal people (the system's memory).
-// v6: AI tasks carry an actionable `meta.action` key the UI can execute; new
-// trusted `ai_tasks_cron` runs task generation in the background for every
-// workspace that needs it and emails the owner a branded nudge.
+// v8: the proper CRM. Adds contact_update (edit fields and notes), meetings
+// (meeting_create/meeting_update/meeting_cancel/meetings_list on acq.meetings,
+// with a communication logged when a meeting is marked held so it lands in
+// deal and contact timelines), a merged timeline on contact_detail
+// (communications + meetings + done tasks) and a q search filter on the
+// directory. v7: working items parity with the admin drawer. Tasks carry
+// meta.kind (next_step/red_flag/clarification/funding/vendor_outstanding/note),
+// can be toggled open/done, annotated and deleted. v6: actionable meta.action
+// keys + background ai_tasks_cron with branded email nudges.
 import postgres from 'npm:postgres@3.4.5';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -143,9 +149,36 @@ Deno.serve(async (req: Request) => {
       const c = (await sql`insert into acq.contacts (org_id, name, role, company, email, phone, notes) values (${orgId}, ${body.name}, ${body.role ?? null}, ${body.company ?? null}, ${body.email ?? null}, ${body.phone ?? null}, ${body.notes ?? null}) returning *`)[0];
       return json({ ok: true, contact: c });
     }
+    if (action === 'contact_update') {
+      const cur = (await sql`select * from acq.contacts where id=${body.contact_id} and org_id=${orgId}`)[0];
+      if (!cur) { await sql.end({ timeout: 5 }); return json({ error: 'not found' }, 404); }
+      const p = body.patch ?? {};
+      const next = {
+        name: p.name !== undefined ? String(p.name).slice(0, 160) : cur.name,
+        role: p.role !== undefined ? (p.role ? String(p.role).slice(0, 40) : null) : cur.role,
+        company: p.company !== undefined ? (p.company ? String(p.company).slice(0, 200) : null) : cur.company,
+        email: p.email !== undefined ? (p.email ? String(p.email).slice(0, 200) : null) : cur.email,
+        phone: p.phone !== undefined ? (p.phone ? String(p.phone).slice(0, 60) : null) : cur.phone,
+        notes: p.notes !== undefined ? (p.notes ? String(p.notes).slice(0, 4000) : null) : cur.notes,
+      };
+      if (!next.name || !String(next.name).trim()) { await sql.end({ timeout: 5 }); return json({ error: 'name required' }, 400); }
+      const c = (await sql`update acq.contacts set name=${next.name}, role=${next.role}, company=${next.company}, email=${next.email}, phone=${next.phone}, notes=${next.notes} where id=${body.contact_id} and org_id=${orgId} returning *`)[0];
+      return json({ ok: true, contact: c });
+    }
     if (action === 'add_task') {
-      const t = (await sql`insert into acq.tasks (org_id, deal_id, contact_id, title, due_date, created_by) values (${orgId}, ${body.deal_id ?? null}, ${body.contact_id ?? null}, ${body.title}, ${body.due_date ?? null}, ${userId}) returning *`)[0];
+      const meta = body.kind ? { kind: String(body.kind).slice(0, 30) } : null;
+      const t = (await sql`insert into acq.tasks (org_id, deal_id, contact_id, title, due_date, created_by, meta) values (${orgId}, ${body.deal_id ?? null}, ${body.contact_id ?? null}, ${body.title}, ${body.due_date ?? null}, ${userId}, ${meta}) returning *`)[0];
       return json({ ok: true, task: t });
+    }
+    if (action === 'update_task') {
+      if (body.toggle) await sql`update acq.tasks set status = case when status='open' then 'done' else 'open' end, done_at = case when status='open' then now() else null end where id=${body.task_id} and org_id=${orgId}`;
+      if (body.note !== undefined) await sql`update acq.tasks set meta = coalesce(meta,'{}'::jsonb) || ${{ note: String(body.note).slice(0, 500) }} where id=${body.task_id} and org_id=${orgId}`;
+      const t = (await sql`select * from acq.tasks where id=${body.task_id} and org_id=${orgId}`)[0];
+      return json({ ok: true, task: t });
+    }
+    if (action === 'delete_task') {
+      await sql`delete from acq.tasks where id=${body.task_id} and org_id=${orgId}`;
+      return json({ ok: true });
     }
     if (action === 'complete_task') {
       await sql`update acq.tasks set status='done', done_at=now() where id=${body.task_id} and org_id=${orgId}`;
@@ -186,6 +219,57 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, suggestions: rows });
     }
 
+    // ---- meetings (acq.meetings): schedule, amend, mark held, cancel, list ----
+    if (action === 'meeting_create') {
+      if (!body.title || !String(body.title).trim() || !body.starts_at) { await sql.end({ timeout: 5 }); return json({ error: 'title and starts_at required' }, 400); }
+      const m = (await sql`insert into acq.meetings (org_id, contact_id, deal_id, title, starts_at, duration_mins, location, notes, created_by)
+        values (${orgId}, ${body.contact_id ?? null}, ${body.deal_id ?? null}, ${String(body.title).slice(0, 200)}, ${body.starts_at}, ${Number(body.duration_mins ?? 30) || 30}, ${body.location ? String(body.location).slice(0, 200) : null}, ${body.notes ? String(body.notes).slice(0, 2000) : null}, ${userId}) returning *`)[0];
+      return json({ ok: true, meeting: m });
+    }
+    if (action === 'meeting_update') {
+      const cur = (await sql`select * from acq.meetings where id=${body.meeting_id} and org_id=${orgId}`)[0];
+      if (!cur) { await sql.end({ timeout: 5 }); return json({ error: 'not found' }, 404); }
+      const p = body.patch ?? {};
+      const next = {
+        title: p.title !== undefined ? String(p.title).slice(0, 200) : cur.title,
+        starts_at: p.starts_at !== undefined ? p.starts_at : cur.starts_at,
+        duration_mins: p.duration_mins !== undefined ? (Number(p.duration_mins) || 30) : cur.duration_mins,
+        location: p.location !== undefined ? (p.location ? String(p.location).slice(0, 200) : null) : cur.location,
+        notes: p.notes !== undefined ? (p.notes ? String(p.notes).slice(0, 2000) : null) : cur.notes,
+        outcome: p.outcome !== undefined ? (p.outcome ? String(p.outcome).slice(0, 2000) : null) : cur.outcome,
+        status: p.status !== undefined && ['scheduled', 'held', 'cancelled'].includes(p.status) ? p.status : cur.status,
+        contact_id: p.contact_id !== undefined ? (p.contact_id || null) : cur.contact_id,
+        deal_id: p.deal_id !== undefined ? (p.deal_id || null) : cur.deal_id,
+      };
+      const m = (await sql`update acq.meetings set title=${next.title}, starts_at=${next.starts_at}, duration_mins=${next.duration_mins}, location=${next.location}, notes=${next.notes}, outcome=${next.outcome}, status=${next.status}, contact_id=${next.contact_id}, deal_id=${next.deal_id}, updated_at=now() where id=${body.meeting_id} and org_id=${orgId} returning *`)[0];
+      // A meeting marked held becomes part of the record: log a communication so
+      // it shows up in the deal history and the contact timeline. The
+      // communications table requires a deal; meetings without one still appear
+      // in the contact timeline via the meetings merge.
+      if (m.status === 'held' && cur.status !== 'held' && m.deal_id) {
+        try {
+          await sql`insert into acq.communications (org_id, deal_id, contact_id, direction, kind, subject, body, happened_at, created_by, external_id)
+            values (${orgId}, ${m.deal_id}, ${m.contact_id}, 'out', 'meeting', ${m.title}, ${m.outcome ?? m.notes ?? 'Meeting held'}, ${m.starts_at}, ${userId}, ${'meeting:' + m.id})`;
+        } catch (_) { /* best effort; the meeting row itself is the source of truth */ }
+      }
+      return json({ ok: true, meeting: m });
+    }
+    if (action === 'meeting_cancel') {
+      await sql`update acq.meetings set status='cancelled', updated_at=now() where id=${body.meeting_id} and org_id=${orgId}`;
+      return json({ ok: true });
+    }
+    if (action === 'meetings_list') {
+      const rows = await sql`
+        select m.*, c.name as contact_name, c.role as contact_role, d.name as deal_name
+        from acq.meetings m
+        left join acq.contacts c on c.id = m.contact_id
+        left join acq.deals d on d.id = m.deal_id
+        where m.org_id=${orgId} and m.starts_at > now() - interval '30 days'
+          ${body.contact_id ? sql`and m.contact_id=${body.contact_id}` : sql``}
+        order by m.starts_at asc limit 200`;
+      return json({ ok: true, meetings: rows });
+    }
+
     // AI chief of staff, user-triggered
     if (action === 'ai_tasks') {
       const ANTHROPIC = Deno.env.get('ANTHROPIC_API_KEY') || cfg.anthropic_api_key;
@@ -206,14 +290,26 @@ Deno.serve(async (req: Request) => {
         left join public.submissions s on s.id = d.submission_id
         where dc.contact_id = ${c.id} order by d.created_at desc`;
       const comms = await sql`
-        select cm.id, cm.deal_id, cm.direction, cm.kind, cm.subject, left(cm.body, 400) as body, cm.happened_at, d.name as deal_name
+        select cm.id, cm.deal_id, cm.direction, cm.kind, cm.subject, left(cm.body, 400) as body, cm.happened_at, cm.external_id, d.name as deal_name
         from acq.communications cm left join acq.deals d on d.id = cm.deal_id
         where cm.contact_id = ${c.id} and cm.org_id = ${orgId}
         order by cm.happened_at desc limit 100`;
       let docs: any[] = [];
       try { if (deals.length) docs = await sql`select id, deal_id, file_name, created_at from acq.documents where deal_id = any(${deals.map((d: any) => d.id)}) order by created_at desc limit 30`; } catch (_) { docs = []; }
       const tasks = await sql`select id, title, due_date, status from acq.tasks where contact_id=${c.id} and org_id=${orgId} order by status, due_date nulls last limit 20`;
-      return json({ ok: true, contact: c, deals, communications: comms, documents: docs, tasks });
+      const meetings = await sql`
+        select m.*, d.name as deal_name from acq.meetings m left join acq.deals d on d.id = m.deal_id
+        where m.contact_id=${c.id} and m.org_id=${orgId} order by m.starts_at desc limit 100`;
+      const doneTasks = await sql`select id, title, done_at, meta from acq.tasks where contact_id=${c.id} and org_id=${orgId} and status='done' and done_at is not null order by done_at desc limit 50`;
+      // one merged story: everything that ever happened with this person, newest first.
+      // Held meetings that already produced a communication are deduped via external_id.
+      const loggedMeetingIds = new Set(comms.map((x: any) => String(x.external_id ?? '')).filter((x: string) => x.startsWith('meeting:')).map((x: string) => x.slice(8)));
+      const timeline = [
+        ...comms.map((x: any) => ({ at: x.happened_at, icon_kind: String(x.kind), title: x.subject || (x.direction === 'in' ? 'Heard from them (' + x.kind + ')' : String(x.kind)[0].toUpperCase() + String(x.kind).slice(1)), body: x.body ?? '', deal_name: x.deal_name ?? null })),
+        ...meetings.filter((m: any) => !loggedMeetingIds.has(String(m.id))).map((m: any) => ({ at: m.starts_at, icon_kind: 'meeting', title: m.title + (m.status === 'cancelled' ? ' (cancelled)' : m.status === 'scheduled' ? ' (scheduled)' : ''), body: m.outcome ?? m.notes ?? '', deal_name: m.deal_name ?? null })),
+        ...doneTasks.map((t: any) => ({ at: t.done_at, icon_kind: 'task', title: t.title, body: t.meta?.note ?? '', deal_name: null })),
+      ].sort((a, b) => +new Date(b.at) - +new Date(a.at));
+      return json({ ok: true, contact: c, deals, communications: comms, documents: docs, tasks, meetings, timeline });
     }
 
     // backfill contacts from submitters (so the directory is never empty)
@@ -227,7 +323,9 @@ Deno.serve(async (req: Request) => {
         and not exists (select 1 from acq.contacts c where c.org_id=${orgId} and c.email = s.email)
       group by s.submitter_name, s.business_name, s.spv_name, s.email`;
 
-    // enriched directory: deals, last interaction, open tasks
+    // enriched directory: deals, last interaction, open tasks. Optional q search
+    // across name, company, email, phone and notes.
+    const q = body.q && String(body.q).trim() ? '%' + String(body.q).trim() + '%' : null;
     const contacts = await sql`
       select c.*,
         (select count(*)::int from acq.deal_contacts dc where dc.contact_id=c.id) as deal_count,
@@ -239,11 +337,12 @@ Deno.serve(async (req: Request) => {
         (select count(*)::int from acq.tasks t where t.contact_id=c.id and t.status='open') as open_tasks,
         (select t.title from acq.tasks t where t.contact_id=c.id and t.status='open' order by t.due_date nulls last, t.created_at limit 1) as next_task
       from acq.contacts c where c.org_id=${orgId}
+      ${q ? sql`and (c.name ilike ${q} or c.company ilike ${q} or c.email ilike ${q} or c.phone ilike ${q} or c.notes ilike ${q})` : sql``}
       order by last_interaction desc nulls last, c.created_at desc limit 300`;
     const tasks = await sql`
       select t.*, d.name as deal_name, c.name as contact_name, c.role as contact_role
       from acq.tasks t left join acq.deals d on d.id=t.deal_id left join acq.contacts c on c.id=t.contact_id
-      where t.org_id=${orgId} and t.status='open' order by t.due_date nulls last, t.created_at limit 100`;
+      where t.org_id=${orgId} and (t.status='open' or (t.deal_id is not null and t.done_at > now() - interval '30 days')) order by t.status, t.due_date nulls last, t.created_at limit 150`;
     return json({ ok: true, contacts, tasks });
   } catch (e) {
     return json({ error: String(e) }, 500);

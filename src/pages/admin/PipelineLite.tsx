@@ -10,11 +10,13 @@
 // =============================================================================
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, X, Sparkles, Lock, Check, LogOut, RefreshCw, LayoutGrid, Table as TableIcon, Paperclip, Plus } from 'lucide-react';
-import { liteDeals, liteDealCreate, liteDealUpdate, onboardScore, onboardStatus, crmList, crmAddTask, crmCompleteTask, dealIntake, extractFile } from '../../lib/acq';
-import { STAGES, TERMINAL_STAGES, CHECKLISTS, STAGE_ASSISTS, gbp } from '../../lib/stages';
+import { liteDeals, liteDealCreate, liteDealUpdate, onboardScore, onboardStatus, crmList, crmAddTask, crmUpdateTask, crmDeleteTask, dealIntake, extractFile } from '../../lib/acq';
+import { STAGES, TERMINAL_STAGES, CHECKLISTS, STAGE_ASSISTS, ITEM_KINDS, gbp } from '../../lib/stages';
 import Paywall, { CreditsTopUp } from '../../components/Paywall';
 import { supabase } from '../../lib/supabase';
 import DealAnalysisPanel from '../../components/DealAnalysisPanel';
+import AlertsModal from '../../components/AlertsModal';
+import ThesisSettingsModal from '../../components/ThesisSettingsModal';
 
 const NAVY = '#0A2540';
 const input = 'border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#0A2540] bg-white';
@@ -35,6 +37,8 @@ export default function PipelineLite() {
   const [filter, setFilter] = useState('all');
   const [paywall, setPaywall] = useState<string | null>(null);
   const [topup, setTopup] = useState<'ai' | 'letter' | null>(null);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [showThesis, setShowThesis] = useState(false);
   const [err, setErr] = useState('');
   useEffect(() => {
     const f = (e: any) => setTopup(e.detail?.kind ?? 'ai');
@@ -81,6 +85,10 @@ export default function PipelineLite() {
         </div>
         <div className="flex items-center gap-2">
           <a href="/admin/origination" className="bg-white/10 text-[#FFD700] border border-[#FFD700]/40 px-3 py-1.5 rounded-full text-sm font-semibold mr-1 hover:bg-white/15">Origination</a>
+          <button onClick={() => setShowAlerts(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Alerts</button>
+          <a href="/admin/crm" className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">CRM</a>
+          <button onClick={() => setShowThesis(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Thesis</button>
+          <a href="/admin/origination?view=about" className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Settings</a>
           <a href="/deals" className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Community deals</a>
           <button onClick={() => setAdding(true)} className="bg-[#FFD700] text-[#0A2540] px-3.5 py-1.5 rounded-full text-sm font-semibold hover:bg-opacity-90 mr-1">+ Add deal</button>
           <button onClick={load} className="text-white/60 hover:text-white p-2" title="Refresh"><RefreshCw className="h-4 w-4" /></button>
@@ -200,6 +208,8 @@ export default function PipelineLite() {
       {open && <DealDrawer deal={open} paid={paid} onClose={() => setOpenId(null)} onChanged={load} onPaywall={(c) => setPaywall(c)} setErr={setErr} />}
       {paywall && <Paywall context={paywall} onClose={() => setPaywall(null)} />}
       {topup && <CreditsTopUp focus={topup} onClose={() => setTopup(null)} />}
+      {showAlerts && <AlertsModal onClose={() => setShowAlerts(false)} />}
+      {showThesis && <ThesisSettingsModal onClose={() => setShowThesis(false)} />}
     </div>
   );
 }
@@ -335,8 +345,12 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
   const [taskDraft, setTaskDraft] = useState('');
   const loadTasks = () => crmList().then((r) => setTasks((r.tasks || []).filter((t: any) => t.deal_id === deal.id))).catch(() => {});
   useEffect(() => { loadTasks(); }, [deal.id]);
-  const addTask = async (title?: string) => { const t = (title ?? taskDraft).trim(); if (!t) return; await crmAddTask({ deal_id: deal.id, title: t }).catch((e: any) => setErr(e.message)); setTaskDraft(''); loadTasks(); };
-  const doneTask = async (id: string) => { await crmCompleteTask(id); setTasks((t) => t.filter((x) => x.id !== id)); };
+  const [taskKind, setTaskKind] = useState('next_step');
+  const addTask = async (title?: string, kind?: string) => { const t = (title ?? taskDraft).trim(); if (!t) return; await crmAddTask({ deal_id: deal.id, title: t, kind: kind ?? taskKind }).catch((e: any) => setErr(e.message)); setTaskDraft(''); loadTasks(); };
+  const toggleTask = async (id: string) => { await crmUpdateTask(id, { toggle: true }).catch((e: any) => setErr(e.message)); loadTasks(); };
+  const noteTask = async (t: any) => { const n = window.prompt('Note on this item', t.meta?.note ?? ''); if (n === null) return; await crmUpdateTask(t.id, { note: n }).catch((e: any) => setErr(e.message)); loadTasks(); };
+  const removeTask = async (id: string) => { await crmDeleteTask(id).catch((e: any) => setErr(e.message)); setTasks((x) => x.filter((y) => y.id !== id)); };
+  const KIND_TINT: Record<string, string> = { next_step: 'bg-[#FFD700]/15 text-[#FFD700] border-[#FFD700]/30', red_flag: 'bg-red-500/25 text-red-200 border-red-400/40', clarification: 'bg-amber-400/20 text-amber-200 border-amber-400/40', funding: 'bg-pink-400/20 text-pink-200 border-pink-400/40', vendor_outstanding: 'bg-blue-400/20 text-blue-200 border-blue-400/40', note: 'bg-white/10 text-white/60 border-white/20' };
   const score = async () => {
     setBusy(true);
     try {
@@ -423,17 +437,26 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
           )}
         </div>
 
-        {/* working items - next steps on this deal, with the stage playbook */}
+        {/* working items - identical anatomy to the host drawer */}
         <div className="mt-7">
-          <div className="text-white/40 text-[11px] font-bold uppercase tracking-[0.15em] font-serif mb-2.5">Working items - next steps on this deal</div>
+          <div className="text-white/40 text-[11px] font-bold uppercase tracking-[0.15em] font-serif mb-2.5">Working items - next steps, red flags, clarifications, funding, vendor</div>
           {tasks.length === 0 && <div className="text-white/35 text-[12.5px] mb-2">Nothing outstanding. Add the next move so it never slips.</div>}
-          {tasks.map((t) => (
-            <div key={t.id} className="flex items-start gap-2.5 py-2 border-b border-white/[0.07]">
-              <button onClick={() => doneTask(t.id)} className="mt-0.5 text-white/25 hover:text-emerald-400" title="Mark done"><Check className="h-4 w-4" /></button>
-              <span className="inline-flex text-[9px] font-bold bg-[#FFD700]/15 text-[#FFD700] border border-[#FFD700]/30 rounded-full px-2 py-0.5 uppercase mt-0.5 shrink-0">Next step</span>
-              <div className="text-[13px] text-white/85 leading-relaxed">{t.title}{t.due_date && <span className="text-white/35 text-[11px] ml-2">due {String(t.due_date).slice(0, 10)}</span>}</div>
-            </div>
-          ))}
+          {tasks.map((t) => {
+            const kind = t.meta?.kind ?? 'next_step';
+            const done = t.status === 'done';
+            return (
+              <div key={t.id} className="flex items-start gap-2.5 py-2 border-b border-white/[0.07] group">
+                <button onClick={() => toggleTask(t.id)} className={'mt-0.5 shrink-0 h-4 w-4 rounded border flex items-center justify-center ' + (done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/30 text-transparent hover:border-emerald-400')} title={done ? 'Reopen' : 'Mark done'}><Check className="h-3 w-3" /></button>
+                <span className={'inline-flex text-[9px] font-bold border rounded-full px-2 py-0.5 uppercase mt-0.5 shrink-0 ' + (KIND_TINT[kind] ?? KIND_TINT.note)}>{(ITEM_KINDS.find(([k]) => k === kind)?.[1]) ?? 'Note'}</span>
+                <div className={'text-[13px] leading-relaxed flex-1 min-w-0 ' + (done ? 'text-white/35 line-through' : 'text-white/85')}>
+                  {t.title}{t.due_date && !done && <span className="text-white/35 text-[11px] ml-2 no-underline">due {String(t.due_date).slice(0, 10)}</span>}
+                  {t.meta?.note && <div className="text-white/45 text-[11.5px] italic mt-0.5">{t.meta.note}</div>}
+                </div>
+                <button onClick={() => noteTask(t)} className="text-white/30 hover:text-[#FFD700] text-[11px] shrink-0 mt-0.5">+ note</button>
+                <button onClick={() => removeTask(t.id)} className="text-white/25 hover:text-red-400 shrink-0 mt-0.5" title="Remove"><X className="h-3.5 w-3.5" /></button>
+              </div>
+            );
+          })}
           {suggestions.length > 0 && (
             <div className="mt-3">
               <div className="text-white/30 text-[10px] font-bold uppercase tracking-wide mb-1.5">The playbook for {stageLabel(deal.status)}</div>
@@ -445,6 +468,9 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
             </div>
           )}
           <div className="flex gap-2 mt-3">
+            <select className="bg-white/10 border border-white/20 rounded-lg px-2.5 py-2.5 text-sm text-white outline-none [&>option]:text-gray-900" value={taskKind} onChange={(e) => setTaskKind(e.target.value)}>
+              {ITEM_KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
             <input className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-[#FFD700]/60" placeholder="e.g. Chase 2023 accounts · Confirm SDLT position" value={taskDraft} onChange={(e) => setTaskDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} />
             <button className={btnGold} onClick={() => addTask()}>Add</button>
           </div>

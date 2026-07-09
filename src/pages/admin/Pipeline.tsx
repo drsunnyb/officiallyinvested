@@ -409,7 +409,7 @@ export default function Pipeline() {
         <div className="flex items-center gap-2">
           <a href="/admin/origination" className="bg-white/10 text-[#FFD700] border border-[#FFD700]/40 px-3 py-1.5 rounded-full text-sm font-semibold mr-1 hover:bg-white/15">Origination</a>
           <button onClick={() => setShowAlerts(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Alerts</button>
-          <button onClick={() => setShowCRM(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">CRM</button>
+          <a href="/admin/crm" className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">CRM</a>
           <button onClick={() => setShowThesis(true)} className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Thesis</button>
           <a href="/admin/settings" className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Settings</a>
           <button onClick={() => setShowAdd(true)} className="bg-[#FFD700] text-[#0A2540] px-3.5 py-1.5 rounded-full text-sm font-semibold hover:bg-opacity-90 mr-1">+ Add deal</button>
