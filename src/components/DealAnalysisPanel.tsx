@@ -70,7 +70,9 @@ const ACTION_META: Record<string, { label: string; sub: string; icon: any }> = {
 
 type Tab = 'overview' | 'documents' | 'correspondence' | 'drafts' | 'people';
 
-export default function DealAnalysisPanel({ submissionId, dealId: dealIdProp, status, score, scoresCount, onRescore }: { submissionId?: string; dealId?: string; status?: string; score?: any; scoresCount?: number; onRescore?: () => void }) {
+export default function DealAnalysisPanel({ submissionId, dealId: dealIdProp, status, score, scoresCount, onRescore, locked }: { submissionId?: string; dealId?: string; status?: string; score?: any; scoresCount?: number; onRescore?: () => void; locked?: boolean }) {
+  // locked = free workspace: the full cockpit is visible, AI triggers open the paywall
+  const gateAI = () => { if (locked) { window.dispatchEvent(new Event('oi:paywall')); return true; } return false; };
   const [b, setB] = useState<AcqBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -109,6 +111,7 @@ export default function DealAnalysisPanel({ submissionId, dealId: dealIdProp, st
   const actionKeys = (status && STAGE_ACTIONS[status]) || ['request_docs', 'comparables'];
 
   const onUpload = async (files: FileList | null) => {
+    if (gateAI()) return;
     if (!files?.length || !dealId) return;
     setBusy('extract'); setErr('');
     try { for (const f of Array.from(files)) await extractFile(dealId, f); setB(await getDealById(dealId)); onRescore?.(); }
@@ -116,6 +119,7 @@ export default function DealAnalysisPanel({ submissionId, dealId: dealIdProp, st
   };
   const onDrop = (e: React.DragEvent) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer?.files?.length) onUpload(e.dataTransfer.files); };
   const runStep = async (step: 'analyze' | 'committee' | 'memo') => {
+    if (gateAI()) return;
     if (!dealId) return;
     setBusy(step); setErr('');
     const prev = step === 'analyze' ? b?.analysis?.id : step === 'committee' ? b?.verdict?.id : b?.memo?.id;
@@ -125,6 +129,7 @@ export default function DealAnalysisPanel({ submissionId, dealId: dealIdProp, st
     } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
   const onAction = async (key: string) => {
+    if (gateAI()) return;
     if (!dealId) return;
     setBusy(key); setErr('');
     try { const r = await draftAction(dealId, key); await load(); if (r?.draft?.id) { setOpenDraft(r.draft.id); setTab('drafts'); } }
@@ -188,7 +193,7 @@ export default function DealAnalysisPanel({ submissionId, dealId: dealIdProp, st
     const url = URL.createObjectURL(new Blob(['﻿' + html], { type: 'application/msword' }));
     const a = document.createElement('a'); a.href = url; a.download = (title || 'document').replace(/[^\w.-]+/g, '-') + '.doc'; a.click(); URL.revokeObjectURL(url);
   };
-  const genLegal = async (type: string) => { if (!dealId) return; setLegalBusy(type); setErr(''); try { const r = await legalGenerate(dealId, type, b?.deal?.name); downloadPdf(r.pdf_base64, (r.document?.title || 'document') + '.pdf'); await loadLegal(dealId); } catch (e: any) { setErr(e.message || String(e)); } finally { setLegalBusy(''); } };
+  const genLegal = async (type: string) => { if (gateAI()) return; if (!dealId) return; setLegalBusy(type); setErr(''); try { const r = await legalGenerate(dealId, type, b?.deal?.name); downloadPdf(r.pdf_base64, (r.document?.title || 'document') + '.pdf'); await loadLegal(dealId); } catch (e: any) { setErr(e.message || String(e)); } finally { setLegalBusy(''); } };
   const fillBroker = async (file: File | null) => { if (!file || !dealId) return; setLegalBusy('broker'); setErr(''); try { const r = await legalFillBroker(dealId, file, b?.deal?.name); downloadPdf(r.pdf_base64, (r.document?.title || 'signed-nda') + '.pdf'); await loadLegal(dealId); } catch (e: any) { setErr(e.message || String(e)); } finally { setLegalBusy(''); } };
   const draftText = (d: any) => editBody[d.id] ?? clean(d.body);
   const emailDraft = (d: any) => {

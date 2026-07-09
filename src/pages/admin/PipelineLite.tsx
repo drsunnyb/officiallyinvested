@@ -29,8 +29,10 @@ export default function PipelineLite() {
   const [err, setErr] = useState('');
   useEffect(() => {
     const f = (e: any) => setTopup(e.detail?.kind ?? 'ai');
+    const g = () => setPaywall('The cockpit is yours. The AI analyst inside it joins on any paid plan');
     window.addEventListener('oi:topup', f);
-    return () => window.removeEventListener('oi:topup', f);
+    window.addEventListener('oi:paywall', g);
+    return () => { window.removeEventListener('oi:topup', f); window.removeEventListener('oi:paywall', g); };
   }, []);
   const load = () => Promise.all([liteDeals(), onboardStatus()]).then(([d, st]) => { setDeals(d.deals); setPlan(st.plan ?? 'free'); }).catch((e) => setErr(e.message || String(e)));
   useEffect(() => { load(); }, []);
@@ -43,7 +45,7 @@ export default function PipelineLite() {
         <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
           <div>
             <h1 className="font-serif text-2xl font-bold text-[#FFD700]">Your pipeline</h1>
-            <p className="text-white/50 text-[13px] mt-0.5">Free forever. The Acquisition Score is on us - the AI analyst joins on a paid plan.</p>
+            <p className="text-white/50 text-[13px] mt-0.5">{paid ? 'Click any deal to open your cockpit: AI analysis, committee, memo, documents, people and history.' : 'Free forever. The Acquisition Score is on us - the AI analyst joins on a paid plan.'}</p>
           </div>
           <div className="flex gap-2">
             <Link to="/admin/origination" className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'}><ArrowLeft className="h-4 w-4" /> Origination</Link>
@@ -60,9 +62,13 @@ export default function PipelineLite() {
                 {deals.filter((d) => d.status === st).map((d) => (
                   <button key={d.id} onClick={() => setOpenId(d.id)} className="w-full text-left bg-white rounded-lg p-3 mb-2 hover:-translate-y-0.5 transition-transform">
                     <div className="text-[13px] font-semibold text-gray-900 leading-snug">{d.name}</div>
+                    <div className="flex items-center gap-2 mt-1.5 text-[10px] text-gray-400">
+                      <span className="truncate">{d.sector ?? ''}</span>
+                      {d.asking_price && <span className="font-semibold text-gray-600">£{Number(d.asking_price).toLocaleString()}</span>}
+                    </div>
                     <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-[10px] text-gray-400">{d.sector ?? ''}</span>
-                      {d.ch_snapshot?.acquisition_score != null && <span className="text-[10px] font-bold bg-[#0A2540] text-white px-1.5 py-0.5 rounded-full">✦ {d.ch_snapshot.acquisition_score}</span>}
+                      <span className="text-[9px] text-gray-300">{d.updated_at ? new Date(d.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}</span>
+                      {d.ch_snapshot?.acquisition_score != null ? <span className={'text-[10px] font-bold px-1.5 py-0.5 rounded-full ' + (d.ch_snapshot.acquisition_score >= 65 ? 'bg-emerald-600 text-white' : 'bg-[#0A2540] text-white')}>✦ {d.ch_snapshot.acquisition_score} · {d.ch_snapshot.score_band}</span> : <span className="text-[9px] text-gray-300">not scored</span>}
                     </div>
                   </button>
                 ))}
@@ -133,7 +139,7 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
   };
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex justify-end" onClick={onClose}>
-      <div className={'w-full bg-white h-full overflow-y-auto p-6 ' + (paid ? 'max-w-4xl' : 'max-w-xl')} onClick={(e) => e.stopPropagation()}>
+      <div className="w-full bg-white h-full overflow-y-auto p-6 max-w-4xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
             <div className="font-serif font-bold text-xl text-gray-900">{deal.name}</div>
@@ -179,16 +185,16 @@ function DealDrawer({ deal, paid, onClose, onChanged, onPaywall, setErr }: { dea
           <button className={btnGold + ' w-full mt-3 justify-center'} disabled={busy} onClick={score}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : snap.acquisition_score != null ? 'Re-score' : 'Get my Acquisition Score'}</button>
         </div>
 
-        {/* paid: the full deal cockpit - same one Sandeep uses */}
-        {paid && (
-          <div className="mt-6">
-            <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Deal cockpit</div>
-            <DealAnalysisPanel dealId={deal.id} />
+        {/* the full deal cockpit for everyone - AI triggers gate on free */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Deal cockpit</div>
+            {!paid && <button onClick={() => onPaywall('The cockpit is yours. The AI analyst inside it joins on any paid plan')} className="inline-flex items-center gap-1 text-[10px] font-bold bg-[#FFD700] text-[#0A2540] px-2 py-0.5 rounded-full uppercase tracking-wide"><Lock className="h-2.5 w-2.5" /> AI unlocks with a plan</button>}
           </div>
-        )}
+          <DealAnalysisPanel dealId={deal.id} locked={!paid} />
+        </div>
 
-        {/* free: AI analyst teaser - the paywall line */}
-        {!paid && (
+        {false && (
         <div className="mt-5 rounded-2xl border-2 p-4" style={{ borderColor: paid ? '#e5e7eb' : '#FFD700' }}>
           <div className="text-[13px] font-bold text-gray-900 flex items-center gap-1.5">
             {!paid && <Lock className="h-4 w-4 text-[#0A2540]" />} AI Analyst {!paid && <span className="text-[10px] font-bold text-[#0A2540] bg-[#FFD700] px-1.5 py-0.5 rounded-full">UPGRADE</span>}
