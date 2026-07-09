@@ -1,12 +1,12 @@
 // =============================================================================
 // PipelineLite - the per-workspace pipeline for self-serve users.
-// Free forever: add deals, move them through stages, get the deterministic
-// Acquisition Score. The AI analyst layer (full analysis, committee, memo,
-// drafts) is where the paywall sits.
+// Built to the exact anatomy of the host Deal Pipeline board: header bar,
+// six live KPIs, kanban/table toggle, filter pills, grouped 210px columns
+// with eyebrows, and rich cards. Only the admin machinery (submissions,
+// member releases) is absent. Free forever; the AI analyst is the paywall.
 // =============================================================================
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Loader2, Plus, X, Sparkles, ArrowLeft, Lock, Check, LogOut } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, X, Sparkles, Lock, Check, LogOut, RefreshCw, LayoutGrid, Table as TableIcon } from 'lucide-react';
 import { liteDeals, liteDealCreate, liteDealUpdate, onboardScore, onboardStatus, crmList, crmAddTask, crmCompleteTask } from '../../lib/acq';
 import Paywall, { CreditsTopUp } from '../../components/Paywall';
 import { supabase } from '../../lib/supabase';
@@ -15,16 +15,29 @@ import DealAnalysisPanel from '../../components/DealAnalysisPanel';
 const NAVY = '#0A2540';
 const input = 'border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#0A2540] bg-white';
 const btnGold = 'inline-flex items-center gap-1.5 bg-[#FFD700] text-[#0A2540] px-4 py-2 rounded-lg text-sm font-bold hover:brightness-95 disabled:opacity-40';
-const btnGhost = 'inline-flex items-center gap-1.5 border border-gray-300 text-gray-700 px-3.5 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 disabled:opacity-40';
 
 const STAGE_LABEL: Record<string, string> = { sourced: 'New & screening', contacted: 'In conversation', analysing: 'Analysis', offer: 'Offer made', heads_of_terms: 'Heads of terms', diligence: 'Due diligence', completed: 'Completed', passed: 'Passed' };
-const BOARD_STAGES = ['sourced', 'contacted', 'analysing', 'offer', 'heads_of_terms', 'diligence'];
+const BOARD_STAGES: { key: string; label: string; group: string }[] = [
+  { key: 'sourced', label: 'New & screening', group: 'Sourcing' },
+  { key: 'contacted', label: 'In conversation', group: 'Sourcing' },
+  { key: 'analysing', label: 'Analysis', group: 'Analysis' },
+  { key: 'offer', label: 'Offer made', group: 'Deal' },
+  { key: 'heads_of_terms', label: 'Heads of terms', group: 'Deal' },
+  { key: 'diligence', label: 'Due diligence', group: 'Due diligence' },
+];
+const TERMINAL = ['completed', 'passed'];
+const gbp = (n: any) => { const v = Number(n) || 0; return v >= 1e6 ? '£' + (v / 1e6).toFixed(1) + 'm' : v >= 1e3 ? '£' + Math.round(v / 1e3) + 'k' : v > 0 ? '£' + v : '£0'; };
+const staleDays = (d: any) => Math.floor((Date.now() - new Date(d.updated_at ?? d.created_at).getTime()) / 86400000);
+const bandChip = (s: number) => s >= 80 ? 'bg-emerald-400/25 text-emerald-200' : s >= 65 ? 'bg-[#FFD700]/20 text-[#FFD700]' : s >= 50 ? 'bg-white/15 text-white/80' : 'bg-white/10 text-white/50';
 
 export default function PipelineLite() {
   const [deals, setDeals] = useState<any[] | null>(null);
   const [plan, setPlan] = useState('free');
+  const [email, setEmail] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [view, setView] = useState<'kanban' | 'table'>('kanban');
+  const [filter, setFilter] = useState('all');
   const [paywall, setPaywall] = useState<string | null>(null);
   const [topup, setTopup] = useState<'ai' | 'letter' | null>(null);
   const [err, setErr] = useState('');
@@ -35,72 +48,155 @@ export default function PipelineLite() {
     window.addEventListener('oi:paywall', g);
     return () => { window.removeEventListener('oi:topup', f); window.removeEventListener('oi:paywall', g); };
   }, []);
-  const load = () => Promise.all([liteDeals(), onboardStatus()]).then(([d, st]) => { setDeals(d.deals); setPlan(st.plan ?? 'free'); }).catch((e) => setErr(e.message || String(e)));
+  const load = () => Promise.all([liteDeals(), onboardStatus()]).then(([d, st]) => { setDeals(d.deals); setPlan(st.plan ?? 'free'); setEmail(st.email ?? ''); }).catch((e) => setErr(e.message || String(e)));
   useEffect(() => { load(); }, []);
   const open = (deals ?? []).find((d) => d.id === openId) ?? null;
   const paid = plan !== 'free';
 
+  const filtered = useMemo(() => {
+    const ds = deals ?? [];
+    if (filter === 'all') return ds;
+    if (filter === 'deal_flow') return ds.filter((d) => d.source === 'deal_flow');
+    return ds.filter((d) => (d.asset_type ?? 'business') === filter);
+  }, [deals, filter]);
+
+  const weekAgo = Date.now() - 7 * 864e5;
+  const live = (deals ?? []).filter((d) => !TERMINAL.includes(d.status));
+  const kpis: [string, string | number][] = [
+    ['New this week', (deals ?? []).filter((d) => +new Date(d.created_at) > weekAgo).length],
+    ['Live deals', live.length],
+    ['Opportunity value', gbp(live.reduce((a, d) => a + (Number(d.asking_price) || 0), 0))],
+    ['No movement 7d+', live.filter((d) => staleDays(d) > 7).length],
+    ['Open next steps', (deals ?? []).reduce((a, d) => a + (Number(d.open_tasks) || 0), 0)],
+    ['Completed', (deals ?? []).filter((d) => d.status === 'completed').length],
+  ];
+
+  const moveDeal = async (id: string, status: string) => { if (!id) return; await liteDealUpdate(id, { status }).catch((x: any) => setErr(x.message)); load(); };
+
   return (
     <div className="min-h-screen" style={{ background: NAVY }}>
-      <div className="max-w-7xl mx-auto px-4 pt-24 pb-16">
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+      {/* header bar - same anatomy as the host pipeline */}
+      <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/10 flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-[#FFD700] rotate-45" style={{ clipPath: 'polygon(50% 0%,100% 50%,50% 100%,0% 50%)' }}></div>
           <div>
-            <h1 className="font-serif text-2xl font-bold text-[#FFD700]">Your pipeline</h1>
-            <p className="text-white/50 text-[13px] mt-0.5">{paid ? 'Click any deal to open your cockpit: AI analysis, committee, memo, documents, people and history.' : 'Free forever. The Acquisition Score is on us - the AI analyst joins on a paid plan.'}</p>
-          </div>
-          <div className="flex gap-2">
-            <Link to="/admin/origination" className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'}><ArrowLeft className="h-4 w-4" /> Origination</Link>
-            <Link to="/deals" className={btnGhost + ' !text-white !border-white/30 hover:!bg-white/10'}>Community deals</Link>
-            <button className={btnGold} onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> Add deal</button>
-            <button className="text-white/50 hover:text-white p-2" title="Sign out" onClick={async () => { await supabase?.auth.signOut(); window.location.href = '/signup'; }}><LogOut className="h-4 w-4" /></button>
+            <h1 className="text-xl font-serif font-bold text-[#FFD700]">Your Deal Pipeline</h1>
+            <p className="text-white/40 text-xs">{email || (paid ? 'Your cockpit on every deal' : 'Free forever - the AI analyst joins on a paid plan')}</p>
           </div>
         </div>
-        {err && <div className="bg-red-50 text-red-700 text-sm rounded-lg px-4 py-2.5 mb-4">{err}</div>}
-        {deals && deals.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 mb-5">
-            {([['Live deals', deals.filter((d) => !['completed', 'passed'].includes(d.status)).length],
-              ['In conversation', deals.filter((d) => d.status === 'contacted').length],
-              ['Offers out', deals.filter((d) => ['offer', 'heads_of_terms'].includes(d.status)).length],
-              ['In diligence', deals.filter((d) => d.status === 'diligence').length],
-              ['Completed', deals.filter((d) => d.status === 'completed').length]] as [string, number][]).map(([label, value]) => (
-              <div key={label} className="bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5">
-                <div className="text-white/50 text-[11px] mb-0.5">{label}</div>
-                <div className="text-[#FFD700] text-lg font-bold">{value}</div>
-              </div>
-            ))}
+        <div className="flex items-center gap-2">
+          <a href="/admin/origination" className="bg-white/10 text-[#FFD700] border border-[#FFD700]/40 px-3 py-1.5 rounded-full text-sm font-semibold mr-1 hover:bg-white/15">Origination</a>
+          <a href="/deals" className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Community deals</a>
+          <button onClick={() => setAdding(true)} className="bg-[#FFD700] text-[#0A2540] px-3.5 py-1.5 rounded-full text-sm font-semibold hover:bg-opacity-90 mr-1">+ Add deal</button>
+          <button onClick={load} className="text-white/60 hover:text-white p-2" title="Refresh"><RefreshCw className="h-4 w-4" /></button>
+          <button onClick={async () => { await supabase?.auth.signOut(); window.location.href = '/signup'; }} className="text-white/60 hover:text-white p-2" title="Sign out"><LogOut className="h-4 w-4" /></button>
+        </div>
+      </div>
+
+      <div className="px-6 py-5">
+        {err && <div className="bg-red-500/15 border border-red-400/30 text-red-200 text-sm rounded-lg px-4 py-2.5 mb-4">{err}</div>}
+
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2.5 mb-5">
+          {kpis.map(([label, value]) => (
+            <div key={label} className="bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5">
+              <div className="text-white/50 text-[11px] mb-0.5">{label}</div>
+              <div className="text-[#FFD700] text-lg font-bold">{value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap mb-4">
+          <div className="flex border border-white/20 rounded-full overflow-hidden">
+            <button onClick={() => setView('kanban')} className={'px-4 py-1.5 text-sm font-semibold flex items-center gap-1.5 ' + (view === 'kanban' ? 'bg-[#FFD700] text-[#0A2540]' : 'text-white/70')}><LayoutGrid className="h-3.5 w-3.5" />Kanban</button>
+            <button onClick={() => setView('table')} className={'px-4 py-1.5 text-sm font-semibold flex items-center gap-1.5 ' + (view === 'table' ? 'bg-[#FFD700] text-[#0A2540]' : 'text-white/70')}><TableIcon className="h-3.5 w-3.5" />Table</button>
           </div>
-        )}
-        {!deals ? <div className="text-white/50 py-20 text-center"><Loader2 className="h-6 w-6 animate-spin inline" /></div> : (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-            {BOARD_STAGES.map((st) => (
-              <div key={st} className="bg-white/[0.05] border border-white/10 rounded-xl p-2.5 min-h-[180px]"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={async (e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) { await liteDealUpdate(id, { status: st }).catch((x: any) => setErr(x.message)); load(); } }}>
-                <div className="text-white/60 text-[10px] font-bold uppercase tracking-wider px-1 mb-2">{STAGE_LABEL[st]} · {deals.filter((d) => d.status === st).length}</div>
-                {deals.filter((d) => d.status === st).map((d) => (
-                  <button key={d.id} draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', d.id)} onClick={() => setOpenId(d.id)} className="w-full text-left bg-white rounded-lg p-3 mb-2 hover:-translate-y-0.5 transition-transform cursor-grab active:cursor-grabbing">
-                    <div className="text-[13px] font-semibold text-gray-900 leading-snug">{d.name}</div>
-                    <div className="flex flex-wrap gap-x-2 mt-1.5 text-[10px] font-semibold text-[#B8860B]">
-                      {d.ch_snapshot?.score_inputs?.revenue > 0 && <span>Rev £{Number(d.ch_snapshot.score_inputs.revenue).toLocaleString()}</span>}
-                      {d.ch_snapshot?.score_inputs?.ebitda > 0 && <span>Profit £{Number(d.ch_snapshot.score_inputs.ebitda).toLocaleString()}</span>}
-                      {d.asking_price && <span>Ask £{Number(d.asking_price).toLocaleString()}</span>}
-                      {!d.asking_price && !(d.ch_snapshot?.score_inputs?.revenue > 0) && <span className="text-gray-400 font-normal">{d.sector ?? ''}</span>}
+          {[['all', 'All'], ['business', 'Businesses'], ['property', 'Property'], ['deal_flow', '◆ From deal flow']].map(([k, label]) => (
+            <button key={k} onClick={() => setFilter(k)} className={'px-4 py-1.5 rounded-full text-sm font-semibold border ' + (filter === k ? 'bg-white text-[#0A2540] border-white' : 'bg-white/5 text-white/70 border-white/15')}>{label}</button>
+          ))}
+        </div>
+
+        {!deals ? (
+          <div className="p-16 text-center"><Loader2 className="h-7 w-7 animate-spin text-[#FFD700] mx-auto" /></div>
+        ) : view === 'kanban' ? (
+          <div className="overflow-x-auto pb-3">
+            <div className="flex gap-2.5 items-start min-w-max">
+              {BOARD_STAGES.map((s) => {
+                const inStage = filtered.filter((d) => d.status === s.key);
+                return (
+                  <div
+                    key={s.key}
+                    className="bg-white/[0.04] border border-white/10 rounded-xl p-2.5 w-[210px] shrink-0 min-h-[120px]"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => { e.preventDefault(); moveDeal(e.dataTransfer.getData('text/plain'), s.key); }}
+                  >
+                    <div className="text-[#FFD700]/70 text-[9px] font-bold uppercase tracking-wider mb-1 px-1">{s.group}</div>
+                    <div className="flex justify-between text-white/70 text-[11px] font-bold uppercase tracking-wide px-1 pb-2">
+                      {s.label} <span className="text-[#FFD700]">{inStage.length}</span>
                     </div>
-                    {Date.now() - new Date(d.updated_at ?? d.created_at).getTime() > 7 * 86400000 && !['completed', 'passed'].includes(d.status) && (
-                      <div className="mt-1.5 text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 inline-block">No movement · {Math.floor((Date.now() - new Date(d.updated_at ?? d.created_at).getTime()) / 86400000)}d · nudge it</div>
-                    )}
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-[9px] text-gray-300">{d.updated_at ? new Date(d.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}</span>
-                      {d.ch_snapshot?.acquisition_score != null ? <span className={'text-[10px] font-bold px-1.5 py-0.5 rounded-full ' + (d.ch_snapshot.acquisition_score >= 65 ? 'bg-emerald-600 text-white' : 'bg-[#0A2540] text-white')}>✦ {d.ch_snapshot.acquisition_score} · {d.ch_snapshot.score_band}</span> : <span className="text-[9px] text-gray-300">not scored</span>}
-                    </div>
-                  </button>
+                    {inStage.map((d) => {
+                      const stale = staleDays(d);
+                      const score = d.ch_snapshot?.acquisition_score;
+                      const rev = d.ch_snapshot?.score_inputs?.revenue;
+                      const eb = d.ch_snapshot?.score_inputs?.ebitda;
+                      return (
+                        <div
+                          key={d.id}
+                          draggable
+                          onDragStart={(e) => e.dataTransfer.setData('text/plain', d.id)}
+                          onClick={() => setOpenId(d.id)}
+                          className="bg-[#0E3257] border border-white/15 hover:border-[#FFD700]/50 rounded-xl p-2.5 mb-2 cursor-pointer"
+                        >
+                          {stale > 7 && <div className="text-[10px] font-bold rounded-lg px-2 py-1 mb-1.5 bg-amber-400/20 text-amber-300 border border-amber-400/30">With you · {stale}d - nudge it</div>}
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-white/50 text-[10px] font-semibold">{new Date(d.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                            {score != null && <span className={'text-[9px] font-bold px-1.5 py-0.5 rounded-full ' + bandChip(score)}>✦ {score} · {d.ch_snapshot?.score_band}</span>}
+                          </div>
+                          <div className="text-white font-bold text-[13px]">{d.name}</div>
+                          <div className="text-[#FFD700] text-[11px] font-semibold mb-1">
+                            {rev > 0 ? `Rev ${gbp(rev)}` : ''}{eb > 0 ? `${rev > 0 ? ' · ' : ''}Profit ${gbp(eb)}` : ''}{d.asking_price ? `${rev > 0 || eb > 0 ? ' · ' : ''}Ask ${gbp(d.asking_price)}` : ''}
+                            {!(rev > 0) && !(eb > 0) && !d.asking_price && <span className="text-white/35 font-normal">{d.sector ?? 'add the numbers'}</span>}
+                          </div>
+                          <div className="flex gap-1 flex-wrap text-[9px] font-bold">
+                            {Number(d.open_tasks) > 0 && <span className="bg-[#FFD700]/20 text-[#FFD700] px-1.5 py-0.5 rounded-full">{d.open_tasks} step{Number(d.open_tasks) > 1 ? 's' : ''}</span>}
+                            <span className="bg-white/10 text-white/60 px-1.5 py-0.5 rounded-full">{Number(d.docs_count) || 0} docs</span>
+                            {d.source === 'deal_flow' && <span className="bg-emerald-400/25 text-emerald-200 px-1.5 py-0.5 rounded-full">◆ from deal flow</span>}
+                            {score == null && <span className="bg-white/10 text-white/50 px-1.5 py-0.5 rounded-full">not scored</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white/[0.04] border border-white/10 rounded-xl overflow-x-auto">
+            <table className="w-full text-left text-[13px] min-w-[720px]">
+              <thead><tr className="text-white/50 text-[11px] uppercase tracking-wide border-b border-white/10">
+                {['Deal', 'Stage', 'Sector', 'Ask', 'Score', 'Steps', 'Docs', 'Updated'].map((h) => <th key={h} className="px-4 py-3 font-bold">{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {filtered.map((d) => (
+                  <tr key={d.id} onClick={() => setOpenId(d.id)} className="border-b border-white/[0.06] hover:bg-white/[0.04] cursor-pointer">
+                    <td className="px-4 py-3 text-white font-semibold">{d.name}</td>
+                    <td className="px-4 py-3 text-white/70">{STAGE_LABEL[d.status] ?? d.status}</td>
+                    <td className="px-4 py-3 text-white/50">{d.sector ?? '-'}</td>
+                    <td className="px-4 py-3 text-[#FFD700] font-semibold">{d.asking_price ? gbp(d.asking_price) : '-'}</td>
+                    <td className="px-4 py-3">{d.ch_snapshot?.acquisition_score != null ? <span className={'text-[10px] font-bold px-1.5 py-0.5 rounded-full ' + bandChip(d.ch_snapshot.acquisition_score)}>✦ {d.ch_snapshot.acquisition_score}</span> : <span className="text-white/30">-</span>}</td>
+                    <td className="px-4 py-3 text-white/70">{Number(d.open_tasks) || 0}</td>
+                    <td className="px-4 py-3 text-white/70">{Number(d.docs_count) || 0}</td>
+                    <td className="px-4 py-3 text-white/50">{new Date(d.updated_at ?? d.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</td>
+                  </tr>
                 ))}
-              </div>
-            ))}
+                {filtered.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-white/40">No deals match this filter.</td></tr>}
+              </tbody>
+            </table>
           </div>
         )}
-        {(deals ?? []).some((d) => ['completed', 'passed'].includes(d.status)) && (
-          <div className="text-white/40 text-[12px] mt-4">Completed: {(deals ?? []).filter((d) => d.status === 'completed').length} · Passed: {(deals ?? []).filter((d) => d.status === 'passed').length}</div>
+
+        {(deals ?? []).some((d) => TERMINAL.includes(d.status)) && view === 'kanban' && (
+          <div className="text-white/40 text-[12px] mt-4">Completed: {(deals ?? []).filter((d) => d.status === 'completed').length} · Passed: {(deals ?? []).filter((d) => d.status === 'passed').length} (open any deal to change its stage)</div>
         )}
       </div>
 
@@ -113,11 +209,11 @@ export default function PipelineLite() {
 }
 
 function AddDeal({ onClose, onSaved, setErr }: { onClose: () => void; onSaved: () => void; setErr: (m: string) => void }) {
-  const [f, setF] = useState<any>({ name: '', sector: '', asking_price: '' });
+  const [f, setF] = useState<any>({ name: '', sector: '', asking_price: '', asset_type: 'business' });
   const [busy, setBusy] = useState(false);
   const go = async () => {
     setBusy(true);
-    try { await liteDealCreate({ name: f.name, sector: f.sector || null, asking_price: f.asking_price ? Number(String(f.asking_price).replace(/[^0-9.]/g, '')) : null }); onSaved(); }
+    try { await liteDealCreate({ name: f.name, sector: f.sector || null, asset_type: f.asset_type, asking_price: f.asking_price ? Number(String(f.asking_price).replace(/[^0-9.]/g, '')) : null }); onSaved(); }
     catch (e: any) { setErr(e.message || String(e)); }
     setBusy(false);
   };
@@ -126,6 +222,11 @@ function AddDeal({ onClose, onSaved, setErr }: { onClose: () => void; onSaved: (
       <div className="bg-white rounded-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
         <div className="font-serif font-bold text-lg text-gray-900 mb-4">Add a deal</div>
         <input className={input + ' w-full'} placeholder="Business name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+        <div className="flex gap-2 mt-2.5">
+          {[['business', 'Business'], ['property', 'Property']].map(([k, label]) => (
+            <button key={k} onClick={() => setF({ ...f, asset_type: k })} className={'flex-1 text-sm font-semibold rounded-lg border px-3 py-2 ' + (f.asset_type === k ? 'bg-[#0A2540] text-white border-[#0A2540]' : 'border-gray-300 text-gray-600 hover:bg-gray-50')}>{label}</button>
+          ))}
+        </div>
         <input className={input + ' w-full mt-2.5'} placeholder="Sector (optional)" value={f.sector} onChange={(e) => setF({ ...f, sector: e.target.value })} />
         <input className={input + ' w-full mt-2.5'} placeholder="Asking price £ (optional)" value={f.asking_price} onChange={(e) => setF({ ...f, asking_price: e.target.value })} />
         <button className={btnGold + ' w-full mt-4 justify-center'} disabled={busy || !f.name.trim()} onClick={go}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add to pipeline'}</button>

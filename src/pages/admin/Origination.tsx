@@ -166,7 +166,7 @@ export default function Origination() {
         {view === 'dashboard' && <Dashboard setErr={setErr} go={setView} buyBox={settings.buy_box} openWizard={() => setView('buybox')} />}
         {view === 'find' && <FindView setErr={setErr} buyBox={settings.buy_box} go={setView} />}
         {view === 'prospects' && <ProspectsView setErr={setErr} />}
-        {view === 'contacts' && <ContactsView setErr={setErr} />}
+        {view === 'contacts' && <ContactsView setErr={setErr} go={setView} />}
         {view === 'campaigns' && <CampaignsView setErr={setErr} buyBox={settings.buy_box} profile={settings?.profile} goAbout={() => setView('about')} />}
         {view === 'dealflow' && <DealFlowView setErr={setErr} initialSubmission={deepSubmission} />}
         {view === 'members' && <MembersView setErr={setErr} />}
@@ -887,7 +887,19 @@ function UploadModal({ onClose, setErr }: { onClose: () => void; setErr: (s: str
 }
 
 // ============================ TASKS (origination) ============================
-function ContactsView({ setErr }: { setErr: (s: string) => void }) {
+// Each AI-generated task carries an action key: the button either takes the
+// user straight to the fix, or opens the exact flow that does it for them.
+const TASK_ACTION_LABEL: Record<string, string> = {
+  topup_letters: 'Top up letter credits',
+  topup_ai: 'Top up AI credits',
+  approve_letters: 'Open the approval queue',
+  enrol_prospects: 'Enrol prospects now',
+  start_sourcing: 'Start a sourcing run',
+  move_replied_to_pipeline: 'Review replies',
+  review_dealflow: 'Open the deal flow',
+  upgrade_plan: 'See plans',
+};
+function ContactsView({ setErr, go }: { setErr: (s: string) => void; go: (v: any) => void }) {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); const [tf, setTf] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState('');
@@ -903,9 +915,18 @@ function ContactsView({ setErr }: { setErr: (s: string) => void }) {
     } catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(''); }
   };
   const overdue = (t: any) => t.due_date && new Date(t.due_date) < new Date();
+  const runAction = (a: string) => {
+    if (a === 'topup_letters') window.dispatchEvent(new CustomEvent('oi:topup', { detail: { kind: 'letter' } }));
+    else if (a === 'topup_ai') window.dispatchEvent(new CustomEvent('oi:topup', { detail: { kind: 'ai' } }));
+    else if (a === 'upgrade_plan') window.dispatchEvent(new Event('oi:paywall'));
+    else if (a === 'review_dealflow') window.location.href = '/deals';
+    else if (a === 'move_replied_to_pipeline') go('prospects');
+    else if (a === 'start_sourcing') go('find');
+    else go('campaigns');
+  };
   return (
     <>
-      <Header title="Tasks" sub="What needs a human: call tasks from your campaigns land here with their brief, plus anything you add yourself. Contacts for the people around your deals live in the pipeline, on each deal.">
+      <Header title="Tasks" sub="Your AI chief of staff watches campaigns, credits and pipeline in the background and writes tasks here when something needs you, with an email so nothing slips. Call tasks from campaigns land here too, plus anything you add yourself.">
         <button onClick={aiPlan} disabled={busy === 'ai'} className={btnGold}>{busy === 'ai' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{busy === 'ai' ? 'Reading your workspace…' : 'AI: plan my next moves'}</button>
       </Header>
       <div className="px-8 pb-8 max-w-3xl">
@@ -917,8 +938,14 @@ function ContactsView({ setErr }: { setErr: (s: string) => void }) {
             <div key={t.id} className="flex items-start gap-2.5 py-2.5 border-b border-gray-50 last:border-0">
               <button onClick={() => done(t.id)} className="mt-0.5 text-gray-300 hover:text-emerald-500" title="Mark done"><Check className="h-4 w-4" /></button>
               <div className="min-w-0 flex-1">
-                <div className="text-[13px] text-gray-800">{t.title}</div>
+                <div className="text-[13px] text-gray-800">{t.title}{t.meta?.auto && <span className="ml-1.5 inline-flex text-[9px] font-bold bg-[#FFD700]/20 text-[#8a6d00] border border-[#FFD700]/50 rounded-full px-1.5 py-px uppercase align-middle">AI</span>}</div>
                 <div className={'text-[11px] ' + (overdue(t) ? 'text-red-500 font-semibold' : 'text-gray-400')}>{[t.contact_name, t.due_date ? (overdue(t) ? 'overdue · was due ' : 'due ') + String(t.due_date).slice(0, 10) : null].filter(Boolean).join(' · ') || 'no due date'}</div>
+                {t.meta?.action && TASK_ACTION_LABEL[t.meta.action] && (
+                  <button onClick={() => runAction(t.meta.action)} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-[#0A2540] bg-[#FFD700] hover:brightness-95 rounded-full px-3 py-1">{TASK_ACTION_LABEL[t.meta.action]} →</button>
+                )}
+                {t.meta?.action === 'call_or_manual' && (
+                  <div className="mt-1 text-[11px] text-gray-500">This one needs you in person. The brief above tells you exactly what to do; mark it done when it is.</div>
+                )}
               </div>
             </div>
           ))}

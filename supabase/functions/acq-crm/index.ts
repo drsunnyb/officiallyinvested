@@ -1,7 +1,7 @@
 // acq-crm — contacts + follow-up tasks + per-deal people (the system's memory).
-// v3: enriched contacts (deals, last interaction, open tasks), categorisation by
-// role, a `suggest` action (relevant existing contacts for a deal/stage), and
-// linking an existing contact to a deal by id.
+// v6: AI tasks carry an actionable `meta.action` key the UI can execute; new
+// trusted `ai_tasks_cron` runs task generation in the background for every
+// workspace that needs it and emails the owner a branded nudge.
 import postgres from 'npm:postgres@3.4.5';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -11,13 +11,68 @@ const DB_URL = Deno.env.get('SUPABASE_DB_URL')!;
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-acq-secret', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
+const esc = (x: string) => String(x ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!));
+
+const ACTIONS = ['topup_letters', 'topup_ai', 'approve_letters', 'enrol_prospects', 'start_sourcing', 'move_replied_to_pipeline', 'review_dealflow', 'upgrade_plan', 'call_or_manual', 'none'];
+
+// The AI chief of staff: reads the live workspace, writes prioritised tasks
+// with an action key the product can execute or route. Shared by the
+// user-triggered path and the background cron.
+async function generateTasks(sql: any, orgId: string, userId: string | null, ANTHROPIC: string) {
+  const campaigns = await sql`select c.name, c.status,
+      (select count(*)::int from acq.campaign_members m where m.campaign_id=c.id) as enrolled,
+      (select count(*)::int from acq.campaign_members m where m.campaign_id=c.id and m.status='replied') as replied,
+      (select count(*)::int from acq.outreach_touches t where t.campaign_id=c.id and t.status='needs_approval') as awaiting_approval,
+      (select count(*)::int from acq.outreach_touches t where t.campaign_id=c.id and t.status='sent') as sent
+    from acq.campaigns c where c.org_id=${orgId} order by c.created_at desc limit 10`;
+  const credits = (await sql`select * from acq.credits where org_id=${orgId}`)[0] ?? null;
+  const org = (await sql`select settings->>'plan' as plan from acq.organizations where id=${orgId}`)[0];
+  const stages = await sql`select stage, count(*)::int as n from acq.prospects where org_id=${orgId} group by stage`;
+  const deals = await sql`select status, count(*)::int as n from acq.deals where org_id=${orgId} group by status`;
+  const openTasks = await sql`select title from acq.tasks where org_id=${orgId} and status='open' limit 50`;
+  const runs = await sql`select status, count(*)::int as n from acq.sourcing_runs where org_id=${orgId} group by status`;
+  const now = new Date(); const reset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const snapshot = {
+    plan: org?.plan ?? 'free',
+    credits: credits ? { ai: credits.ai_monthly + credits.ai_topup, letter: credits.letter_monthly + credits.letter_topup } : { ai: 0, letter: 0 },
+    monthly_allowance_resets: reset.toISOString().slice(0, 10),
+    campaigns, prospect_stages: Object.fromEntries(stages.map((x: any) => [x.stage, x.n])),
+    pipeline_deals: Object.fromEntries(deals.map((x: any) => [x.status, x.n])),
+    sourcing_runs: Object.fromEntries(runs.map((x: any) => [x.status, x.n])),
+    existing_open_tasks: openTasks.map((t: any) => t.title),
+  };
+  const ar = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST', headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: 900,
+      system: 'You are the operations chief of staff for a UK acquisition entrepreneur using the Officially Invested Investor OS. From the workspace snapshot, write the 2-5 highest-leverage tasks for the next two weeks. Rules: concrete and imperative, one action each, plain UK English, no em dashes, no AI tells. Never duplicate or paraphrase an existing open task. Think about: approvals sitting unactioned (letters cannot post without approval and each uses a letter credit); credits running low versus the reset date (top up or upgrade BEFORE a live campaign stalls); replied prospects who should be moved into the pipeline as deals; qualified prospects not yet enrolled in any campaign; paused campaigns with enrolled prospects; no sourcing activity when the pipeline is thin. If credits are zero and a campaign is live, that is the top task. Due dates: urgent 0-2 days, normal 3-7, housekeeping 8-14. For each task pick the single best action key: topup_letters or topup_ai (buy credits), approve_letters (open the approval queue), enrol_prospects (put prospects into a campaign), start_sourcing (run a new sourcing batch), move_replied_to_pipeline (turn replied prospects into pipeline deals), review_dealflow (look at member deals), upgrade_plan (plan-level blocker), call_or_manual (a human phone call or offline step), none.',
+      tools: [{ name: 'set_tasks', description: 'The task list', input_schema: { type: 'object', properties: { tasks: { type: 'array', items: { type: 'object', properties: { title: { type: 'string', description: 'max 80 chars, imperative' }, due_in_days: { type: 'number' }, why: { type: 'string', description: 'one short sentence' }, action: { type: 'string', enum: ACTIONS } }, required: ['title', 'due_in_days', 'action'] } } }, required: ['tasks'] } }],
+      tool_choice: { type: 'tool', name: 'set_tasks' },
+      messages: [{ role: 'user', content: 'Workspace snapshot: ' + JSON.stringify(snapshot) }],
+    }),
+  });
+  if (!ar.ok) { const t = await ar.text(); throw new Error('Suggestions are briefly unavailable, try again. (' + ar.status + ' ' + t.slice(0, 120) + ')'); }
+  const out: any = ((await ar.json()).content ?? []).find((b: any) => b.type === 'tool_use')?.input ?? { tasks: [] };
+  const existing = new Set(openTasks.map((t: any) => String(t.title).toLowerCase().replace(/[^a-z0-9]/g, '')));
+  const created: any[] = [];
+  for (const t of (out.tasks ?? []).slice(0, 5)) {
+    const key = String(t.title ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!t.title || key.length < 5 || existing.has(key)) continue;
+    const due = new Date(Date.now() + Math.max(0, Math.min(14, Number(t.due_in_days ?? 3))) * 86400000).toISOString().slice(0, 10);
+    const title = t.why ? `${String(t.title).slice(0, 90)} (${String(t.why).slice(0, 90)})` : String(t.title).slice(0, 120);
+    const meta = { auto: true, action: ACTIONS.includes(t.action) ? t.action : 'none', why: String(t.why ?? '').slice(0, 200) };
+    const row = (await sql`insert into acq.tasks (org_id, title, due_date, created_by, meta) values (${orgId}, ${title}, ${due}, ${userId}, ${meta}) returning *`)[0];
+    created.push(row); existing.add(key);
+  }
+  return created;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const sql = postgres(DB_URL, { prepare: false });
   try {
     const body = await req.json().catch(() => ({} as any));
-    const cfg = Object.fromEntries((await sql`select key, value from public.oi_config where key in ('acq_internal_secret','from_email','anthropic_api_key')`).map((r: any) => [r.key, r.value]));
+    const cfg = Object.fromEntries((await sql`select key, value from public.oi_config where key in ('acq_internal_secret','from_email','anthropic_api_key','resend_api_key','email_template')`).map((r: any) => [r.key, r.value]));
     const trusted = !!req.headers.get('x-acq-secret') && req.headers.get('x-acq-secret') === cfg.acq_internal_secret;
     let userId: string | null = null;
     if (!trusted) {
@@ -26,12 +81,63 @@ Deno.serve(async (req: Request) => {
       if (!data?.user) { await sql.end({ timeout: 5 }); return json({ error: 'unauthorised' }, 401); }
       userId = data.user.id;
     }
+
+    const action = body.action ?? 'list';
+
+    // ---- trusted background pass: generate tasks where the workspace needs them ----
+    if (action === 'ai_tasks_cron') {
+      if (!trusted) { await sql.end({ timeout: 5 }); return json({ error: 'unauthorised' }, 401); }
+      const ANTHROPIC = Deno.env.get('ANTHROPIC_API_KEY') || cfg.anthropic_api_key;
+      if (!ANTHROPIC) { await sql.end({ timeout: 5 }); return json({ ok: true, note: 'no anthropic key' }); }
+      const host = (await sql`select id from acq.organizations order by created_at limit 1`)[0];
+      const orgs = await sql`select o.id, o.settings, u.email, coalesce(o.settings->'profile'->>'founder_name','') as fname
+        from acq.organizations o join acq.org_members m on m.org_id=o.id and m.role='owner' join auth.users u on u.id=m.user_id
+        where o.id <> ${host.id}`;
+      let generated = 0; const report: string[] = [];
+      for (const o of orgs.slice(0, 40)) {
+        try {
+          const st = o.settings ?? {};
+          const last = st.ai_tasks?.last_run ? new Date(st.ai_tasks.last_run).getTime() : 0;
+          if (Date.now() - last < 3 * 86400000) continue; // at most every 3 days per org
+          // only workspaces with something happening
+          const activity = (await sql`select
+            (select count(*)::int from acq.prospects where org_id=${o.id}) +
+            (select count(*)::int from acq.deals where org_id=${o.id}) +
+            (select count(*)::int from acq.campaigns where org_id=${o.id}) as n`)[0];
+          if (Number(activity.n) === 0) continue;
+          // don't pile on: skip if 4+ auto tasks already open
+          const openAuto = (await sql`select count(*)::int as n from acq.tasks where org_id=${o.id} and status='open' and (meta->>'auto')='true'`)[0];
+          if (Number(openAuto.n) >= 4) continue;
+          const created = await generateTasks(sql, o.id, null, ANTHROPIC);
+          await sql`update acq.organizations set settings = jsonb_set(coalesce(settings,'{}'::jsonb), '{ai_tasks}', ${{ last_run: new Date().toISOString(), last_created: created.length }}) where id=${o.id}`;
+          if (created.length > 0) {
+            generated += created.length; report.push(`${o.email}:${created.length}`);
+            // branded notification email
+            if (cfg.resend_api_key && o.email) {
+              const first = esc((o.fname || o.email.split('@')[0]).split(' ')[0]);
+              const items = created.map((t: any) => `<tr><td style="padding:9px 0;border-bottom:1px solid #E8ECF1;font-size:14px;color:#25384C;">${esc(String(t.title).replace(/\s*\(.*\)\s*$/, ''))}<div style="font-size:12px;color:#8A97A6;margin-top:2px;">${esc(t.meta?.why ?? '')}${t.due_date ? ' · due ' + String(t.due_date).slice(0, 10) : ''}</div></td></tr>`).join('');
+              const inner = `
+<h1 style="font-family:Georgia,'Times New Roman',serif;font-size:25px;color:#0A2540;margin:0 0 16px;">${first}, your workspace needs ${created.length === 1 ? 'one thing' : created.length + ' things'} from you.</h1>
+<p style="margin:0 0 14px;">Your AI chief of staff read your campaigns, credits, prospects and pipeline this morning. Here is what will move things forward:</p>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:6px 0 14px;">${items}</table>
+<p style="margin:0 0 14px;">Each task in the app has a button that takes you straight to the fix, or does it for you where the system can.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:8px;"><tr><td bgcolor="#F5C518" style="background:#F5C518;border-radius:12px;"><a href="https://www.officiallyinvested.com/admin/origination?view=contacts" style="display:inline-block;font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;color:#0A2540;text-decoration:none;padding:13px 26px;">Open my tasks</a></td></tr></table>
+<p style="margin:14px 0 0;font-size:12.5px;color:#6B7A89;">These arrive at most twice a week, and only when something genuinely needs you.</p>`;
+              const tpl = cfg.email_template ?? '<html><body>{{CONTENT}}</body></html>';
+              const html = tpl.replaceAll('{{BRAND}}', 'Officially Invested').replaceAll('{{PREHEADER}}', 'Your AI chief of staff found the next moves in your workspace.').replaceAll('{{CONTENT}}', inner);
+              try { await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${cfg.resend_api_key}`, 'content-type': 'application/json' }, body: JSON.stringify({ from: `Officially Invested <${cfg.from_email ?? 'deals@officiallyinvested.com'}>`, to: [o.email], subject: created.length === 1 ? 'One thing needs you today' : `${created.length} things need you today`, html }) }); } catch (_) { /* best effort */ }
+            }
+          }
+        } catch (_) { /* next org */ }
+      }
+      await sql.end({ timeout: 5 });
+      return json({ ok: true, generated, report });
+    }
+
     let orgId: string | null = body.org_id ?? null;
     if (userId) { const m = (await sql`select org_id from acq.org_members where user_id=${userId} order by created_at limit 1`)[0]; orgId = m?.org_id ?? null; }
     else { const o = (await sql`select id from acq.organizations order by created_at limit 1`)[0]; orgId = o?.id ?? null; }
     if (!orgId) { await sql.end({ timeout: 5 }); return json({ error: 'no org' }, 403); }
-
-    const action = body.action ?? 'list';
 
     if (action === 'add_contact') {
       const c = (await sql`insert into acq.contacts (org_id, name, role, company, email, phone, notes) values (${orgId}, ${body.name}, ${body.role ?? null}, ${body.company ?? null}, ${body.email ?? null}, ${body.phone ?? null}, ${body.notes ?? null}) returning *`)[0];
@@ -80,55 +186,15 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, suggestions: rows });
     }
 
-    // AI chief of staff: reads the live workspace and writes prioritised tasks.
+    // AI chief of staff, user-triggered
     if (action === 'ai_tasks') {
       const ANTHROPIC = Deno.env.get('ANTHROPIC_API_KEY') || cfg.anthropic_api_key;
       if (!ANTHROPIC) { await sql.end({ timeout: 5 }); return json({ error: 'no anthropic key' }); }
-      const campaigns = await sql`select c.name, c.status,
-          (select count(*)::int from acq.campaign_members m where m.campaign_id=c.id) as enrolled,
-          (select count(*)::int from acq.campaign_members m where m.campaign_id=c.id and m.status='replied') as replied,
-          (select count(*)::int from acq.outreach_touches t where t.campaign_id=c.id and t.status='needs_approval') as awaiting_approval,
-          (select count(*)::int from acq.outreach_touches t where t.campaign_id=c.id and t.status='sent') as sent
-        from acq.campaigns c where c.org_id=${orgId} order by c.created_at desc limit 10`;
-      const credits = (await sql`select * from acq.credits where org_id=${orgId}`)[0] ?? null;
-      const org = (await sql`select settings->>'plan' as plan from acq.organizations where id=${orgId}`)[0];
-      const stages = await sql`select stage, count(*)::int as n from acq.prospects where org_id=${orgId} group by stage`;
-      const deals = await sql`select status, count(*)::int as n from acq.deals where org_id=${orgId} group by status`;
-      const openTasks = await sql`select title from acq.tasks where org_id=${orgId} and status='open' limit 50`;
-      const runs = await sql`select status, count(*)::int as n from acq.sourcing_runs where org_id=${orgId} group by status`;
-      const now = new Date(); const reset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      const snapshot = {
-        plan: org?.plan ?? 'free',
-        credits: credits ? { ai: credits.ai_monthly + credits.ai_topup, letter: credits.letter_monthly + credits.letter_topup } : { ai: 0, letter: 0 },
-        monthly_allowance_resets: reset.toISOString().slice(0, 10),
-        campaigns, prospect_stages: Object.fromEntries(stages.map((x: any) => [x.stage, x.n])),
-        pipeline_deals: Object.fromEntries(deals.map((x: any) => [x.status, x.n])),
-        sourcing_runs: Object.fromEntries(runs.map((x: any) => [x.status, x.n])),
-        existing_open_tasks: openTasks.map((t: any) => t.title),
-      };
-      const ar = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 900,
-          system: 'You are the operations chief of staff for a UK acquisition entrepreneur using the Officially Invested Investor OS. From the workspace snapshot, write the 2-5 highest-leverage tasks for the next two weeks. Rules: concrete and imperative, one action each, plain UK English, no em dashes, no AI tells. Never duplicate or paraphrase an existing open task. Think about: approvals sitting unactioned (letters cannot post without approval and each uses a letter credit); credits running low versus the reset date (top up or upgrade BEFORE a live campaign stalls); replied prospects who should be moved into the pipeline as deals; qualified prospects not yet enrolled in any campaign; paused campaigns with enrolled prospects; no sourcing activity when the pipeline is thin. If credits are zero and a campaign is live, that is the top task. Due dates: urgent 0-2 days, normal 3-7, housekeeping 8-14.',
-          tools: [{ name: 'set_tasks', description: 'The task list', input_schema: { type: 'object', properties: { tasks: { type: 'array', items: { type: 'object', properties: { title: { type: 'string', description: 'max 80 chars, imperative' }, due_in_days: { type: 'number' }, why: { type: 'string', description: 'one short sentence' } }, required: ['title', 'due_in_days'] } } }, required: ['tasks'] } }],
-          tool_choice: { type: 'tool', name: 'set_tasks' },
-          messages: [{ role: 'user', content: 'Workspace snapshot: ' + JSON.stringify(snapshot) }],
-        }),
-      });
-      if (!ar.ok) { const t = await ar.text(); await sql.end({ timeout: 5 }); return json({ error: 'Suggestions are briefly unavailable, try again. (' + ar.status + ')', detail: t.slice(0, 120) }); }
-      const out: any = ((await ar.json()).content ?? []).find((b: any) => b.type === 'tool_use')?.input ?? { tasks: [] };
-      const existing = new Set(openTasks.map((t: any) => String(t.title).toLowerCase().replace(/[^a-z0-9]/g, '')));
-      const created: any[] = [];
-      for (const t of (out.tasks ?? []).slice(0, 5)) {
-        const key = String(t.title ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (!t.title || key.length < 5 || existing.has(key)) continue;
-        const due = new Date(Date.now() + Math.max(0, Math.min(14, Number(t.due_in_days ?? 3))) * 86400000).toISOString().slice(0, 10);
-        const title = t.why ? `${String(t.title).slice(0, 90)} (${String(t.why).slice(0, 90)})` : String(t.title).slice(0, 120);
-        const row = (await sql`insert into acq.tasks (org_id, title, due_date, created_by) values (${orgId}, ${title}, ${due}, ${userId}) returning *`)[0];
-        created.push(row); existing.add(key);
-      }
-      return json({ ok: true, created: created.length, tasks: created });
+      try {
+        const created = await generateTasks(sql, orgId, userId, ANTHROPIC);
+        await sql`update acq.organizations set settings = jsonb_set(coalesce(settings,'{}'::jsonb), '{ai_tasks}', ${{ last_run: new Date().toISOString(), last_created: created.length }}) where id=${orgId}`;
+        return json({ ok: true, created: created.length, tasks: created });
+      } catch (e: any) { return json({ error: String(e.message ?? e).slice(0, 200) }); }
     }
 
     if (action === 'contact_detail') {
