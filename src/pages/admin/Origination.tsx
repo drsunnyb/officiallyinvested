@@ -22,6 +22,7 @@ import { creditsBalance } from '../../lib/acq';
 
 // Plan gate: free workspaces hit the paywall on paid capabilities.
 let CURRENT_PLAN = 'free';
+let PROSPECTS_PRESET_STAGE = '';
 export const requirePaid = () => {
   if (CURRENT_PLAN === 'free') { window.dispatchEvent(new Event('oi:paywall')); return false; }
   return true;
@@ -375,11 +376,11 @@ function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => 
   const maxDay = Math.max(1, ...days.map((d) => d.letters + d.emails));
 
   const funnel = [
-    { label: 'Prospects', value: total, view: 'prospects' as View },
-    { label: 'In campaigns', value: inCampaigns, view: 'campaigns' as View },
-    { label: 'Sent', value: sent, view: 'campaigns' as View },
-    { label: 'Replied', value: replied, view: 'prospects' as View },
-    { label: 'Deals', value: promoted, view: 'prospects' as View },
+    { label: 'Prospects', value: total, view: 'prospects' as View, stage: '' },
+    { label: 'In campaigns', value: inCampaigns, view: 'prospects' as View, stage: 'in_campaign' },
+    { label: 'Sent', value: sent, view: 'campaigns' as View, stage: '' },
+    { label: 'Replied', value: replied, view: 'prospects' as View, stage: 'replied' },
+    { label: 'Deals', value: promoted, view: 'prospects' as View, stage: 'promoted' },
   ];
   const maxF = Math.max(1, ...funnel.map((f) => f.value));
 
@@ -409,7 +410,7 @@ function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => 
               </div>
               <div className="grid grid-cols-5 gap-2 mt-5">
                 {funnel.map((f, i) => (
-                  <button key={f.label} onClick={() => go(f.view)} className="text-left group">
+                  <button key={f.label} onClick={() => { PROSPECTS_PRESET_STAGE = f.stage ?? ''; go(f.view); }} className="text-left group" title={f.stage ? 'See exactly who is at this step' : 'Open'}>
                     <div className="font-serif font-bold text-[26px] leading-none text-white group-hover:text-[#FFD700] transition">{f.value}</div>
                     <div className="text-[11px] text-white/50 mt-1">{f.label}</div>
                     <div className="mt-2.5 h-2 rounded-full bg-white/10 overflow-hidden">
@@ -675,7 +676,7 @@ function FindView({ setErr, buyBox, go }: { setErr: (s: string) => void; buyBox:
 // ============================ PROSPECTS ============================
 function ProspectsView({ setErr }: { setErr: (s: string) => void }) {
   const [rows, setRows] = useState<any[]>([]); const [total, setTotal] = useState(0); const [counts, setCounts] = useState<Record<string, number>>({});
-  const [page, setPage] = useState(1); const [q, setQ] = useState(''); const [stage, setStage] = useState(''); const [minFit, setMinFit] = useState('');
+  const [page, setPage] = useState(1); const [q, setQ] = useState(''); const [stage, setStage] = useState(() => { const v = PROSPECTS_PRESET_STAGE; PROSPECTS_PRESET_STAGE = ''; return v; }); const [minFit, setMinFit] = useState('');
   const [loading, setLoading] = useState(true); const [openId, setOpenId] = useState<string | null>(null); const [detail, setDetail] = useState<any>(null);
   const [busy, setBusy] = useState(''); const [uploadOpen, setUploadOpen] = useState(false);
   const [noteMode, setNoteMode] = useState<null | 'note' | 'call'>(null); const [noteText, setNoteText] = useState('');

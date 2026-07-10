@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Loader2, X, Video, Plus, Check, UserPlus } from 'lucide-react';
-import { addDealContact, crmSuggest } from '../lib/acq';
+import { addDealContact, crmSuggest, crmList } from '../lib/acq';
 
 // Who belongs on a call at each stage. The agent suggests these from the deal's
 // people and lets you add anyone missing while setting the call up.
@@ -25,6 +25,13 @@ export default function ScheduleCallModal({ dealId, dealName, status, dealContac
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [sugs, setSugs] = useState<any[]>([]);
+  const [q, setQ] = useState('');
+  const [found, setFound] = useState<any[]>([]);
+  useEffect(() => {
+    if (!q.trim()) { setFound([]); return; }
+    const t = setTimeout(() => crmList(q).then((r) => setFound((r.contacts || []).filter((c: any) => c.email && !people.some((p: any) => p.email === c.email)).slice(0, 8))).catch(() => {}), 300);
+    return () => clearTimeout(t);
+  }, [q]);
   useEffect(() => { crmSuggest(dealId, roles).then((r) => setSugs(r.suggestions || [])).catch(() => {}); }, [dealId]);
   const addSuggestion = async (c: any) => {
     setBusy(true); setErr('');
@@ -92,9 +99,24 @@ export default function ScheduleCallModal({ dealId, dealName, status, dealContac
           })}
         </div>
 
-        {sugs.length > 0 && (
+        <input className={input + ' w-full mb-2'} placeholder="Search your whole CRM: name, company, email" value={q} onChange={(e) => setQ(e.target.value)} />
+        {q.trim() && (
           <div className="mb-4">
-            <div className="text-white/45 text-[11px] mb-1.5">Suggested from your CRM</div>
+            <div className="text-white/45 text-[11px] mb-1.5">{found.length ? 'Search results' : 'No one matches that yet'}</div>
+            <div className="flex flex-col gap-1">
+              {found.map((c) => (
+                <button key={c.id} onClick={() => { addSuggestion(c); setQ(''); }} disabled={busy} className="w-full text-left flex items-center gap-2 bg-white/5 hover:bg-white/10 rounded-lg p-2 disabled:opacity-50">
+                  <UserPlus className="h-3.5 w-3.5 text-[#FFD700] shrink-0" />
+                  <span className="text-[12px] text-white flex-1 truncate">{c.name}{c.company ? ' · ' + c.company : ''}</span>
+                  {c.role && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#FFD700]/15 text-[#FFD700] shrink-0">{c.role}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {!q.trim() && sugs.length > 0 && (
+          <div className="mb-4">
+            <div className="text-white/45 text-[11px] mb-1.5">Suggested from your CRM: this deal's people first, then matching roles</div>
             <div className="flex flex-col gap-1">
               {sugs.slice(0, 6).map((c) => (
                 <button key={c.id} onClick={() => addSuggestion(c)} disabled={busy} className="w-full text-left flex items-center gap-2 bg-white/5 hover:bg-white/10 rounded-lg p-2 disabled:opacity-50">
