@@ -342,13 +342,14 @@ function BuyBoxWizard({ orgName, settings, onDone, onSkip }: { orgName: string; 
 function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => void; go: (v: View) => void; buyBox: any; openWizard: () => void }) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [total, setTotal] = useState(0);
+  const [pRows, setPRows] = useState<any[]>([]);
   const [camps, setCamps] = useState<any[]>([]);
   const [sentTouches, setSentTouches] = useState<any[]>([]);
   const [attention, setAttention] = useState<{ count: number; top: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    Promise.all([prospectsList({ per: 5 }), outreachList()])
-      .then(([p, c]) => { setCounts(p.stage_counts || {}); setTotal(Object.values(p.stage_counts || {}).reduce((a, b) => a + b, 0)); setCamps(c.campaigns); })
+    Promise.all([prospectsList({ per: 300 }), outreachList()])
+      .then(([p, c]) => { setCounts(p.stage_counts || {}); setTotal(Object.values(p.stage_counts || {}).reduce((a, b) => a + b, 0)); setPRows(p.prospects || []); setCamps(c.campaigns); })
       .catch((e) => setErr(e.message || String(e))).finally(() => setLoading(false));
     outreachQueue('sent').then((q) => setSentTouches(q.touches ?? [])).catch(() => {});
     // Buy-box deals in the community flow that have had no action from you yet
@@ -383,6 +384,26 @@ function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => 
     { label: 'Deals', value: promoted, view: 'prospects' as View, stage: 'promoted' },
   ];
   const maxF = Math.max(1, ...funnel.map((f) => f.value));
+
+  // granular analytics, computed from the live prospect sample
+  const STAGE_META: [string, string, string][] = [
+    ['new', 'New', '#94A3B8'], ['enriched', 'Enriched', '#7FB2E5'], ['qualified', 'Qualified', '#C9A227'],
+    ['in_campaign', 'In campaign', '#FFD700'], ['replied', 'Replied', '#6EE7B7'], ['promoted', 'On pipeline', '#10B981'], ['suppressed', 'Opted out', '#E2E8F0'],
+  ];
+  const stageMax = Math.max(1, ...STAGE_META.map(([k]) => counts[k] || 0));
+  const fit = (r: any) => Number(r.fit_score ?? r.fit ?? -1);
+  const fitBuckets = [
+    { label: 'Strong fit 80+', n: pRows.filter((r) => fit(r) >= 80).length, c: '#10B981' },
+    { label: 'Good 65-79', n: pRows.filter((r) => fit(r) >= 65 && fit(r) < 80).length, c: '#FFD700' },
+    { label: 'Fair 50-64', n: pRows.filter((r) => fit(r) >= 50 && fit(r) < 65).length, c: '#C9A227' },
+    { label: 'Low or unscored', n: pRows.filter((r) => fit(r) < 50).length, c: '#CBD5E1' },
+  ];
+  const fitTotal = Math.max(1, fitBuckets.reduce((a, b) => a + b.n, 0));
+  const regionCounts: Record<string, number> = {};
+  for (const r of pRows) { const g = String(r.region ?? '').trim(); if (g) regionCounts[g] = (regionCounts[g] || 0) + 1; }
+  const topRegions = Object.entries(regionCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const regionMax = Math.max(1, ...topRegions.map(([, n]) => n));
+  const replyRate = sent > 0 ? Math.round((replied / sent) * 100) : null;
 
   return (
     <>
@@ -427,11 +448,56 @@ function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => 
             </div>
 
             <div className="grid md:grid-cols-2 gap-4 mb-4">
+              {/* every prospect, by stage, click any bar to see exactly who */}
+              <div className={card + ' p-5'}>
+                <div className="flex items-baseline justify-between">
+                  <div className="font-semibold text-gray-900">Prospects by stage</div>
+                  <div className="text-[11px] text-gray-400">click a bar to see exactly who</div>
+                </div>
+                <div className="mt-4 flex flex-col gap-2">
+                  {STAGE_META.map(([k, label, colour]) => (
+                    <button key={k} onClick={() => { PROSPECTS_PRESET_STAGE = k; go('prospects'); }} className="group flex items-center gap-3 text-left">
+                      <span className="text-[11px] text-gray-500 w-24 shrink-0 group-hover:text-[#0A2540]">{label}</span>
+                      <span className="flex-1 h-4 rounded-full bg-gray-50 overflow-hidden">
+                        <span className="block h-full rounded-full transition-all duration-700" style={{ width: Math.max(counts[k] ? 4 : 0, Math.round(((counts[k] || 0) / stageMax) * 100)) + '%', background: colour }} />
+                      </span>
+                      <span className="text-[12px] font-bold text-gray-700 w-12 text-right tabular-nums">{(counts[k] || 0).toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* quality and geography of the pool */}
+              <div className={card + ' p-5'}>
+                <div className="font-semibold text-gray-900">Quality of the pool <span className="text-[11px] font-normal text-gray-400">latest {pRows.length.toLocaleString()} prospects</span></div>
+                <div className="mt-4 h-4 rounded-full overflow-hidden flex">
+                  {fitBuckets.map((b) => b.n > 0 && <span key={b.label} title={b.label + ': ' + b.n} style={{ width: (b.n / fitTotal) * 100 + '%', background: b.c }} />)}
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2.5">
+                  {fitBuckets.map((b) => (
+                    <span key={b.label} className="inline-flex items-center gap-1.5 text-[11px] text-gray-500"><span className="h-2 w-2 rounded-full" style={{ background: b.c }} /> {b.label} · <b className="text-gray-700">{b.n}</b></span>
+                  ))}
+                </div>
+                {topRegions.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-gray-50">
+                    <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Where they are</div>
+                    {topRegions.map(([g, n]) => (
+                      <div key={g} className="flex items-center gap-3 py-1">
+                        <span className="text-[11px] text-gray-500 w-28 truncate shrink-0">{g}</span>
+                        <span className="flex-1 h-2.5 rounded-full bg-gray-50 overflow-hidden"><span className="block h-full rounded-full" style={{ width: Math.round((n / regionMax) * 100) + '%', background: 'linear-gradient(90deg,#0A2540,#123A66)' }} /></span>
+                        <span className="text-[11px] font-bold text-gray-600 w-10 text-right tabular-nums">{n}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
               {/* activity, last 14 days */}
               <div className={card + ' p-5'}>
                 <div className="flex items-baseline justify-between">
                   <div className="font-semibold text-gray-900">Outreach activity</div>
-                  <div className="text-[11px] text-gray-400">last 14 days · <span className="text-[#A67C00] font-semibold">letters</span> · <span className="text-[#0A2540] font-semibold">emails</span></div>
+                  <div className="text-[11px] text-gray-400">{replyRate !== null && <span className="text-emerald-600 font-bold mr-2">{replyRate}% reply rate</span>}last 14 days · <span className="text-[#A67C00] font-semibold">letters</span> · <span className="text-[#0A2540] font-semibold">emails</span></div>
                 </div>
                 {sent === 0 ? (
                   <div className="text-[13px] text-gray-400 mt-4 bg-gray-50 rounded-lg px-4 py-3">Nothing sent yet. Approve your queued letters and the bars start here.</div>
@@ -495,10 +561,16 @@ function Dashboard({ setErr, go, buyBox, openWizard }: { setErr: (s: string) => 
                     <div className="mt-3"><button onClick={() => go('campaigns')} className={btnPrimary}><Send className="h-4 w-4" />Create your first campaign</button></div>
                   </div>
                 ) : camps.slice(0, 4).map((c) => (
-                  <button key={c.id} onClick={() => go('campaigns')} className="w-full flex items-center gap-2 py-2 border-b border-gray-50 last:border-0 text-left">
-                    <span className={'h-2 w-2 rounded-full ' + (c.status === 'active' ? 'bg-emerald-500' : 'bg-gray-300')} />
-                    <span className="text-[13px] font-medium text-gray-800 flex-1 truncate">{c.name}</span>
-                    <span className="text-[12px] text-gray-400">{c.members} enrolled · {c.sent} sent · {c.replied} replied</span>
+                  <button key={c.id} onClick={() => go('campaigns')} className="w-full py-2.5 border-b border-gray-50 last:border-0 text-left">
+                    <div className="flex items-center gap-2">
+                      <span className={'h-2 w-2 rounded-full ' + (c.status === 'active' ? 'bg-emerald-500' : 'bg-gray-300')} />
+                      <span className="text-[13px] font-medium text-gray-800 flex-1 truncate">{c.name}</span>
+                      <span className="text-[12px] text-gray-400">{c.members} enrolled · {c.sent} sent · {c.replied} replied</span>
+                    </div>
+                    <div className="mt-1.5 ml-4 h-2 rounded-full bg-gray-50 overflow-hidden flex">
+                      <span style={{ width: Math.min(100, Math.round(((c.sent || 0) / Math.max(1, c.members || 0)) * 100)) + '%', background: 'linear-gradient(90deg,#C9A227,#FFD700)' }} title={c.sent + ' sent'} />
+                      <span style={{ width: Math.min(100, Math.round(((c.replied || 0) / Math.max(1, c.members || 0)) * 100)) + '%', background: '#6EE7B7' }} title={c.replied + ' replied'} />
+                    </div>
                   </button>
                 ))}
               </div>
