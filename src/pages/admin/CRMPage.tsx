@@ -7,7 +7,7 @@
 // =============================================================================
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, X, Check, LogOut, RefreshCw, Search, Calendar, Phone, Mail, FileText, Users, Pencil, Paperclip, Sparkles } from 'lucide-react';
-import { crmList, crmAddContact, crmContactDetail, crmUpdateContact, crmAddTask, crmCompleteTask, meetingCreate, meetingUpdate, meetingCancel, meetingsList, crmCommThread, crmReply, crmAiDraftReply, crmApproveReply } from '../../lib/acq';
+import { crmList, crmAddContact, crmContactDetail, crmUpdateContact, crmAddTask, crmCompleteTask, meetingCreate, meetingUpdate, meetingCancel, meetingsList, crmCommThread, crmReply, crmAiDraftReply, crmApproveReply, crmAiTasks, gmailStatus, gmailStart } from '../../lib/acq';
 import { supabase } from '../../lib/supabase';
 
 const NAVY = '#0A2540';
@@ -32,16 +32,23 @@ export default function CRMPage() {
   const [sel, setSel] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const [upcoming, setUpcoming] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [openTask, setOpenTask] = useState<string | null>(null);
+  const [google, setGoogle] = useState<{ configured: boolean; accounts: any[] } | null>(null);
+  const [aiBusy, setAiBusy] = useState('');
   const [cf, setCf] = useState<Record<string, string>>({});
   const [adding, setAdding] = useState(false);
   const timer = useRef<any>(null);
 
   const load = async (query?: string) => {
     setLoading(true);
-    try { const r = await crmList(query ?? q); setContacts(r.contacts || []); } catch (e: any) { setErr(e.message || String(e)); }
+    try { const r = await crmList(query ?? q); setContacts(r.contacts || []); setTasks((r.tasks || []).filter((t: any) => t.status === 'open')); } catch (e: any) { setErr(e.message || String(e)); }
     setLoading(false);
   };
-  useEffect(() => { load(''); meetingsList().then((r) => setUpcoming((r.meetings || []).filter((m: any) => m.status === 'scheduled' && new Date(m.starts_at) > new Date()))).catch(() => {}); }, []);
+  useEffect(() => { load(''); meetingsList().then((r) => setUpcoming((r.meetings || []).filter((m: any) => m.status === 'scheduled' && new Date(m.starts_at) > new Date()))).catch(() => {}); gmailStatus().then((r: any) => setGoogle({ configured: !!r.configured, accounts: r.accounts || [] })).catch(() => {}); }, []);
+  const connectGoogle = async () => { try { const r = await gmailStart(); if (r.url) window.open(r.url, '_blank'); else if (r.error) setErr(r.error); } catch (e: any) { setErr(e.message || String(e)); } };
+  const aiPlan = async () => { setAiBusy('plan'); try { const r = await crmAiTasks(); if (r.created === 0) setErr('Nothing new to suggest. Your open tasks already cover the priorities.'); await load(); } catch (e: any) { setErr(e.message || String(e)); } setAiBusy(''); };
+  const approveTask = async (t: any) => { setAiBusy(t.id); try { await crmApproveReply(t.id); await load(); } catch (e: any) { setErr(e.message || String(e)); } setAiBusy(''); };
   const onSearch = (v: string) => { setQ(v); clearTimeout(timer.current); timer.current = setTimeout(() => load(v), 350); };
 
   const addContact = async () => {
@@ -65,6 +72,9 @@ export default function CRMPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {google && (google.accounts.length > 0
+            ? <span className="text-emerald-300 border border-emerald-400/40 bg-emerald-400/10 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">✓ Google connected</span>
+            : <button onClick={connectGoogle} className="text-[#FFD700] border border-[#FFD700]/40 px-3 py-1.5 rounded-full text-sm font-semibold mr-1 hover:bg-[#FFD700]/10">Connect Google</button>)}
           <a href="/admin/pipeline" className="bg-white/10 text-[#FFD700] border border-[#FFD700]/40 px-3 py-1.5 rounded-full text-sm font-semibold mr-1 hover:bg-white/15">Pipeline</a>
           <a href="/admin/origination" className="text-white/70 hover:text-white border border-white/20 px-3 py-1.5 rounded-full text-sm font-semibold mr-1">Origination</a>
           <button onClick={() => load()} className="text-white/60 hover:text-white p-2" title="Refresh"><RefreshCw className="h-4 w-4" /></button>
@@ -88,6 +98,42 @@ export default function CRMPage() {
               <Calendar className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />{upcoming.length} meeting{upcoming.length > 1 ? 's' : ''} coming up · next: {upcoming[0].title} · {fmtDT(upcoming[0].starts_at)}
             </div>
           )}
+          {/* needs you: every open task, AI-suggested and agent-executable where it can be */}
+          <div className="bg-white/[0.05] border border-white/10 rounded-xl p-3 mb-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-white text-[13px] font-bold">Needs you <span className="text-white/40 font-normal">· {tasks.length} open</span></div>
+              <button onClick={aiPlan} disabled={aiBusy === 'plan'} className="inline-flex items-center gap-1 text-[11px] font-bold text-[#FFD700] border border-[#FFD700]/40 rounded-full px-2.5 py-1 hover:bg-[#FFD700]/10 disabled:opacity-40"><Sparkles className="h-3 w-3" />{aiBusy === 'plan' ? 'Reading…' : 'AI: plan my moves'}</button>
+            </div>
+            {tasks.length === 0 && <div className="text-white/35 text-[12px]">Nothing outstanding. The AI watches your workspace and adds tasks here when something needs you.</div>}
+            <div className="max-h-[26vh] overflow-y-auto">
+              {tasks.slice(0, 12).map((t) => {
+                const draft = t.meta?.action === 'approve_reply' ? t.meta?.draft : null;
+                const openIt = openTask === t.id;
+                return (
+                  <div key={t.id} className="py-1.5 border-b border-white/[0.06] last:border-0">
+                    <div className="flex items-start gap-2">
+                      <button onClick={async () => { await crmCompleteTask(t.id); load(); }} className="mt-0.5 text-white/25 hover:text-emerald-400 shrink-0" title="Mark done"><Check className="h-3.5 w-3.5" /></button>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-white/80 text-[12px] leading-snug">{t.title}{t.meta?.auto && <span className="ml-1 text-[8px] font-bold bg-[#FFD700]/20 text-[#FFD700] rounded-full px-1.5 py-px uppercase align-middle">AI</span>}</div>
+                        <div className="text-white/30 text-[10.5px]">{[t.contact_name, t.due_date ? 'due ' + String(t.due_date).slice(0, 10) : null].filter(Boolean).join(' · ')}</div>
+                        {draft && !openIt && <button onClick={() => setOpenTask(t.id)} className="mt-1 text-[10.5px] font-bold text-[#FFD700] border border-[#FFD700]/40 rounded-full px-2 py-0.5 hover:bg-[#FFD700]/10">The agent can send this. Review it →</button>}
+                        {draft && openIt && (
+                          <div className="mt-1.5 bg-white/[0.05] border border-[#FFD700]/30 rounded-lg p-2.5">
+                            <div className="text-[10px] text-white/45 mb-1">To {draft.to} · {draft.subject}</div>
+                            <div className="text-[11.5px] text-white/70 whitespace-pre-wrap max-h-32 overflow-y-auto">{draft.body}</div>
+                            <div className="flex gap-1.5 mt-2">
+                              <button onClick={() => approveTask(t)} disabled={aiBusy === t.id} className="bg-[#FFD700] text-[#0A2540] rounded-full text-[11px] font-bold px-3 py-1 disabled:opacity-40">{aiBusy === t.id ? 'Sending…' : 'Approve and send'}</button>
+                              <button onClick={() => setOpenTask(null)} className="text-white/50 text-[11px] border border-white/20 rounded-full px-3 py-1">Not yet</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           <div className="max-h-[52vh] overflow-y-auto -mx-1 px-1">
             {loading ? <div className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin text-[#FFD700] mx-auto" /></div> :
               shown.length === 0 ? <div className="text-white/35 text-[13px] py-8 text-center">No one here yet. Add your first contact below, or they arrive automatically from replies and deals.</div> :
@@ -311,12 +357,16 @@ function ContactDetail({ contactId, onChanged, setErr }: { contactId: string; on
           {(d.timeline ?? []).length === 0 && <div className="text-white/35 text-[13px] py-6">Nothing on record yet. The first letter, call or meeting starts the story.</div>}
           {(d.timeline ?? []).map((t: any, i: number) => {
             const Icon = TL_ICON[t.icon_kind] ?? FileText;
+            const key = 'tl' + i;
+            const open = expanded.has(key);
             return (
-              <div key={i} className="flex gap-3 py-2.5 border-b border-white/[0.06]">
+              <div key={i} className="flex gap-3 py-2.5 border-b border-white/[0.06] cursor-pointer hover:bg-white/[0.02] rounded-lg px-1 -mx-1" onClick={() => setExpanded((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; })}>
                 <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center shrink-0 mt-0.5"><Icon className="h-3.5 w-3.5 text-[#FFD700]" /></div>
                 <div className="min-w-0 flex-1">
                   <div className="text-white/85 text-[13px] font-semibold">{t.title}{t.deal_name && <span className="text-white/35 font-normal"> · {t.deal_name}</span>}</div>
-                  {t.body && <div className="text-white/50 text-[12px] mt-0.5 line-clamp-2">{t.body}</div>}
+                  {t.body && <div className={'text-white/50 text-[12px] mt-0.5 whitespace-pre-wrap ' + (open ? '' : 'line-clamp-2')}>{t.body}</div>}
+                  {t.icon_kind !== 'task' && open && <button onClick={(e) => { e.stopPropagation(); setTab('comms'); if (thread === null) loadThread(); }} className="text-[#FFD700]/80 text-[11px] mt-1 underline underline-offset-2">open in Comms to reply</button>}
+                  {!open && String(t.body ?? '').length > 120 && <div className="text-[#FFD700]/60 text-[10.5px] mt-0.5">click to expand</div>}
                 </div>
                 <div className="text-white/30 text-[11px] shrink-0">{fmtDT(t.at)}</div>
               </div>
@@ -350,7 +400,7 @@ function ContactDetail({ contactId, onChanged, setErr }: { contactId: string; on
               <Calendar className={'h-4 w-4 shrink-0 ' + (m.status === 'held' ? 'text-emerald-400' : m.status === 'cancelled' ? 'text-white/25' : 'text-[#FFD700]')} />
               <div className="min-w-0 flex-1">
                 <div className={'text-[13px] font-semibold ' + (m.status === 'cancelled' ? 'text-white/35 line-through' : 'text-white/85')}>{m.title}{m.deal_name && <span className="text-white/35 font-normal"> · {m.deal_name}</span>}</div>
-                <div className="text-white/40 text-[11.5px]">{fmtDT(m.starts_at)} · {m.duration_mins} mins{m.location ? ' · ' + m.location : ''}{m.outcome ? ' · ' + m.outcome : ''}</div>
+                <div className="text-white/40 text-[11.5px]">{fmtDT(m.starts_at)} · {m.duration_mins} mins{m.location ? ' · ' + m.location : ''}{m.outcome ? ' · ' + m.outcome : ''}{m.meta?.meet_link && <a href={m.meta.meet_link} target="_blank" rel="noreferrer" className="ml-1.5 text-[#FFD700] font-bold hover:underline" onClick={(e) => e.stopPropagation()}>Join Meet</a>}{m.meta?.google_event_id && <span className="ml-1.5 text-emerald-300/80">in Google Calendar</span>}</div>
               </div>
               {m.status === 'scheduled' && (
                 <div className="flex gap-1.5 shrink-0 items-center">
