@@ -90,7 +90,8 @@ Deno.serve(async (req: Request) => {
               await stripe(key, `subscriptions/${existingSubId}`, {
                 'items[0][id]': itemId,
                 'items[0][price]': priceId,
-                proration_behavior: 'create_prorations',
+                proration_behavior: 'always_invoice',
+                payment_behavior: 'error_if_incomplete',
                 'metadata[org_id]': mem.org_id,
                 'metadata[plan]': plan,
                 'metadata[interval]': annual ? 'annual' : 'monthly',
