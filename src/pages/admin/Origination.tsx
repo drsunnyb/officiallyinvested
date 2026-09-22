@@ -1611,11 +1611,14 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
   const u = settings?.outreach ?? {};
   const [vol, setVol] = useState(String(u.letter_monthly_cap ?? 100));
   const [busy, setBusy] = useState(false);
+  const [live, setLive] = useState<boolean>(!!u.letters_live);
+  const [confirmLive, setConfirmLive] = useState(false);
+  const [busyLive, setBusyLive] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
   const [showTopup, setShowTopup] = useState(false);
   const [bal, setBal] = useState<any>(null);
   useEffect(() => { creditsBalance().then(setBal).catch(() => {}); }, []);
-  const credits = settings?.usage?.letter_credits ?? 0;
+  useEffect(() => { setLive(!!settings?.outreach?.letters_live); }, [settings]);
   const plan = settings?.plan ?? 'free';
   const managePortal = async () => {
     try { const r = await billingPortal(); if (r.url) window.location.href = r.url; else setErr(r.error ?? 'No subscription found'); }
@@ -1625,6 +1628,16 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
     setBusy(true); setErr('');
     try { await setOrgSettings({ ...(settings ?? {}), outreach: { ...(settings?.outreach ?? {}), letter_monthly_cap: Number(vol) } }); onSaved(); }
     catch (e: any) { setErr(e.message || String(e)); } finally { setBusy(false); }
+  };
+  // Test mode is the default: until this is switched on, Stannp receives every
+  // approved letter but prints and posts nothing, so nobody is charged.
+  const saveLive = async (next: boolean) => {
+    setBusyLive(true); setErr('');
+    try {
+      await setOrgSettings({ ...(settings ?? {}), outreach: { ...(settings?.outreach ?? {}), letters_live: next } });
+      setLive(next); onSaved();
+    } catch (e: any) { setErr(e.message || String(e)); }
+    finally { setBusyLive(false); setConfirmLive(false); }
   };
   return (
     <>
@@ -1667,7 +1680,7 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
       </div>
       {showTopup && <CreditsTopUp onClose={() => { setShowTopup(false); creditsBalance().then(setBal).catch(() => {}); }} />}
       <Header title="Usage & billing" sub="Control how much the machine does each month. Letters are your only cold-outreach cost - email and phone are free and unlock once a prospect engages." />
-      <div className="px-8 pb-8 grid lg:grid-cols-2 gap-5 max-w-3xl">
+      <div className="px-8 pb-8 max-w-xl">
         <div className={card + ' p-5'}>
           <div className="font-semibold text-gray-900 mb-1">Letter volume</div>
           <p className="text-[13px] text-gray-500 mb-3">How many letters may be posted per month, across all campaigns. From £1.20 per letter, printed and posted for you.</p>
@@ -1679,19 +1692,43 @@ function BillingView({ settings, onSaved, setErr }: { settings: any; onSaved: ()
           </div>
           <p className="text-[11px] text-gray-400 mt-3">Approximate monthly letter spend at this volume: £{(Number(vol) * 1.2).toLocaleString()}.</p>
         </div>
-        <div className={card + ' p-5'}>
-          <div className="font-semibold text-gray-900 mb-1">Letter credits</div>
-          <div className="text-[28px] font-bold text-gray-900 my-2">{credits.toLocaleString()} <span className="text-[13px] font-normal text-gray-400">credits</span></div>
-          <p className="text-[13px] text-gray-500 mb-3">One credit = one posted letter. Top-ups roll over month to month.</p>
-          <a className={btnPrimary} href="mailto:deals@officiallyinvested.com?subject=Letter%20credits%20top-up">Top up credits</a>
-        </div>
-        <div className={card + ' p-5 lg:col-span-2'}>
-          <div className="font-semibold text-gray-900 mb-1">Plan & billing</div>
-          <p className="text-[13px] text-gray-500 mb-3">Change your plan, payment method and invoices. Self-serve billing arrives with the Stripe launch - until then we handle changes same-day by email.</p>
-          <div className="flex gap-2">
-            <a className={btnGhost} href="mailto:deals@officiallyinvested.com?subject=Billing%20change">Change plan / billing</a>
-            <span className="text-[11px] text-gray-400 self-center">Stripe self-serve portal - coming soon</span>
-          </div>
+
+        <div className={card + ' p-5 mt-4'}>
+          <div className="font-semibold text-gray-900 mb-1">Letter posting</div>
+          <p className="text-[13px] text-gray-500 mb-3">Approving a letter only sends it to the print partner. This decides whether they actually print and post it.</p>
+          {live ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-3 flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div className="text-[13px] font-bold text-emerald-800">Live - letters are printed and posted</div>
+                <div className="text-[12px] text-emerald-700 mt-0.5">Every letter you approve goes out in the next send window and is charged at about £1.20.</div>
+              </div>
+              <button className={btnGhost} disabled={busyLive} onClick={() => saveLive(false)}>
+                {busyLive && <Loader2 className="h-4 w-4 animate-spin" />}Switch to test mode
+              </button>
+            </div>
+          ) : confirmLive ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3">
+              <div className="text-[13px] font-bold text-amber-900">Post letters for real?</div>
+              <p className="text-[12px] text-amber-800 mt-1">
+                From the next send window, every approved letter is printed and posted at about £1.20 each, up to {vol} a month.
+                Letters you have already approved are included - check the approval queue first if you are not sure what is waiting.
+              </p>
+              <div className="flex gap-2 mt-3">
+                <button className={btnGold} disabled={busyLive} onClick={() => saveLive(true)}>
+                  {busyLive && <Loader2 className="h-4 w-4 animate-spin" />}Yes, post them
+                </button>
+                <button className={btnGhost} disabled={busyLive} onClick={() => setConfirmLive(false)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3 flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div className="text-[13px] font-bold text-gray-800">Test mode - nothing is posted</div>
+                <div className="text-[12px] text-gray-500 mt-0.5">Letters are drafted, approved and sent to the print partner, who holds them. No paper, no charge.</div>
+              </div>
+              <button className={btnGold} onClick={() => setConfirmLive(true)}>Go live</button>
+            </div>
+          )}
         </div>
       </div>
     </>
